@@ -1,0 +1,83 @@
+﻿/* SiPMSelector.css */
+/* Import Bootstrap styles */
+@import '~bootstrap/dist/css/bootstrap.min.css';
+
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    margin: 0;
+}
+
+.sipm-selector {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 80%;
+    margin: auto;
+    flex-grow: 1;
+}
+
+.sipm-array {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-grow: 1;
+}
+
+.sipm-container {
+    display: flex;
+    align-items: center;
+}
+
+.sipm {
+    width: 25px;
+    height: 25px;
+    border: 1px solid #ccc;
+    margin: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.long-bar {
+    width: 40px;
+    height: 10px;
+    background-color: #ccc;
+    margin: 0 5px;
+}
+
+.sipm.selected {
+    background-color: #4caf50;
+    color: white;
+}
+
+/* Use Bootstrap button classes */
+button {
+    margin-top: 10px;
+}
+
+/* Style the continue button */
+.continue-button {
+    margin-top: auto;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
+.array-container {
+    margin-top: auto;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+}
+
+.button-container {
+    margin-top: auto;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+}
