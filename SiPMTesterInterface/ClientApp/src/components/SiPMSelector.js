@@ -3,22 +3,25 @@ import React, { useState } from 'react';
 import './SiPMSelector.css';
 import BarcodeInput from './BarcodeInput';
 
-const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
+const SiPMSelector = ({ nextStep, formData, onFormChange, nArrays }) => {
 
-    const [selectedSiPMs, setSelectedSiPMs] = useState(values.selectedSiPMs);
-    const isAnySiPMSelected = selectedSiPMs.some((array) => array.some((sipm) => sipm && (sipm[0] || sipm[1])));
+    const isAnySiPMSelected = formData.selectedSiPMs.some((array) => array.some((sipm) => sipm && (sipm[0] || sipm[1])));
     const [error, setError] = useState(false);
 
     const handleSiPMClick = (arrayIndex, sipmIndex, boxIndex, event) =>  {
-        const newSelectedSiPMs = [...selectedSiPMs];
+        const newSelectedSiPMs = [...formData.selectedSiPMs];
         newSelectedSiPMs[arrayIndex] = newSelectedSiPMs[arrayIndex] || [];
         newSelectedSiPMs[arrayIndex][sipmIndex] = newSelectedSiPMs[arrayIndex][sipmIndex] || [];
 
         // Toggle the selected state of the clicked box
         newSelectedSiPMs[arrayIndex][sipmIndex][boxIndex] = !newSelectedSiPMs[arrayIndex][sipmIndex][boxIndex];
 
-        setSelectedSiPMs(newSelectedSiPMs);
-        handleFormData("selectedSiPMs", event);
+        //setSelectedSiPMs(newSelectedSiPMs);
+        // Invoke the callback to notify the upper-level component about the change
+        onFormChange({
+            ...formData,
+            selectedSiPMs: newSelectedSiPMs,
+        });
     };
 
     // after form submit validating the form data using validator
@@ -33,6 +36,7 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
         }
     };
 
+    /*
     const handleSelectArrayAll = (arrayIndex) => (event) => {
         event.preventDefault();
         // Toggle select all state for the specific array
@@ -43,7 +47,47 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
         newSelectedSiPMs[arrayIndex] = Array.from({ length: 16 }, () => [!selectAllState, !selectAllState]);
         setSelectedSiPMs(newSelectedSiPMs);
     };
+    */
 
+    const handleSelectArrayAll = (arrayIndex) => (e) => {
+        e.preventDefault();
+        // Toggle select all state for the specific array
+        onFormChange((prevFormData) => {
+            e.preventDefault();
+            // Toggle select all state for the specific array
+            const newSelectedSiPMs = [...formData.selectedSiPMs];
+            newSelectedSiPMs[arrayIndex] = newSelectedSiPMs[arrayIndex] || [];
+            const selectAllState = newSelectedSiPMs[arrayIndex].every((sipm) => sipm && sipm[0] && sipm[1]);
+
+            newSelectedSiPMs[arrayIndex] = Array.from({ length: 16 }, () => [!selectAllState, !selectAllState]);
+
+            return {
+                ...formData,
+                selectedSiPMs: newSelectedSiPMs,
+            };
+        });
+    };
+
+    const handleSelectAll = (e) => {
+        e.preventDefault();
+        // Toggle select all state for the specific array
+        onFormChange((prevFormData) => {
+            e.preventDefault();
+            // Toggle select all state for all arrays
+            const selectAllState = formData.selectedSiPMs.flat().every((sipm) => sipm && sipm[0] && sipm[1]);
+
+            const newSelectedSiPMs = Array.from({ length: nArrays }, () =>
+                Array.from({ length: 16 }, () => [!selectAllState, !selectAllState])
+            );
+
+            return {
+                ...formData,
+                selectedSiPMs: newSelectedSiPMs,
+            };
+        });
+    };
+
+    /*
     const handleSelectAll = (e) => {
         e.preventDefault();
         // Toggle select all state for all arrays
@@ -54,30 +98,12 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
         );
 
         setSelectedSiPMs(newSelectedSiPMs);
-        values.selectedSiPMs = selectedSiPMs;
-    };
-
-    const handleMeasure = () => {
-        // Collect data for measurement
-        const selectedIndexes = [];
-        selectedSiPMs.forEach((array, arrayIndex) => {
-            array.forEach((sipm, sipmIndex) => {
-                if (sipm && sipm[0]) {
-                    selectedIndexes.push({
-                        arrayIndex,
-                        sipmIndex,
-                    });
-                }
-            });
+        onFormChange({
+            ...formData,
+            selectedSiPMs: newSelectedSiPMs,
         });
-
-        // Collect barcode data (assuming you have a state for barcodes)
-        // const barcodeData = ...
-
-        // Perform the measurement or further action with the collected data
-        console.log('Selected SiPMs Indexes:', selectedIndexes);
-        // console.log('Barcode Data:', barcodeData);
     };
+    */
 
     const renderArrays = () => {
         const arrays = [];
@@ -86,19 +112,19 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
             const sipmArray = [];
 
             for (let sipmIndex = 0; sipmIndex < 16; sipmIndex++) {
-                const isSelected = selectedSiPMs[arrayIndex] && selectedSiPMs[arrayIndex][sipmIndex];
+                const isSelected = formData.selectedSiPMs[arrayIndex] && formData.selectedSiPMs[arrayIndex][sipmIndex];
 
                 sipmArray.push(
                     <div key={sipmIndex} className="sipm-container">
                         <div
-                            className={`sipm ${isSelected && selectedSiPMs[arrayIndex][sipmIndex][0] ? 'selected' : ''}`}
+                            className={`sipm ${isSelected && formData.selectedSiPMs[arrayIndex][sipmIndex][0] ? 'selected' : ''}`}
                             onClick={() => handleSiPMClick(arrayIndex, sipmIndex, 0)}
                         >
                             {sipmIndex + 1}
                         </div>
                         <div className="long-bar"></div>
                         <div
-                            className={`sipm ${isSelected && selectedSiPMs[arrayIndex][sipmIndex][1] ? 'selected' : ''}`}
+                            className={`sipm ${isSelected && formData.selectedSiPMs[arrayIndex][sipmIndex][1] ? 'selected' : ''}`}
                             onClick={() => handleSiPMClick(arrayIndex, sipmIndex, 1)}
                         >
                             {sipmIndex + 1}
@@ -110,7 +136,7 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
             arrays.push(
                 <div key={arrayIndex} className="col-sm-2 mx-auto">
                     <button className="btn btn-secondary" onClick={handleSelectArrayAll(arrayIndex)}>
-                        {selectedSiPMs[arrayIndex].flat().every((sipm) => sipm ) ? 'Deselect Array' : 'Select Array'}
+                        {formData.selectedSiPMs[arrayIndex].flat().every((sipm) => sipm ) ? 'Deselect Array' : 'Select Array'}
                     </button>
                     {sipmArray}
                 </div>
@@ -131,7 +157,7 @@ const SiPMSelector = ({ nextStep, handleFormData, values, nArrays }) => {
                             <button
                             className="btn btn-secondary float-start"
                                 onClick={handleSelectAll}>
-                                {selectedSiPMs.flat().every((sipm) => sipm && sipm[0] && sipm[1]) ? 'Deselect All' : 'Select All'}
+                                {formData.selectedSiPMs.flat().every((sipm) => sipm && sipm[0] && sipm[1]) ? 'Deselect All' : 'Select All'}
                             </button>
                             <button
                             className={`btn float-end ${isAnySiPMSelected ? 'btn-success' : 'btn-danger'} `}

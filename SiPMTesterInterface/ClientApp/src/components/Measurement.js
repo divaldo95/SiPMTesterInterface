@@ -2,6 +2,7 @@
 import SiPMSelector from "./SiPMSelector";
 import BarcodeInput from "./BarcodeInput";
 import LoadingSpinner from './LoadingSpinner';
+import SelectedList from './SelectedList';
 import MeasurementOrder from './MeasurementOrder';
 
 function Measurement() {
@@ -23,8 +24,43 @@ function Measurement() {
     //state for form data
     const [formData, setFormData] = useState({
         selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => [true, true])),
-        
-    })
+        barcodes: Array.from({ length: nSiPMArrays }, () => "")
+    });
+
+    const [selectedList, setSelectedList] = useState([]);
+
+    const handleFormChange = (newFormData) => {
+        // Update the formData state in the upper-level component
+        setFormData(newFormData);
+
+        // Update the selectedList when the form data changes
+        const newSelectedList = formData.barcodes.map((barcode, arrayIndex) => ({
+            barcode,
+            selectedSiPMs: formData.selectedSiPMs[arrayIndex],
+        }));
+
+        setSelectedList(newSelectedList);
+    };
+
+    const handleReorder = (sourceIndex, destinationIndex) => {
+        // Reorder the selectedSiPMs array based on drag-and-drop
+        const newSelectedSiPMs = [...formData.selectedSiPMs];
+        const [movedArray] = newSelectedSiPMs.splice(sourceIndex, 1);
+        newSelectedSiPMs.splice(destinationIndex, 0, movedArray);
+
+        setFormData({
+            ...formData,
+            selectedSiPMs: newSelectedSiPMs,
+        });
+
+        // Update the selectedList
+        const newSelectedList = formData.barcodes.map((barcode, arrayIndex) => ({
+            barcode,
+            selectedSiPMs: newSelectedSiPMs[arrayIndex],
+        }));
+
+        setSelectedList(newSelectedList);
+    };
 
     // function for going to next step by increasing step state by 1
     const nextStep = () => {
@@ -65,20 +101,26 @@ function Measurement() {
                             case 1:
                                 return (
                                     <div>
-                                        <SiPMSelector nextStep={nextStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
+                                        <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
                                     </div>
                                 );
                             // case 2 to show stepTwo form passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
                             case 2:
                                 return (
                                     <div>
-                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
+                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
                                     </div>
                                 );
                             case 3:
                                 return (
                                     <div>
                                         <MeasurementOrder nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
+                                    </div>
+                                );
+                            case 4:
+                                return (
+                                    <div>
+                                        <SelectedList data={selectedList} onReorder={handleReorder} />
                                     </div>
                                 );
                             // default case to show nothing
