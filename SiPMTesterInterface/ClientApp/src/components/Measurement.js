@@ -4,6 +4,8 @@ import BarcodeInput from "./BarcodeInput";
 import LoadingSpinner from './LoadingSpinner';
 import SelectedList from './SelectedList';
 import MeasurementOrder from './MeasurementOrder';
+import SiPMArray from "./SiPMArray";
+import VoltageList from "./VoltageList";
 
 function Measurement() {
     //state for steps
@@ -23,8 +25,13 @@ function Measurement() {
 
     //state for form data
     const [formData, setFormData] = useState({
-        selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => [true, true])),
-        barcodes: Array.from({ length: nSiPMArrays }, () => "")
+        //selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => [true, true])),
+        selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => true)),
+        barcodes: Array.from({ length: nSiPMArrays }, () => ""),
+        voltageList: [], // Add a state for the voltage list
+        startValue: 35.0,
+        endValue: 42.0,
+        stepValue: 0.2
     });
 
     const [selectedList, setSelectedList] = useState([]);
@@ -62,6 +69,22 @@ function Measurement() {
         setSelectedList(newSelectedList);
     };
 
+    // Function to update selectedSiPMs in formData
+    const updateSelectedSiPMs = (newSelectedSiPMs) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            selectedSiPMs: newSelectedSiPMs
+        }));
+    };
+
+    // Function to update Voltage List in formData
+    const handleUpdateVoltageList = (updatedVoltageList) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            voltageList: updatedVoltageList,
+        }));
+    };
+
     // function for going to next step by increasing step state by 1
     const nextStep = () => {
         setstep(step + 1);
@@ -97,8 +120,19 @@ function Measurement() {
                     {/* Switch statement for conditional content */}
                     {(() => {
                         switch (step) {
-                            // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
                             case 1:
+                                return (
+                                    <div>
+                                        <SiPMArray
+                                            numArrays={nSiPMArrays}
+                                            selectedSiPMs={formData.selectedSiPMs}
+                                            updateSelectedSiPMs={updateSelectedSiPMs}
+                                            nextStep={nextStep}
+                                        />
+                                    </div>
+                                );
+                            // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
+                            case 6:
                                 return (
                                     <div>
                                         <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
@@ -118,6 +152,20 @@ function Measurement() {
                                     </div>
                                 );
                             case 4:
+                                return (
+                                    <div>
+                                        <VoltageList
+                                            nextStep={nextStep}
+                                            prevStep={prevStep}
+                                            updateVoltageList={handleUpdateVoltageList}
+                                            startValue={formData.startValue}
+                                            endValue={formData.endValue}
+                                            stepValue={formData.stepValue}
+                                            savedVoltageList={formData.voltageList} // Pass the saved voltage list as a prop
+                                        />
+                                    </div>
+                                );
+                            case 5:
                                 return (
                                     <div>
                                         <SelectedList data={selectedList} onReorder={handleReorder} />

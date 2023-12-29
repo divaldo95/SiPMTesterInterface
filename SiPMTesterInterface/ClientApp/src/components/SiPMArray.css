@@ -1,0 +1,10 @@
+﻿.sipm-box {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px;
+    cursor: pointer;
+}
