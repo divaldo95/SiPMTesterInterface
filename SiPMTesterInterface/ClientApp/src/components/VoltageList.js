@@ -1,20 +1,12 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-const VoltageList = ({ updateVoltageList, prevStep, nextStep, startValue: initialStartValue, endValue: initialEndValue, stepValue: initialStepValue, savedVoltageList }) => {
-    const [startValue, setStartValue] = useState(initialStartValue || '');
-    const [endValue, setEndValue] = useState(initialEndValue || '');
-    const [stepValue, setStepValue] = useState(initialStepValue || '');
+const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGeneratorData }) => {
+    const [startValue, setStartValue] = useState(formData.startValue);
+    const [endValue, setEndValue] = useState(formData.endValue);
+    const [stepValue, setStepValue] = useState(formData.stepValue);
     const [voltageList, setVoltageList] = useState([]);
     const fileInputRef = useRef(null);
-
-    useEffect(() => {
-        // If the initial values change, update the state
-        setStartValue(initialStartValue || '');
-        setEndValue(initialEndValue || '');
-        setStepValue(initialStepValue || '');
-        setVoltageList(savedVoltageList || []); // Set the saved voltage list initially
-    }, [initialStartValue, initialEndValue, initialStepValue, savedVoltageList]);
 
     const sortAndSetVoltageList = (list) => {
         const sortedList = list.map(parseFloat).sort((a, b) => a - b);
@@ -22,9 +14,9 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, startValue: initia
         updateVoltageList(sortedList);
     };
 
-    const handleGenerationDataChange = (index, value) => {
+    const handleGenerationDataChange = () => {
 
-        //setGenerateData(start, end, step);
+        updateGeneratorData(startValue, endValue, stepValue);
     };
 
     const handleGenerate = (e) => {
@@ -159,7 +151,10 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, startValue: initia
                                             className="form-control"
                                             id="startInput"
                                             value={startValue}
-                                            onChange={(e) => setStartValue(e.target.value)}
+                                            onChange={(e) => {
+                                                setStartValue(e.target.value);
+                                                handleGenerationDataChange(); // Call your function here
+                                            }}
                                         />
                                     </div>
                                     
@@ -174,7 +169,10 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, startValue: initia
                                             className="form-control"
                                             id="endInput"
                                             value={endValue}
-                                            onChange={(e) => setEndValue(e.target.value)}
+                                            onChange={(e) => {
+                                                setEndValue(e.target.value);
+                                                handleGenerationDataChange(); // Call your function here
+                                            }}
                                         />
                                     </div>
 
@@ -189,7 +187,10 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, startValue: initia
                                             className="form-control"
                                             id="stepInput"
                                             value={stepValue}
-                                            onChange={(e) => setStepValue(e.target.value)}
+                                            onChange={(e) => {
+                                                setStepValue(e.target.value);
+                                                handleGenerationDataChange(); // Call your function here
+                                            }}
                                         />
                                     </div>
                                 </div>

@@ -21,10 +21,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
         newBarcodes[arrayIndex] = e.target.value;
 
         // Invoke the callback to notify the upper-level component about the change
-        onFormChange({
-            ...formData,
-            barcodes: newBarcodes,
-        });
+        onFormChange(newBarcodes);
     };
 
     const isBarcodeInvalid = formData.selectedSiPMs.some(
@@ -74,28 +71,34 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                 <h2>Enter Barcodes for Each Array</h2>
 
                 <div>
-                    <div className="d-flex flex-wrap justify-content-center">
-                        {formData.barcodes.map((barcode, arrayIndex) => (
-                            <div key={arrayIndex} className="card m-2">
-                                <h4 className="card-header d-flex justify-content-between align-items-center">
-                                    Array {arrayIndex} barcode:
-                                </h4>
-                                <div className="card-body d-flex flex-wrap">
-                                    <input
-                                        type="text"
-                                        id={`barcodeInput${arrayIndex}`}
-                                        className="form-control"
-                                        placeholder={`Enter Barcode for Array ${arrayIndex + 1}`}
-                                        value={barcode}
-                                        onChange={(e) => handleBarcodeChange(arrayIndex, e)}
-                                        required // HTML5 form validation
-                                        pattern="\S+" // Ensures non-whitespace characters are entered
-                                        disabled={!isAnySiPMSelected(arrayIndex)} // Disable input if no SiPM is selected in the array
-                                    />
-                                    <div className="invalid-feedback">Barcode is required if SiPM is selected.</div>
+                    <div className="row justify-content-center mb-4">
+                        <div className="col-md-8">
+                            {formData.barcodes.map((barcode, arrayIndex) => (
+                                <div className="col">.
+                                    <div className="d-flex flex-column h-100">
+                                        <div key={arrayIndex} className="card flex-grow-1">
+                                            <h4 className="card-header d-flex justify-content-between align-items-center">
+                                                Array {arrayIndex} barcode:
+                                            </h4>
+                                            <div className="card-body d-flex flex-wrap">
+                                                <input
+                                                    type="text"
+                                                    id={`barcodeInput${arrayIndex}`}
+                                                    className="form-control"
+                                                    placeholder={`Enter Barcode for Array ${arrayIndex + 1}`}
+                                                    value={barcode}
+                                                    onChange={(e) => handleBarcodeChange(arrayIndex, e)}
+                                                    required // HTML5 form validation
+                                                    pattern="\S+" // Ensures non-whitespace characters are entered
+                                                    disabled={!isAnySiPMSelected(arrayIndex)} // Disable input if no SiPM is selected in the array
+                                                />
+                                                <div className="invalid-feedback">Barcode is required if SiPM is selected.</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                     <div class="d-grid gap-4 col-6 mx-auto">
                         <div className="clearfix">

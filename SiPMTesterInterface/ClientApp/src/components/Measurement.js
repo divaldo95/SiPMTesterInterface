@@ -85,6 +85,24 @@ function Measurement() {
         }));
     };
 
+    // Function to update Barcodes in formData
+    const handleUpdateBarcodes = (updatedBarcodes) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            barcodes: updatedBarcodes,
+        }));
+    };
+
+    // Function to update Voltage Generator data in formData
+    const handleUpdateGeneratorData = (start, end, step) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            startValue: start,
+            endValue: end,
+            stepValue: step,
+        }));
+    };
+
     // function for going to next step by increasing step state by 1
     const nextStep = () => {
         setstep(step + 1);
@@ -128,6 +146,7 @@ function Measurement() {
                                             selectedSiPMs={formData.selectedSiPMs}
                                             updateSelectedSiPMs={updateSelectedSiPMs}
                                             nextStep={nextStep}
+                                            editable={true}
                                         />
                                     </div>
                                 );
@@ -142,7 +161,7 @@ function Measurement() {
                             case 2:
                                 return (
                                     <div>
-                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
+                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleUpdateBarcodes} nArrays={nSiPMArrays} />
                                     </div>
                                 );
                             case 3:
@@ -158,10 +177,8 @@ function Measurement() {
                                             nextStep={nextStep}
                                             prevStep={prevStep}
                                             updateVoltageList={handleUpdateVoltageList}
-                                            startValue={formData.startValue}
-                                            endValue={formData.endValue}
-                                            stepValue={formData.stepValue}
-                                            savedVoltageList={formData.voltageList} // Pass the saved voltage list as a prop
+                                            formData={formData}
+                                            updateGeneratorData={handleUpdateGeneratorData}
                                         />
                                     </div>
                                 );

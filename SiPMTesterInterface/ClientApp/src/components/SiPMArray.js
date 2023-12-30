@@ -2,22 +2,31 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SiPMArray.css';
 
-const SiPMArray = ({ numArrays, selectedSiPMs, updateSelectedSiPMs, nextStep }) => {
+const SiPMArray = ({ numArrays, selectedSiPMs, updateSelectedSiPMs, nextStep, editable }) => {
     const isAnySiPMSelected = selectedSiPMs.some((array) => array.some((sipm) => sipm && (sipm)));
 
     const toggleSiPM = (arrayIndex, sipmIndex) => {
+        if (!editable) {
+            return;
+        }
         const newSelectedSiPMs = [...selectedSiPMs];
         newSelectedSiPMs[arrayIndex][sipmIndex] = !newSelectedSiPMs[arrayIndex][sipmIndex];
         updateSelectedSiPMs(newSelectedSiPMs);
     };
 
     const toggleSelectAll = (arrayIndex) => {
+        if (!editable) {
+            return;
+        }
         const newSelectedSiPMs = [...selectedSiPMs];
         newSelectedSiPMs[arrayIndex] = newSelectedSiPMs[arrayIndex].map((value) => !value);
         updateSelectedSiPMs(newSelectedSiPMs);
     };
 
     const toggleMasterSelectAll = () => {
+        if (!editable) {
+            return;
+        }
         const areAllSelected = selectedSiPMs.every((array) => array.every((value) => value));
 
         const newSelectedSiPMs = selectedSiPMs.map((array) => {
