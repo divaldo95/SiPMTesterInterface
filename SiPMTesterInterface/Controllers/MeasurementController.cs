@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using NetMQ;
+using NetMQ.Sockets;
 using SiPMTesterInterface.Models;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -63,10 +65,21 @@ namespace SiPMTesterInterface.Controllers
         };
 
         private readonly ILogger<MeasurementController> _logger;
+        private readonly RequestSocket reqSocket = new RequestSocket();
+
+        private bool AskServer(string message, out string response)
+        {
+            string received = "";
+            bool success = (reqSocket.TrySendFrame(TimeSpan.FromSeconds(2), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromSeconds(2), out received));
+            response = received;
+            //_logger.LogInformation(response);
+            return success;
+        }
 
         public MeasurementController(ILogger<MeasurementController> logger)
         {
             _logger = logger;
+            reqSocket.Connect("tcp://192.168.0.45:5556");
         }
 
         [HttpGet]
@@ -78,12 +91,28 @@ namespace SiPMTesterInterface.Controllers
         [HttpGet("state")]
         public IActionResult GetMeasurementStates()
         {
+            //reqSocket.SendFrame("Hello");
+            
+            string received = "";
+            bool success = AskServer("GetState", out received);
+            if (success)
+            {
+                //var msg = reqSocket.ReceiveFrameString();
+                _logger.LogInformation(received);
+                
+            }
+            else
+            {
+                return BadRequest("Server Unavailable");
+            }
+
+            int state = 0;
+            int.TryParse(received, out state);
             var measurementStates = new
             {
-                IV = _viewModel.IV.State,
-                SPS = _viewModel.SPS.State
+                IV = state,
+                SPS = 0
             };
-
             return Ok(measurementStates);
         }
     }
