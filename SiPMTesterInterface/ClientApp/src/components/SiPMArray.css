@@ -8,3 +8,52 @@
     margin: 2px;
     cursor: pointer;
 }
+
+/* checkbox 1 */
+.checkbox-1 {
+    padding: 0;
+}
+
+    .checkbox-1 input:checked ~ label:before {
+        content: '\2713';
+        text-indent: .9em;
+        color: #fff;
+        background-color: green;
+        line-height: 2.5em;
+    }
+
+    .checkbox-1 label:before {
+        content: '';
+        width: 2.5em;
+        position: absolute;
+        background-color: #ccc;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        transition: .3s;
+        line-height: 6em;
+        text-indent: .9em;
+        overflow: hidden;
+    }
+
+    .checkbox-1 label {
+        position: relative;
+        line-height: 2.5em;
+        border: 1px solid #D1D3D4;
+        padding-right: 1em;
+        text-indent: 3.2em;
+        display: inline-block;
+        text-decoration: line-through;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+
+    .checkbox-1 input:checked ~ label {
+        text-decoration: none;
+    }
+
+    .checkbox-1 input {
+        display: none;
+    }

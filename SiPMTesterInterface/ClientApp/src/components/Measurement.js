@@ -31,7 +31,9 @@ function Measurement() {
         voltageList: [], // Add a state for the voltage list
         startValue: 35.0,
         endValue: 42.0,
-        stepValue: 0.2
+        stepValue: 0.2,
+        ivMeasurementEnabled: true,
+        spsMeasurementEnabled: true
     });
 
     const [selectedList, setSelectedList] = useState([]);
@@ -103,6 +105,20 @@ function Measurement() {
         }));
     };
 
+    const handleUpdateIVMeas = (enabled) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            ivMeasurementEnabled: enabled,
+        }));
+    };
+
+    const handleUpdateSPSMeas = (enabled) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            spsMeasurementEnabled: enabled,
+        }));
+    };
+
     // function for going to next step by increasing step state by 1
     const nextStep = () => {
         setstep(step + 1);
@@ -143,8 +159,10 @@ function Measurement() {
                                     <div>
                                         <SiPMArray
                                             numArrays={nSiPMArrays}
-                                            selectedSiPMs={formData.selectedSiPMs}
+                                            formData={formData}
                                             updateSelectedSiPMs={updateSelectedSiPMs}
+                                            updateIVMeas={handleUpdateIVMeas}
+                                            updateSPSMeas={handleUpdateSPSMeas}
                                             nextStep={nextStep}
                                             editable={true}
                                         />
@@ -185,7 +203,15 @@ function Measurement() {
                             case 5:
                                 return (
                                     <div>
-                                        <SelectedList data={selectedList} onReorder={handleReorder} />
+                                        <div>
+                                            <SiPMArray
+                                                numArrays={nSiPMArrays}
+                                                formData={formData}
+                                                updateSelectedSiPMs={updateSelectedSiPMs}
+                                                nextStep={nextStep}
+                                                editable={false}
+                                            />
+                                        </div>
                                     </div>
                                 );
                             // default case to show nothing
