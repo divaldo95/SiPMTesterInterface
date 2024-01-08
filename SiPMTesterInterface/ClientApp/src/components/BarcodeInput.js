@@ -24,10 +24,6 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
         onFormChange(newBarcodes);
     };
 
-    const isBarcodeInvalid = formData.selectedSiPMs.some(
-        (array, arrayIndex) => array.some((sipm) => sipm) && !formData.barcodes[arrayIndex].trim()
-    );
-
     const isAnySiPMSelected = (arrayIndex) => {
         return formData.selectedSiPMs[arrayIndex].some(
             (sipm) => sipm
@@ -41,6 +37,11 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                 (!formData.barcodes[arrayIndex] || !formData.barcodes[arrayIndex].trim())
             );
         });
+    };
+
+    const isBarcodeValid = (arrayIndex) => {
+        const barcode = formData.barcodes[arrayIndex];
+        return (/\S+/.test(barcode) || !isAnySiPMSelected(arrayIndex));
     };
 
     /*
@@ -66,15 +67,13 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
      */
 
     return (
-        <form onSubmit={submitFormData}>
+        <form onSubmit={submitFormData} noValidate>
             <div className=" ">
-                <h2>Enter Barcodes for Each Array</h2>
-
                 <div>
                     <div className="row justify-content-center mb-4">
                         <div className="col-md-8">
                             {formData.barcodes.map((barcode, arrayIndex) => (
-                                <div className="col">.
+                                <div className="col mb-4">
                                     <div className="d-flex flex-column h-100">
                                         <div key={arrayIndex} className="card flex-grow-1">
                                             <h4 className="card-header d-flex justify-content-between align-items-center">
@@ -84,7 +83,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                                                 <input
                                                     type="text"
                                                     id={`barcodeInput${arrayIndex}`}
-                                                    className="form-control"
+                                                    className={`form-control ${!isBarcodeValid(arrayIndex) ? 'is-invalid' : ''}`}
                                                     placeholder={`Enter Barcode for Array ${arrayIndex + 1}`}
                                                     value={barcode}
                                                     onChange={(e) => handleBarcodeChange(arrayIndex, e)}
@@ -92,7 +91,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                                                     pattern="\S+" // Ensures non-whitespace characters are entered
                                                     disabled={!isAnySiPMSelected(arrayIndex)} // Disable input if no SiPM is selected in the array
                                                 />
-                                                <div className="invalid-feedback">Barcode is required if SiPM is selected.</div>
+                                                <div className="invalid-feedback">Barcode is required if at least one SiPM is selected.</div>
                                             </div>
                                         </div>
                                     </div>
@@ -108,7 +107,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                                 Back
                             </button>
                             <button
-                                className="btn float-end btn-success"
+                                className={`btn float-end ${!isContinueButtonDisabled() ? 'btn-success' : 'btn-danger'}`}
                                 type="submit"
                                 disabled={isContinueButtonDisabled()}
                             >

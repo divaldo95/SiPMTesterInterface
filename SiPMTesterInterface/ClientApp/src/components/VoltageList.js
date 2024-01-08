@@ -37,7 +37,7 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
 
     const handleAddLine = (e) => {
         e.preventDefault();
-        sortAndSetVoltageList([...voltageList, 0]);
+        sortAndSetVoltageList([...voltageList, 0.01]);
     };
 
     const emptyVoltageList = (e) => {
@@ -86,14 +86,15 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
         }
     };
 
-    const handleExport = () => {
+    const handleExport = (e) => {
+        e.preventDefault();
         const exportData = JSON.stringify(voltageList, null, 2);
         const blob = new Blob([exportData], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'voltage_list.json';
+        a.download = `"voltage_list_${startValue}_to_${endValue}_${stepValue}"`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -127,8 +128,13 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
         fileInputRef.current.click();
     };
 
-    const isContinueButtonDisabled = () => {
+    const isExportButtonDisabled = () => {
         return voltageList.length === 0;
+    };
+
+    const isContinueButtonDisabled = () => {
+        const noDups = new Set(voltageList);
+        return voltageList.length !== noDups.size || voltageList.length === 0;
     };
 
     return (
@@ -219,7 +225,11 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
                                         <h5 className="card-header">Export voltage list</h5>
                                         <div className="card-body">
                                             <div className="d-flex justify-content-center">
-                                                <button className="btn btn-primary" onClick={handleExport}>
+                                                <button
+                                                    className={`btn ${!isExportButtonDisabled() ? 'btn-success' : 'btn-danger'}`}
+                                                    onClick={handleExport}
+                                                    disabled={isExportButtonDisabled()}
+                                                >
                                                     Export
                                                 </button>
                                             </div>
@@ -282,7 +292,7 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
                                         <li key={index} className="input-group-sm mb-1 d-flex justify-content-between align-items-center">
                                             <input
                                                 type="number"
-                                                min="0"
+                                                min="0.01"
                                                 step="0.01"
                                                 className="form-control"
                                                 value={voltage}
@@ -304,7 +314,7 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
                 </div>
 
                 <div class="d-grid gap-4 col-6 mx-auto">
-                    <div className="clearfix">
+                    <div className="clearfix mb-3">
                         <button
                             className="btn btn-secondary float-start"
                             onClick={prevStep}
@@ -312,7 +322,7 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
                             Back
                         </button>
                         <button
-                            className="btn float-end btn-success"
+                            className={`btn float-end ${!isContinueButtonDisabled() ? 'btn-success' : 'btn-danger'}`}
                             type="submit"
                             disabled={isContinueButtonDisabled()}
                         >

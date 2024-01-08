@@ -35,7 +35,8 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
             return;
         }
         const newSelectedSiPMs = [...formData.selectedSiPMs];
-        newSelectedSiPMs[arrayIndex] = newSelectedSiPMs[arrayIndex].map((value) => !value);
+        const isEverySelected = formData.selectedSiPMs[arrayIndex].every((sipm) => sipm && (sipm));
+        newSelectedSiPMs[arrayIndex] = newSelectedSiPMs[arrayIndex].map((value) => !isEverySelected);
         updateSelectedSiPMs(newSelectedSiPMs);
     };
 
@@ -130,7 +131,7 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
             <div className="d-flex flex-wrap gap-4">
                 <div className="d-flex flex-wrap justify-content-center">
                     {Array.from({ length: numArrays }, (_, i) => (
-                        <div key={i} className="card m-2">
+                        <div key={i} className="card m-2 col-md-8">
                             <h4 className="card-header d-flex justify-content-between align-items-center">
                                 Array {i}:
                                 {editable ? (
@@ -140,7 +141,7 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
                                 ) :
                                     (<div className="float-right">{formData.barcodes[i]}</div>)}
                             </h4>
-                            <div className="card-body d-flex flex-wrap">
+                            <div className="card-body d-flex flex-wrap justify-content-center">
                                 {Array.from({ length: 16 }, (_, j) => (
                                     <div
                                         key={j}
@@ -157,7 +158,7 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
 
                 {editable && (
                     <div className="d-grid gap-4 col-6 mx-auto">
-                        <div className="clearfix">
+                        <div className="clearfix  mb-3">
                             <button onClick={(e) => { e.preventDefault(); toggleMasterSelectAll(); }} className="btn btn-primary float-start">
                                 {isMasterSelectAll() ? 'Deselect All' : 'Select All'}
                             </button>
