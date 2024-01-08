@@ -53,6 +53,10 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
         updateSelectedSiPMs(newSelectedSiPMs);
     };
 
+    const isAnyMeasurementModeSelected = () => {
+        return formData.ivMeasurementEnabled || formData.spsMeasurementEnabled;
+    };
+
     const isSelectAll = (arrayIndex) => formData.selectedSiPMs[arrayIndex].every((value) => value);
     const isMasterSelectAll = () => formData.selectedSiPMs.every((array) => array.every((value) => value));
 
@@ -63,21 +67,19 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
 
-            <div className="row justify-content-center mb-4">
+            <div className={"row justify-content-center mb-4"}>
                 <div className="col-md-8">
                     <div className="row">
                         <div className="col">
                             <div className="d-flex flex-column h-100">
                                 <div className="card flex-grow-1">
-
                                     <div className="card-header align-items-center">
-                                        <div class="row align-items-center">
-                                            <h4 class="col-md-11">
+                                        <div className="row align-items-center">
+                                            <h4 className="col-md-11">
                                                 Measurement modes:
                                             </h4>
-
                                         </div>
                                     </div>
                                     <div className="card-body">
@@ -88,7 +90,7 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
                                                         <div className="col d-flex">
                                                             <input
                                                                 type="checkbox"
-                                                                className="btn-check align-self-center"
+                                                                className={`btn-check align-self-center ${!isAnyMeasurementModeSelected() ? 'is-invalid' : ''}`}
                                                                 id="btn-check-outlined-iv"
                                                                 autoComplete="off"
                                                                 checked={formData.ivMeasurementEnabled}
@@ -99,6 +101,7 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
                                                                 htmlFor="btn-check-outlined-iv">
                                                                 IV measurement
                                                             </label>
+                                                            
                                                         </div>
                                                         <div className="col d-flex">
                                                             <input
@@ -116,18 +119,27 @@ const SiPMArray = ({ numArrays, formData, updateSelectedSiPMs, updateIVMeas, upd
                                                             </label>
                                                         </div>
                                                     </div>
+                                                    {!isAnyMeasurementModeSelected() && (
+                                                        <div className="row">
+                                                            <div className="col d-flex text-danger">
+                                                                <div>
+                                                                    Please select at least one measurement mode.
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-
-
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
             <div className="d-flex flex-wrap gap-4">
                 <div className="d-flex flex-wrap justify-content-center">
                     {Array.from({ length: numArrays }, (_, i) => (

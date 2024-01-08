@@ -11,7 +11,7 @@ function Measurement() {
     //state for steps
     const [step, setstep] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
-    const [nSiPMArrays, setnSiPMArrays] = useState(4);
+    const [nSiPMArrays, setnSiPMArrays] = useState(16); //there will be 16 arrays
 
     useEffect(() => {
         // Simulating an asynchronous operation
