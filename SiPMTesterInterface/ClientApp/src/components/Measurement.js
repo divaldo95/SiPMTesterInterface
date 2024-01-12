@@ -1,11 +1,12 @@
 ﻿import { useState, useEffect } from "react";
-import SiPMSelector from "./SiPMSelector";
 import BarcodeInput from "./BarcodeInput";
 import LoadingSpinner from './LoadingSpinner';
 import SelectedList from './SelectedList';
 import MeasurementOrder from './MeasurementOrder';
 import SiPMArray from "./SiPMArray";
-import VoltageList from "./VoltageList";
+import IVVoltageList from "./IVVoltageList";
+import SPSVoltageList from "./SPSVoltageList";
+import MeasurementStatus from "./MeasurementStatus";
 
 function Measurement() {
     //state for steps
@@ -28,10 +29,14 @@ function Measurement() {
         //selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => [true, true])),
         selectedSiPMs: Array.from({ length: nSiPMArrays }, () => Array.from({ length: 16 }, () => true)),
         barcodes: Array.from({ length: nSiPMArrays }, () => ""),
-        voltageList: [], // Add a state for the voltage list
-        startValue: 35.0,
-        endValue: 42.0,
-        stepValue: 0.2,
+        voltageListIV: [], // Add a state for the voltage list
+        voltageListSPSOffset: [], // Add a state for the voltage list
+        startIVValue: 35.0,
+        endIVValue: 42.0,
+        stepIVValue: 0.2,
+        offsetSPS: 1.0,
+        stepSPS: 0.5,
+        countSPS: 3,
         ivMeasurementEnabled: true,
         spsMeasurementEnabled: true
     });
@@ -80,10 +85,18 @@ function Measurement() {
     };
 
     // Function to update Voltage List in formData
-    const handleUpdateVoltageList = (updatedVoltageList) => {
+    const handleUpdateIVVoltageList = (updatedVoltageList) => {
         setFormData((prevFormData) => ({
             ...prevFormData,
-            voltageList: updatedVoltageList,
+            voltageListIV: updatedVoltageList,
+        }));
+    };
+
+    // Function to update Voltage List in formData
+    const handleUpdateSPSVoltageList = (updatedVoltageList) => {
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            voltageListSPSOffset: updatedVoltageList,
         }));
     };
 
@@ -156,6 +169,14 @@ function Measurement() {
                         switch (step) {
                             case 1:
                                 return (
+                                    <MeasurementStatus
+                                        numArrays={nSiPMArrays}
+                                        formData={formData}
+                                    >
+                                    </MeasurementStatus>
+                                );
+                            case 1:
+                                return (
                                     <div>
                                         <SiPMArray
                                             numArrays={nSiPMArrays}
@@ -169,12 +190,12 @@ function Measurement() {
                                     </div>
                                 );
                             // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
-                            case 6:
-                                return (
-                                    <div>
-                                        <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
-                                    </div>
-                                );
+                            // case 6:
+                            //    return (
+                            //        <div>
+                            //            <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
+                            //        </div>
+                            //    );
                             // case 2 to show stepTwo form passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
                             case 2:
                                 return (
@@ -191,10 +212,10 @@ function Measurement() {
                             case 4:
                                 return (
                                     <div>
-                                        <VoltageList
+                                        <IVVoltageList
                                             nextStep={nextStep}
                                             prevStep={prevStep}
-                                            updateVoltageList={handleUpdateVoltageList}
+                                            updateVoltageList={handleUpdateIVVoltageList}
                                             formData={formData}
                                             updateGeneratorData={handleUpdateGeneratorData}
                                         />
@@ -203,11 +224,25 @@ function Measurement() {
                             case 5:
                                 return (
                                     <div>
+                                        <SPSVoltageList
+                                            nextStep={nextStep}
+                                            prevStep={prevStep}
+                                            updateVoltageList={handleUpdateSPSVoltageList}
+                                            formData={formData}
+                                            updateGeneratorData={handleUpdateGeneratorData}
+                                        />
+                                    </div>
+                                );
+                            case 6:
+                                return (
+                                    <div>
                                         <div>
                                             <SiPMArray
                                                 numArrays={nSiPMArrays}
                                                 formData={formData}
                                                 updateSelectedSiPMs={updateSelectedSiPMs}
+                                                updateIVMeas={handleUpdateIVMeas}
+                                                updateSPSMeas={handleUpdateSPSMeas}
                                                 nextStep={nextStep}
                                                 editable={false}
                                             />

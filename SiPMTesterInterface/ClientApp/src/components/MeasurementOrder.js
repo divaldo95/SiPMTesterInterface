@@ -35,7 +35,7 @@ const MeasurementOrder = ({ nextStep, handleFormData, prevStep, values, nArrays 
                     ))}
                 </div>
                 <div class="d-grid gap-4 col-6 mx-auto">
-                    <div className="clearfix">
+                    <div className="clearfix mb-3">
                         <button
                             className="btn btn-secondary float-start"
                             onClick={prevStep}>

@@ -70,7 +70,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
         <form onSubmit={submitFormData} noValidate>
             <div className=" ">
                 <div>
-                    <div className="row justify-content-center mb-4">
+                    <div className="row justify-content-center">
                         <div className="col-md-8">
                             {formData.barcodes.map((barcode, arrayIndex) => (
                                 <div className="col mb-4">
@@ -99,7 +99,7 @@ const BarcodeInput = ({ nextStep, prevStep, formData, onFormChange, nArrays }) =
                             ))}
                         </div>
                     </div>
-                    <div class="d-grid gap-4 col-6 mx-auto">
+                    <div class="d-grid gap-4 col-6 mx-auto mb-4">
                         <div className="clearfix">
                             <button
                             className="btn btn-secondary float-start"

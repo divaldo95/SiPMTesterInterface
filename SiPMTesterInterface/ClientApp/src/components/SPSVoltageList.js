@@ -1,10 +1,10 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGeneratorData }) => {
-    const [startValue, setStartValue] = useState(formData.startValue);
-    const [endValue, setEndValue] = useState(formData.endValue);
-    const [stepValue, setStepValue] = useState(formData.stepValue);
+const SPSVoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGeneratorData }) => {
+    const [offsetValue, setOffsetValue] = useState(formData.offsetSPS);
+    const [countValue, setCountValue] = useState(formData.countSPS);
+    const [stepValue, setStepValue] = useState(formData.stepSPS);
     const [voltageList, setVoltageList] = useState([]);
     const fileInputRef = useRef(null);
 
@@ -16,20 +16,20 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
 
     const handleGenerationDataChange = () => {
 
-        updateGeneratorData(startValue, endValue, stepValue);
+        updateGeneratorData(offsetValue, countValue, stepValue);
     };
 
     const handleGenerate = (e) => {
         e.preventDefault();
 
-        const start = parseFloat(startValue);
-        const end = parseFloat(endValue);
+        const offset = parseFloat(offsetValue);
+        const count = parseInt(countValue);
         const step = parseFloat(stepValue);
 
-        if (!isNaN(start) && !isNaN(end) && !isNaN(step) && step > 0) {
+        if (!isNaN(offset) && !isNaN(count) && !isNaN(step) && step > 0) {
             const generatedVoltages = [];
-            for (let i = start; i <= end; i += step) {
-                generatedVoltages.push(i.toFixed(2));
+            for (let i = 0; i < count; i++) {
+                generatedVoltages.push((i * step + offset).toFixed(2));
             }
             sortAndSetVoltageList(generatedVoltages);
         }
@@ -94,7 +94,7 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = `"voltage_list_${startValue}_to_${endValue}_${stepValue}"`;
+        a.download = `"sps_voltage_list_${offsetValue}_to_${countValue}_${stepValue}"`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -143,40 +143,40 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
                 <div className="row justify-content-center mb-4">
                     <div className="col-md-8">
                         <div className="card">
-                            <h5 className="card-header">Voltage List Generator</h5>
+                            <h5 className="card-header">SPS Offset Voltage List Generator</h5>
                             <div className="card-body">
                                 <div className="row">
                                     <div className="col">
-                                        <label htmlFor="startInput" className="form-label">
-                                            Start Voltage
+                                        <label htmlFor="offsetInput" className="form-label">
+                                            Offset from Vbr
                                         </label>
                                         <input
                                             type="number"
                                             min="0"
                                             step="0.01"
                                             className="form-control"
-                                            id="startInput"
-                                            value={startValue}
+                                            id="offsetInput"
+                                            value={offsetValue}
                                             onChange={(e) => {
-                                                setStartValue(e.target.value);
+                                                setOffsetValue(e.target.value);
                                                 handleGenerationDataChange(); // Call your function here
                                             }}
                                         />
                                     </div>
                                     
                                     <div className="col">
-                                        <label htmlFor="endInput" className="form-label">
-                                            End Voltage
+                                        <label htmlFor="countInput" className="form-label">
+                                            Voltage step count
                                         </label>
                                         <input
                                             type="number"
-                                            min="0"
-                                            step="0.01"
+                                            min="1"
+                                            step="1"
                                             className="form-control"
-                                            id="endInput"
-                                            value={endValue}
+                                            id="countInput"
+                                            value={countValue}
                                             onChange={(e) => {
-                                                setEndValue(e.target.value);
+                                                setCountValue(e.target.value);
                                                 handleGenerationDataChange(); // Call your function here
                                             }}
                                         />
@@ -336,4 +336,4 @@ const VoltageList = ({ updateVoltageList, prevStep, nextStep, formData, updateGe
     );
 };
 
-export default VoltageList;
+export default SPSVoltageList;
