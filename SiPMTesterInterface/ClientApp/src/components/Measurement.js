@@ -7,13 +7,38 @@ import SiPMArray from "./SiPMArray";
 import IVVoltageList from "./IVVoltageList";
 import SPSVoltageList from "./SPSVoltageList";
 import MeasurementStatus from "./MeasurementStatus";
+import MeasurementStateService from '../services/MeasurementStateService';
 
 function Measurement() {
     //state for steps
     const [step, setstep] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [nSiPMArrays, setnSiPMArrays] = useState(16); //there will be 16 arrays
+    const [measurementStates, setMeasurementStates] = useState(null);
+    const [measurementRunning, setMeasurementRunning] = useState(false);
 
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const data = await MeasurementStateService.getMeasurementStates();
+                setMeasurementStates(data);
+                setIsLoading(false);
+                //alert(data.spsState);
+                if (data.ivState === 0 && data.spsState === 0) {
+                    setMeasurementRunning(false);
+                }
+                else {
+                    setMeasurementRunning(true);
+                }
+            } catch (error) {
+                // Handle the error if needed
+            }
+        };
+
+        fetchData();
+    }, []); // Empty dependency array ensures the effect runs only once when the component mounts
+
+    /*
     useEffect(() => {
         // Simulating an asynchronous operation
         const timeoutId = setTimeout(() => {
@@ -23,6 +48,7 @@ function Measurement() {
         // Clean up the timeout when the component unmounts or when the loading is finished
         return () => clearTimeout(timeoutId);
     }, []);
+    */
 
     //state for form data
     const [formData, setFormData] = useState({
@@ -163,79 +189,19 @@ function Measurement() {
                 <LoadingSpinner />
             ) : (
                 <div>
-
-                    {/* Switch statement for conditional content */}
                     {(() => {
-                        switch (step) {
-                            case 1:
-                                return (
-                                    <MeasurementStatus
-                                        numArrays={nSiPMArrays}
-                                        formData={formData}
-                                    >
-                                    </MeasurementStatus>
-                                );
-                            case 1:
-                                return (
-                                    <div>
-                                        <SiPMArray
-                                            numArrays={nSiPMArrays}
-                                            formData={formData}
-                                            updateSelectedSiPMs={updateSelectedSiPMs}
-                                            updateIVMeas={handleUpdateIVMeas}
-                                            updateSPSMeas={handleUpdateSPSMeas}
-                                            nextStep={nextStep}
-                                            editable={true}
-                                        />
-                                    </div>
-                                );
-                            // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
-                            // case 6:
-                            //    return (
-                            //        <div>
-                            //            <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
-                            //        </div>
-                            //    );
-                            // case 2 to show stepTwo form passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
-                            case 2:
-                                return (
-                                    <div>
-                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleUpdateBarcodes} nArrays={nSiPMArrays} />
-                                    </div>
-                                );
-                            case 3:
-                                return (
-                                    <div>
-                                        <MeasurementOrder nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
-                                    </div>
-                                );
-                            case 4:
-                                return (
-                                    <div>
-                                        <IVVoltageList
-                                            nextStep={nextStep}
-                                            prevStep={prevStep}
-                                            updateVoltageList={handleUpdateIVVoltageList}
-                                            formData={formData}
-                                            updateGeneratorData={handleUpdateGeneratorData}
-                                        />
-                                    </div>
-                                );
-                            case 5:
-                                return (
-                                    <div>
-                                        <SPSVoltageList
-                                            nextStep={nextStep}
-                                            prevStep={prevStep}
-                                            updateVoltageList={handleUpdateSPSVoltageList}
-                                            formData={formData}
-                                            updateGeneratorData={handleUpdateGeneratorData}
-                                        />
-                                    </div>
-                                );
-                            case 6:
-                                return (
-                                    <div>
+                        if (measurementRunning) {
+                            return (
+                                <MeasurementStatus
+                                    numArrays={nSiPMArrays}
+                                    formData={formData}
+                                    measurementStates={measurementStates}
+                                />
+                            );
+                        } else {
+                            switch (step) {
+                                case 1:
+                                    return (
                                         <div>
                                             <SiPMArray
                                                 numArrays={nSiPMArrays}
@@ -244,19 +210,79 @@ function Measurement() {
                                                 updateIVMeas={handleUpdateIVMeas}
                                                 updateSPSMeas={handleUpdateSPSMeas}
                                                 nextStep={nextStep}
-                                                editable={false}
+                                                editable={true}
                                             />
                                         </div>
-                                    </div>
-                                );
-                            // default case to show nothing
-                            default:
-                                return (
-                                    <div className="App">
-                                    </div>
-                                );
-                        }
-                    })()}
+                                    );
+                                // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
+                                // case 6:
+                                //    return (
+                                //        <div>
+                                //            <SiPMSelector nextStep={nextStep} formData={formData} onFormChange={handleFormChange} nArrays={nSiPMArrays} />
+                                //        </div>
+                                //    );
+                                // case 2 to show stepTwo form passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
+                                case 2:
+                                    return (
+                                        <div>
+                                            <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleUpdateBarcodes} nArrays={nSiPMArrays} />
+                                        </div>
+                                    );
+                                case 3:
+                                    return (
+                                        <div>
+                                            <MeasurementOrder nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
+                                        </div>
+                                    );
+                                case 4:
+                                    return (
+                                        <div>
+                                            <IVVoltageList
+                                                nextStep={nextStep}
+                                                prevStep={prevStep}
+                                                updateVoltageList={handleUpdateIVVoltageList}
+                                                formData={formData}
+                                                updateGeneratorData={handleUpdateGeneratorData}
+                                            />
+                                        </div>
+                                    );
+                                case 5:
+                                    return (
+                                        <div>
+                                            <SPSVoltageList
+                                                nextStep={nextStep}
+                                                prevStep={prevStep}
+                                                updateVoltageList={handleUpdateSPSVoltageList}
+                                                formData={formData}
+                                                updateGeneratorData={handleUpdateGeneratorData}
+                                            />
+                                        </div>
+                                    );
+                                case 6:
+                                    return (
+                                        <div>
+                                            <div>
+                                                <SiPMArray
+                                                    numArrays={nSiPMArrays}
+                                                    formData={formData}
+                                                    updateSelectedSiPMs={updateSelectedSiPMs}
+                                                    updateIVMeas={handleUpdateIVMeas}
+                                                    updateSPSMeas={handleUpdateSPSMeas}
+                                                    nextStep={nextStep}
+                                                    editable={false}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                // default case to show nothing
+                                default:
+                                    return (
+                                        <div className="App">
+                                        </div>
+                                    );
+                                }
+                            }
+                        })()}
                 </div>
             )}
         </div>

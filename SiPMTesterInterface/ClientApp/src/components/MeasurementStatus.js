@@ -1,8 +1,23 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './SiPMArray.css';
+import SiPMModal from './SiPMModal';
 
-const MeasurementStatus = ({ numArrays, formData }) => {
+const MeasurementStatus = ({ numArrays, formData, measurementStates }) => {
+    const [showModal, setShowModal] = useState(false);
+    const [selectedArray, setSelectedArray] = useState(null);
+    const [selectedSiPM, setSelectedSiPM] = useState(null);
+
+    const openModal = (arrayNumber, sipmNumber) => {
+        setSelectedArray(arrayNumber);
+        setSelectedSiPM(sipmNumber);
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+    };
 
     return (
         <div className="container">
@@ -40,15 +55,23 @@ const MeasurementStatus = ({ numArrays, formData }) => {
                                         <h5 className="card-header d-flex justify-content-between align-items-center">
                                             Current IV measurements
                                             <div className="float-right">
-                                                <div class="spinner-border" role="status">
-                                                    <span class="sr-only"></span>
-                                                </div>
+                                                {measurementStates.ivState !== 0 && (
+                                                    <div class="spinner-border" role="status">
+                                                        <span class="sr-only"></span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </h5>
                                         <div className="card-body">
                                             <div className="d-grid">
                                                 <ul class="list-group">
-                                                    <li class="list-group-item">Cras justo odio</li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -61,21 +84,111 @@ const MeasurementStatus = ({ numArrays, formData }) => {
                                         <h5 className="card-header d-flex justify-content-between align-items-center">
                                             Current SPS measurements
                                             <div className="float-right">
-                                                <div class="spinner-border" role="status">
-                                                    <span class="sr-only"></span>
-                                                </div>
+                                                {measurementStates.spsState !== 0 && (
+                                                    <div class="spinner-border" role="status">
+                                                        <span class="sr-only"></span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </h5>
                                         <div className="card-body">
                                             <div className="d-grid">
                                                 <ul class="list-group">
-                                                    <li class="list-group-item">Cras justo odio</li>
-                                                    <li class="list-group-item">Dapibus ac facilisis in</li>
-                                                    <li class="list-group-item">Morbi leo risus</li>
-                                                    <li class="list-group-item">Porta ac consectetur ac</li>
-                                                    <li class="list-group-item">Vestibulum at eros</li>
+                                                    
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
+                                                    <li class="list-group-item">
+                                                        <div class="d-flex justify-content-center align-items-center">
+                                                            <span class="badge bg-secondary">Array 0</span>
+                                                            <span class="mx-2"> - </span>
+                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                        </div>
+                                                    </li>
                                                 </ul>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="row justify-content-center mb-4">
+                    <div className="col-md-8">
+                        <div className="card">
+                            <h5 className="card-header">Color legend</h5>
+                            <div className="card-body">
+                                <div className="container">
+                                    <div className="row text-center">
+                                        <div className="col">
+                                            <div class="d-grid">
+                                                <div class="d-flex justify-content-center align-items-center gap-2">
+                                                    <h4>
+                                                        <span class="badge bg-secondary">Selected</span>
+                                                    </h4>
+                                                    <h4>
+                                                        <span class="badge bg-light text-dark">Not selected</span>
+                                                    </h4>
+                                                    <h4>
+                                                        <span class="badge bg-primary">Under test</span>
+                                                    </h4>
+                                                    <h4>
+                                                        <span class="badge bg-danger">Error</span>
+                                                    </h4>
+                                                    <h4>
+                                                        <span class="badge bg-success">Success</span>
+                                                    </h4>
+                                                </div>
+                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
@@ -97,7 +210,7 @@ const MeasurementStatus = ({ numArrays, formData }) => {
                                         <div
                                             key={j}
                                             className={`sipm-box ${formData.selectedSiPMs[i][j] ? 'bg-success' : 'bg-light'}`}
-                                            onClick={() => { } }
+                                            onClick={() => openModal(i, j)}
                                         >
                                             {j}
                                         </div>
@@ -106,24 +219,8 @@ const MeasurementStatus = ({ numArrays, formData }) => {
                             </div>
                         ))}
                     </div>
-                 </div>
-
-                <div class="d-grid gap-4 col-6 mx-auto">
-                    <div className="clearfix mb-3">
-                        <button
-                            className="btn btn-secondary float-start"
-                        >
-                            Back
-                        </button>
-                        <button
-                            className={`btn float-end ${!false ? 'btn-success' : 'btn-danger'}`}
-                            type="submit"
-                            disabled={false}
-                        >
-                            Continue
-                        </button>
-                    </div>
                 </div>
+                <SiPMModal showModal={showModal} closeModal={closeModal} arrayNumber={selectedArray} sipmNumber={selectedSiPM} />
             </form >
         </div>
 
