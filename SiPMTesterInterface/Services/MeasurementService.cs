@@ -1,29 +1,26 @@
 ﻿using System;
+using SiPMTesterInterface.Enums;
+
 namespace SiPMTesterInterface.ClientApp.Services
 {
 	public class MeasurementService
 	{
         private readonly object _lockObject = new object();
 
-        public enum MeasurementState
-        {
-            NotRunning,
-            Running,
-            Finished
-        }
-
-        public enum ConnectionState
-        {
-            Disconnected,
-            Connected,
-            Reconnecting
-        }
-
-
         private ConnectionState _IVConnectionState;
         private ConnectionState _SPSConnectionState;
         private MeasurementState _IVState;
         private MeasurementState _SPSState;
+
+        public MeasurementService()
+        {
+            // Set initial states
+            _IVState = MeasurementState.NotRunning;
+            _SPSState = MeasurementState.NotRunning;
+
+            _IVConnectionState = ConnectionState.Disconnected;
+            _SPSConnectionState = ConnectionState.Disconnected;
+        }
 
         public MeasurementState IVState
         {
@@ -67,16 +64,6 @@ namespace SiPMTesterInterface.ClientApp.Services
                     return _SPSConnectionState;
                 }
             }
-        }
-
-        public MeasurementService()
-        {
-            // Set initial states
-            _IVState = MeasurementState.NotRunning;
-            _SPSState = MeasurementState.NotRunning;
-
-            _IVConnectionState = ConnectionState.Disconnected;
-            _SPSConnectionState = ConnectionState.Disconnected;
         }
 
         public void UpdateIVState(MeasurementState s)
