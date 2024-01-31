@@ -10,9 +10,11 @@ using SiPMTesterInterface.Interfaces;
 
 namespace SiPMTesterInterface.Classes
 {
-	public abstract class SiPMInstrument : ISiPMInstrument
-	{
+    public abstract class SiPMInstrument : ISiPMInstrument
+    {
         private readonly RequestSocket reqSocket = new RequestSocket();
+        private NetMQPoller poller;
+
         private readonly ILogger<SiPMInstrument> _logger;
         public string InstrumentName { get; private set; }
         private readonly object _lockObject = new object();
@@ -30,32 +32,46 @@ namespace SiPMTesterInterface.Classes
         public ConnectionState ConnectionState { get; private set; }
         public MeasurementState MeasurementState { get; private set; }
 
+        public void Stop()
+        {
+            StopSubscriber();
+
+        }
+
+        public void StopSubscriber()
+        {
+            if (poller != null)
+            {
+                poller.StopAsync();
+            }
+        }
+
         public void StartSubscriber(string publisherAddress)
         {
             using (var subscriberSocket = new SubscriberSocket())
             {
                 subscriberSocket.Connect(publisherAddress);
-                subscriberSocket.SubscribeToPrefix("[LOG]");
-                subscriberSocket.SubscribeToPrefix("[MEAS]");
-
-                using (var poller = new NetMQPoller { subscriberSocket })
+                subscriberSocket.Subscribe("[LOG]");
+                subscriberSocket.Subscribe("[MEAS]");
+                poller = new NetMQPoller { subscriberSocket };
+                subscriberSocket.ReceiveReady += (sender, args) =>
                 {
-                    subscriberSocket.ReceiveReady += (sender, args) =>
+                    lock (bufferLock)
                     {
-                        lock (bufferLock)
-                        {
-                            // Receive the message
-                            var message = subscriberSocket.ReceiveFrameString();
+                        // Receive the message
+                        var message = subscriberSocket.ReceiveFrameString();
 
-                            // Process the message (e.g., store in memory)
-                            ProcessMessage(message);
-                        }
-                    };
+                        // Process the message (e.g., store in memory)
+                        ProcessMessage(message);
+                        HandleMessage(message);
+                    }
+                };
 
-                    poller.Run();
-                }
+                poller.RunAsync();
             }
         }
+
+        protected abstract void HandleMessage(string message);
 
         private void ProcessMessage(string message)
         {
@@ -85,7 +101,7 @@ namespace SiPMTesterInterface.Classes
             Console.WriteLine($"Message received and added to buffer: {message}");
         }
 
-        private bool AskServer(string message, out string response)
+        protected bool AskServer(string message, out string response)
         {
             bool success = false;
             string received = "";
@@ -98,11 +114,14 @@ namespace SiPMTesterInterface.Classes
             return success;
         }
 
+        protected abstract void PeriodicUpdate();
+
         private void TimerCallback(object? state)
         {
             // Query ConnectionState and MeasurementState
             ConnectionState connectionState = GetConnectionState();
             MeasurementState measurementState = GetMeasurementState();
+            PeriodicUpdate();
             lock (_updateLock)
             {
                 if (ConnectionState != connectionState || MeasurementState != measurementState)
@@ -117,7 +136,10 @@ namespace SiPMTesterInterface.Classes
         public void StopTimer()
         {
             // Stop the timer when needed
-            _timer.Dispose();
+            if (_timer != null)
+            {
+                _timer.Dispose();
+            }
         }
 
         public SiPMInstrument(string InstrumentName, string ip, int controlPort, int logPort, TimeSpan period, ILogger<SiPMInstrument> logger)
@@ -130,8 +152,11 @@ namespace SiPMTesterInterface.Classes
             string subSocIP = "tcp://" + ip + ":" + logPort.ToString();
             //reqSocket.Connect("tcp://192.168.0.45:5556");
             reqSocket.Connect(reqSocIP);
+            StartSubscriber(subSocIP);
 
             _timer = new Timer(TimerCallback, null, TimeSpan.Zero, period); // Change the interval as needed
+
+
         }
 
         public ConnectionState GetConnectionState()

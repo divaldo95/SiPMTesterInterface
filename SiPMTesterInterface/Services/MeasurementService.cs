@@ -1,5 +1,6 @@
 ﻿using System;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.ClientApp.Services
 {
@@ -7,13 +8,23 @@ namespace SiPMTesterInterface.ClientApp.Services
 	{
         private readonly object _lockObject = new object();
 
+        private GlobalStateModel globalState = new GlobalStateModel();
+
+        private readonly IConfiguration Configuration;
+
         private ConnectionState _IVConnectionState;
         private ConnectionState _SPSConnectionState;
         private MeasurementState _IVState;
         private MeasurementState _SPSState;
 
-        public MeasurementService()
+        public MeasurementService(IConfiguration configuration)
         {
+            Configuration = configuration;
+            /*
+            Console.WriteLine("Look for configuration here:");
+            var niMachineIP = Configuration.ToString();
+            Console.WriteLine(niMachineIP);
+            */
             // Set initial states
             _IVState = MeasurementState.NotRunning;
             _SPSState = MeasurementState.NotRunning;

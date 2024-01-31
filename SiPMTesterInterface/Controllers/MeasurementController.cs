@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using NetMQ;
 using NetMQ.Sockets;
 using SiPMTesterInterface.ClientApp.Services;
+using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -15,8 +16,8 @@ namespace SiPMTesterInterface.Controllers
     //for testing the endpooint
     public class MeasurementStatesDto
     {
-        public MeasurementService.MeasurementState IVState { get; set; }
-        public MeasurementService.MeasurementState SPSState { get; set; }
+        public MeasurementState IVState { get; set; }
+        public MeasurementState SPSState { get; set; }
     }
 
 

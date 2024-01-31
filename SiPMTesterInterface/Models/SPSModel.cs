@@ -1,10 +1,14 @@
 ﻿using System;
+using SiPMTesterInterface.Enums;
+
 namespace SiPMTesterInterface.Models
 {
 	public class SPSModel
 	{
-        public string State { get; set; }
-        public List<List<string>> Current { get; set; }
+        public ConnectionState ConnectionState { get; set; } = ConnectionState.Disconnected;
+        public MeasurementState MeasurementState { get; set; } = MeasurementState.Unknown;
+        public List<CurrentSiPMModel> CurrentSiPM { get; set; } = new List<CurrentSiPMModel>();
+        public double CurrentVoltage { get; set; }
     }
 }
 
