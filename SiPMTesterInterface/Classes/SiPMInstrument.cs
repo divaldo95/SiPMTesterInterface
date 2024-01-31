@@ -18,7 +18,7 @@ namespace SiPMTesterInterface.Classes
         private readonly ILogger<SiPMInstrument> _logger;
         public string InstrumentName { get; private set; }
         private readonly object _lockObject = new object();
-        private readonly Timer _timer;
+        private Timer _timer;
         private readonly object _updateLock = new object();
 
         private const int MaxMemoryCapacityMB = 10; // Adjust the limit as needed
@@ -31,6 +31,11 @@ namespace SiPMTesterInterface.Classes
 
         public ConnectionState ConnectionState { get; private set; }
         public MeasurementState MeasurementState { get; private set; }
+        private readonly string reqSocIP;
+        private readonly string subSocIP;
+        private readonly TimeSpan Period;
+
+        protected bool Enabled { get; set; } = false;
 
         public void Stop()
         {
@@ -53,21 +58,23 @@ namespace SiPMTesterInterface.Classes
                 subscriberSocket.Connect(publisherAddress);
                 subscriberSocket.Subscribe("[LOG]");
                 subscriberSocket.Subscribe("[MEAS]");
-                poller = new NetMQPoller { subscriberSocket };
-                subscriberSocket.ReceiveReady += (sender, args) =>
+                using (var poller = new NetMQPoller { subscriberSocket })
                 {
-                    lock (bufferLock)
+                    subscriberSocket.ReceiveReady += (sender, args) =>
                     {
-                        // Receive the message
-                        var message = subscriberSocket.ReceiveFrameString();
+                        lock (bufferLock)
+                        {
+                            // Receive the message
+                            var message = subscriberSocket.ReceiveFrameString();
 
-                        // Process the message (e.g., store in memory)
-                        ProcessMessage(message);
-                        HandleMessage(message);
-                    }
-                };
+                            // Process the message (e.g., store in memory)
+                            ProcessMessage(message);
+                            HandleMessage(message);
+                        }
+                    };
 
-                poller.RunAsync();
+                    poller.Run();
+                }
             }
         }
 
@@ -101,14 +108,16 @@ namespace SiPMTesterInterface.Classes
             Console.WriteLine($"Message received and added to buffer: {message}");
         }
 
+        static int cnt = 0;
         protected bool AskServer(string message, out string response)
         {
             bool success = false;
             string received = "";
             lock (_lockObject)
             {
-                 success = (reqSocket.TrySendFrame(TimeSpan.FromSeconds(2), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromSeconds(2), out received));
+                success = (reqSocket.TrySendFrame(TimeSpan.FromMilliseconds(800), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromMilliseconds(800), out received));
             }
+            cnt++;
             response = received;
             //_logger.LogInformation(response);
             return success;
@@ -148,15 +157,25 @@ namespace SiPMTesterInterface.Classes
 
             this.InstrumentName = InstrumentName;
 
-            string reqSocIP = "tcp://" + ip + ":" + controlPort.ToString();
-            string subSocIP = "tcp://" + ip + ":" + logPort.ToString();
+            reqSocIP = "tcp://" + ip + ":" + controlPort.ToString();
+            subSocIP = "tcp://" + ip + ":" + logPort.ToString();
+            Period = period;
             //reqSocket.Connect("tcp://192.168.0.45:5556");
+            //reqSocket.Connect(reqSocIP);
+            //StartSubscriber(subSocIP);
+
+            //_timer = new Timer(TimerCallback, null, TimeSpan.Zero, period); // Change the interval as needed
+
+
+        }
+
+        public void Start()
+        {
             reqSocket.Connect(reqSocIP);
-            StartSubscriber(subSocIP);
+            //StartSubscriber(subSocIP);
+            Task subscriberTask = Task.Run(() => StartSubscriber(subSocIP));
 
-            _timer = new Timer(TimerCallback, null, TimeSpan.Zero, period); // Change the interval as needed
-
-
+            _timer = new Timer(TimerCallback, null, TimeSpan.Zero, Period); // Change the interval as needed
         }
 
         public ConnectionState GetConnectionState()

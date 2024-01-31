@@ -1,4 +1,5 @@
 ﻿using System;
+using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
@@ -7,6 +8,8 @@ namespace SiPMTesterInterface.ClientApp.Services
 	public class MeasurementService
 	{
         private readonly object _lockObject = new object();
+
+        private readonly NIMachine niMachine;
 
         private GlobalStateModel globalState = new GlobalStateModel();
 
@@ -17,14 +20,19 @@ namespace SiPMTesterInterface.ClientApp.Services
         private MeasurementState _IVState;
         private MeasurementState _SPSState;
 
-        public MeasurementService(IConfiguration configuration)
+        private readonly ILogger<MeasurementService> _logger;
+
+        public MeasurementService(ILogger<MeasurementService> logger, ILogger<NIMachine> niLogger, IConfiguration configuration)
         {
             Configuration = configuration;
-            /*
-            Console.WriteLine("Look for configuration here:");
-            var niMachineIP = Configuration.ToString();
-            Console.WriteLine(niMachineIP);
-            */
+            _logger = logger;
+
+            //Console.WriteLine("Look for configuration here:");
+
+            //Console.WriteLine(ip);
+
+            niMachine = new NIMachine(configuration, niLogger);
+
             // Set initial states
             _IVState = MeasurementState.NotRunning;
             _SPSState = MeasurementState.NotRunning;
