@@ -17,7 +17,7 @@ namespace SiPMTesterInterface.Classes
             var niMachineEnabled = config["NIMachine:Enabled"];
             var ip = config["NIMachine:IP"];
             var commandPort = config["NIMachine:CommandPort"];
-            var logPort = config["NIMachine:CommandPort"];
+            var logPort = config["NIMachine:LogPort"];
             var updatePeriodms = config["NIMachine:updatePeriodms"];
 
             if (niMachineEnabled != null)
@@ -56,8 +56,6 @@ namespace SiPMTesterInterface.Classes
         private object _lockObject = new object();
         private CurrentSiPMModel _currentSiPM = new CurrentSiPMModel();
 
-        
-
         public CurrentSiPMModel SiPMUnderTest
         {
             get
@@ -70,7 +68,10 @@ namespace SiPMTesterInterface.Classes
             }
             private set
             {
-                _currentSiPM = value;
+                lock (_lockObject)
+                {
+                    _currentSiPM = value;
+                }
             }
         }
 
@@ -96,35 +97,61 @@ namespace SiPMTesterInterface.Classes
 		public NIMachine(bool enabled, string ip, int controlPort, int logPort, TimeSpan period, ILogger<NIMachine> logger) :
 			base("NIMachine", ip, controlPort, logPort, period, logger)
 		{
+            base.reqSocket.OnMessageReceived += ReqSocket_OnMessageReceived;
+            base.reqSocket.OnMessageReceiveFail += ReqSocket_OnMessageReceiveFail;
+            base.reqSocket.AddQueryMessage("GetCurrentSiPM");
             if (enabled)
             {
                 base.Start();
             }
 		}
 
-		protected override void HandleMessage(string message)
-		{
-
-		}
-
-        //Must be quick, the timer calls this function periodically
-        protected override void PeriodicUpdate()
+        private void UpdateCurrentSiPM(string data, bool isReceiveOK)
         {
-            SiPMUnderTest = GetSiPMUnderTest();
+            if (!isReceiveOK)
+            {
+                SiPMUnderTest = new CurrentSiPMModel();
+                return;
+            }
+            SiPMUnderTest = new CurrentSiPMModel(data);
         }
 
-        public CurrentSiPMModel GetSiPMUnderTest()
-		{
-            string received = "";
-            bool success = AskServer("GetCurrentSiPM", out received);
-            if (success)
+        private void UpdateState(string obj, string data, bool isReceiveOK)
+        {
+            switch (obj)
             {
-                return new CurrentSiPMModel(received);
+                case "GetCurrentSiPM":
+                    UpdateCurrentSiPM(data, isReceiveOK);
+                    break;
+                default:
+                    break;
             }
-            else
+        }
+
+        private void ReqSocket_OnMessageReceived(object? sender, MessageReceivedEventArgs resp)
+        {
+            Console.WriteLine($"Receive OK event NIMachine: {resp.Message}");
+            string[] datas = resp.Message.Split(':');
+            if (datas.Length != 2)
             {
-                return new CurrentSiPMModel();
+                return;
             }
+
+            string obj = datas[0];
+            string data = datas[1];
+
+            UpdateState(obj, data, true);
+            //OnMessageReceived?.Invoke(sender, resp);
+        }
+
+        private void ReqSocket_OnMessageReceiveFail(object? sender, MessageReceiveFailEventArgs resp)
+        {
+            Console.WriteLine($"Receive failed event NIMachine: {resp.Message}");
+            string obj = resp.Message;
+            string data = "";
+
+            UpdateState(obj, data, false);
+            //OnMessageReceiveFail?.Invoke(sender, resp);
         }
 	}
 }

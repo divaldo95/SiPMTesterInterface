@@ -9,12 +9,11 @@ namespace SiPMTesterInterface.Classes
     public class SerialPortHandler
     {
         private static SerialPort? _serialPort;
-        private bool _initialized = false;
-        private bool _connected = false;
-        private bool _error = false;
         private static object _lockObject = new object();
         private AutoResetEvent _messageReceived;
         private int _timeout = 10000;
+
+        private bool _error = false;
 
         public string LastLine { get; private set; } = "";
 

@@ -6,8 +6,7 @@ namespace SiPMTesterInterface.Interfaces
 {
 	public interface ISiPMInstrument
 	{
-        public ConnectionState GetConnectionState();
-		public MeasurementState GetMeasurementState();
+        public void RunCommand(string command);
 	}
 }
 

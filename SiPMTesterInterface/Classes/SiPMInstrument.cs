@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Net.Sockets;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NetMQ;
 using NetMQ.Sockets;
@@ -12,13 +14,11 @@ namespace SiPMTesterInterface.Classes
 {
     public abstract class SiPMInstrument : ISiPMInstrument
     {
-        private readonly RequestSocket reqSocket = new RequestSocket();
+        protected ReqSocket reqSocket;
         private NetMQPoller poller;
 
         private readonly ILogger<SiPMInstrument> _logger;
         public string InstrumentName { get; private set; }
-        private readonly object _lockObject = new object();
-        private Timer _timer;
         private readonly object _updateLock = new object();
 
         private const int MaxMemoryCapacityMB = 10; // Adjust the limit as needed
@@ -31,11 +31,133 @@ namespace SiPMTesterInterface.Classes
 
         public ConnectionState ConnectionState { get; private set; }
         public MeasurementState MeasurementState { get; private set; }
+
+        //public event EventHandler<MessageReceivedEventArgs> OnMessageReceived;
+        //public event EventHandler<MessageReceiveFailEventArgs> OnMessageReceiveFail;
+
         private readonly string reqSocIP;
         private readonly string subSocIP;
+        /*
         private readonly TimeSpan Period;
 
+        private const int RequestTimeout = 2500;
+        private const int RequestRetries = 3;
+
+        private int sequence = 0;
+        private bool expectReply = true;
+        private int retriesLeft = RequestRetries;
+        private string outString = "";
+        */
+
         protected bool Enabled { get; set; } = false;
+
+        /*
+        void TerminateClient(NetMQSocket client)
+        {
+            client.Disconnect(reqSocIP);
+            client.Close();
+        }
+
+        RequestSocket CreateServerSocket()
+        {
+            Console.WriteLine("C: Connecting to server...");
+
+            var client = new RequestSocket();
+            client.Connect(reqSocIP);
+            client.Options.Linger = TimeSpan.Zero;
+            client.ReceiveReady += ClientOnReceiveReady;
+
+            return client;
+        }
+        */
+
+        private void UpdateMeasurementState(string data, bool isReceiveOK)
+        {
+            int state = (int)MeasurementState.Unknown;
+            if (isReceiveOK)
+            {
+                int.TryParse(data, out state);
+            }
+            lock (_updateLock)
+            {
+                MeasurementState = (MeasurementState)state;
+            }
+        }
+
+        private void UpdateConnectionState(string data, bool isReceiveOK)
+        {
+            if (!isReceiveOK)
+            {
+                ConnectionState = ConnectionState.Disconnected;
+                return;
+            }
+            if (data.Equals("pong"))
+            {
+                ConnectionState = ConnectionState.Connected;
+            }
+            else
+            {
+                ConnectionState = ConnectionState.Error;
+            }
+        }
+
+        private void UpdateState(string obj, string data, bool isReceiveOK)
+        {
+            switch (obj)
+            {
+                case "GetState":
+                    UpdateMeasurementState(data, isReceiveOK);
+                    break;
+                case "Ping":
+                    UpdateConnectionState(data, isReceiveOK);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void OnMessageReceivedCallback(object? sender, MessageReceivedEventArgs resp)
+        {
+            string[] datas = resp.Message.Split(':');
+            if (datas.Length != 2)
+            {
+                return;
+            }
+
+            string obj = datas[0];
+            string data = datas[1];
+
+            UpdateState(obj, data, true);
+            //OnMessageReceived?.Invoke(sender, resp);
+        }
+
+        private void OnMessageReceiveFailCallback(object? sender, MessageReceiveFailEventArgs resp)
+        {
+            string obj = resp.Message;
+            string data = "";
+
+            UpdateState(obj, data, false);
+            //OnMessageReceiveFail?.Invoke(sender, resp);
+        }
+
+        /*
+        void ClientOnReceiveReady(object? sender, NetMQSocketEventArgs args)
+        {
+            outString = args.Socket.ReceiveFrameString();
+            //string strReply = Encoding.Unicode.GetString(reply);
+
+            if (true)
+            {
+                Console.WriteLine("C: Server replied OK ({0})", outString);
+                retriesLeft = RequestRetries;
+                expectReply = false;
+            }
+            else
+            {
+                Console.WriteLine("C: Malformed reply from server: {0}", outString);
+            }
+        }
+        */
 
         public void Stop()
         {
@@ -69,7 +191,6 @@ namespace SiPMTesterInterface.Classes
 
                             // Process the message (e.g., store in memory)
                             ProcessMessage(message);
-                            HandleMessage(message);
                         }
                     };
 
@@ -77,8 +198,6 @@ namespace SiPMTesterInterface.Classes
                 }
             }
         }
-
-        protected abstract void HandleMessage(string message);
 
         private void ProcessMessage(string message)
         {
@@ -108,29 +227,67 @@ namespace SiPMTesterInterface.Classes
             Console.WriteLine($"Message received and added to buffer: {message}");
         }
 
-        static int cnt = 0;
+        /*
         protected bool AskServer(string message, out string response)
         {
             bool success = false;
             string received = "";
             lock (_lockObject)
             {
-                success = (reqSocket.TrySendFrame(TimeSpan.FromMilliseconds(800), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromMilliseconds(800), out received));
+                //success = (reqSocket.TrySendFrame(TimeSpan.FromMilliseconds(5000), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromMilliseconds(800), out received));
+                while (retriesLeft > 0)
+                {
+                    sequence++;
+                    _timer.Change(Timeout.Infinite, Timeout.Infinite);
+                    Console.WriteLine("C: Sending ({0})", sequence);
+                    reqSocket.SendFrame(message);
+                    expectReply = true;
+
+                    while (expectReply)
+                    {
+                        success = reqSocket.Poll(TimeSpan.FromMilliseconds(RequestTimeout));
+
+                        if (success)
+                        {
+                            _timer.Change(Period, Period);
+                            break;
+                        }
+                        retriesLeft--;
+
+                        if (retriesLeft == 0)
+                        {
+                            reqSocket = CreateServerSocket();
+                            _timer.Change(Period, Period);
+                            Console.WriteLine("C: Server seems to be offline, abandoning");
+                            break;
+                        }
+
+                        Console.WriteLine("C: No response from server, retrying...");
+
+                        TerminateClient(reqSocket);
+
+                        reqSocket = CreateServerSocket();
+                        reqSocket.SendFrame(message);
+                    }
+                    if (success)
+                        break;
+                }
+                retriesLeft = RequestRetries;
             }
-            cnt++;
             response = received;
+            
             //_logger.LogInformation(response);
             return success;
         }
+        */
 
-        protected abstract void PeriodicUpdate();
-
+        /*
         private void TimerCallback(object? state)
         {
+            _logger.LogInformation($"[{InstrumentName}] Timer fired");
             // Query ConnectionState and MeasurementState
             ConnectionState connectionState = GetConnectionState();
             MeasurementState measurementState = GetMeasurementState();
-            PeriodicUpdate();
             lock (_updateLock)
             {
                 if (ConnectionState != connectionState || MeasurementState != measurementState)
@@ -140,16 +297,9 @@ namespace SiPMTesterInterface.Classes
                 ConnectionState = connectionState;
                 MeasurementState = measurementState;
             }
+            
         }
-
-        public void StopTimer()
-        {
-            // Stop the timer when needed
-            if (_timer != null)
-            {
-                _timer.Dispose();
-            }
-        }
+        */
 
         public SiPMInstrument(string InstrumentName, string ip, int controlPort, int logPort, TimeSpan period, ILogger<SiPMInstrument> logger)
         {
@@ -159,34 +309,39 @@ namespace SiPMTesterInterface.Classes
 
             reqSocIP = "tcp://" + ip + ":" + controlPort.ToString();
             subSocIP = "tcp://" + ip + ":" + logPort.ToString();
-            Period = period;
-            //reqSocket.Connect("tcp://192.168.0.45:5556");
-            //reqSocket.Connect(reqSocIP);
+            Console.WriteLine($"Listening REQ on {reqSocIP}");
+            Console.WriteLine($"Listening SUB on {subSocIP}");
+            reqSocket = new ReqSocket(reqSocIP, period);
+            reqSocket.OnMessageReceived += OnMessageReceivedCallback;
+            reqSocket.OnMessageReceiveFail += OnMessageReceiveFailCallback;
+            //automatically query these strings
+            reqSocket.AddQueryMessage("Ping");
+            reqSocket.AddQueryMessage("GetState");
+        }
+
+
+        public void StartSub()
+        {
             //StartSubscriber(subSocIP);
-
-            //_timer = new Timer(TimerCallback, null, TimeSpan.Zero, period); // Change the interval as needed
-
-
+            Task subscriberTask = Task.Run(() => StartSubscriber(subSocIP));
         }
 
         public void Start()
         {
-            reqSocket.Connect(reqSocIP);
-            //StartSubscriber(subSocIP);
-            Task subscriberTask = Task.Run(() => StartSubscriber(subSocIP));
-
-            _timer = new Timer(TimerCallback, null, TimeSpan.Zero, Period); // Change the interval as needed
+            reqSocket.Start();
+            //StartSub();
         }
 
+        /*
         public ConnectionState GetConnectionState()
         {
             //reqSocket.SendFrame("Hello");
 
             string received = "";
-            bool success = AskServer("ping", out received);
+            bool success = AskServer("ping");
             if (success)
             {
-                if (received.Equals("pong"))
+                if (outString.Equals("pong"))
                 {
                     return ConnectionState.Connected;
                 }
@@ -210,16 +365,22 @@ namespace SiPMTesterInterface.Classes
 
             string received = "";
             int state = (int)MeasurementState.Unknown;
-            bool success = AskServer("GetState", out received);
+            bool success = AskServer("GetState");
             if (success)
             {
-                int.TryParse(received, out state);
+                int.TryParse(outString, out state);
                 return (MeasurementState)state;
             }
             else
             {
                 return MeasurementState.Unknown;
             }
+        }
+        */
+
+        public void RunCommand(string command)
+        {
+            reqSocket.RunCommand(command);
         }
     }
 }

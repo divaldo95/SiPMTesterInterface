@@ -108,7 +108,6 @@ namespace SiPMTesterInterface.Classes
         public void SetCooler(int block, int module, bool state, double target_temp, int fan_speed)
         {
             string command = "set_cooler,";
-            string modecmd = "";
             if (block > 1 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
