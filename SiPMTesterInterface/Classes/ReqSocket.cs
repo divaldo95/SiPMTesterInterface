@@ -139,7 +139,6 @@ namespace SiPMTesterInterface.Classes
                     t.Start();
                 }
             }
-
         }
 
         public void AddQueryMessage(string message)
