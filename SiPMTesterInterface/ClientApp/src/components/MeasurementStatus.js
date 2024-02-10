@@ -30,7 +30,7 @@ const MeasurementStatus = ({ numArrays, formData, measurementStates }) => {
                                 <div className="container">
                                     <div className="row text-center">
                                         <div className="col p-3">
-                                            <div class="d-grid gap-2">
+                                            <div className="d-grid gap-2">
                                                 <button className="btn btn-lg btn-danger"
                                                     onClick={() => { }}
                                                 >
@@ -56,20 +56,20 @@ const MeasurementStatus = ({ numArrays, formData, measurementStates }) => {
                                             Current IV measurements
                                             <div className="float-right">
                                                 {measurementStates.ivState !== 0 && (
-                                                    <div class="spinner-border" role="status">
-                                                        <span class="sr-only"></span>
+                                                    <div className="spinner-border" role="status">
+                                                        <span className="sr-only"></span>
                                                     </div>
                                                 )}
                                             </div>
                                         </h5>
                                         <div className="card-body">
                                             <div className="d-grid">
-                                                <ul class="list-group">
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                <ul className="list-group">
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
                                                 </ul>
@@ -85,70 +85,70 @@ const MeasurementStatus = ({ numArrays, formData, measurementStates }) => {
                                             Current SPS measurements
                                             <div className="float-right">
                                                 {measurementStates.spsState !== 0 && (
-                                                    <div class="spinner-border" role="status">
-                                                        <span class="sr-only"></span>
+                                                    <div className="spinner-border" role="status">
+                                                        <span className="sr-only"></span>
                                                     </div>
                                                 )}
                                             </div>
                                         </h5>
                                         <div className="card-body">
                                             <div className="d-grid">
-                                                <ul class="list-group">
+                                                <ul className="list-group">
                                                     
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
-                                                    <li class="list-group-item">
-                                                        <div class="d-flex justify-content-center align-items-center">
-                                                            <span class="badge bg-secondary">Array 0</span>
-                                                            <span class="mx-2"> - </span>
-                                                            <span class="badge bg-primary">SiPM 0</span>
+                                                    <li className="list-group-item">
+                                                        <div className="d-flex justify-content-center align-items-center">
+                                                            <span className="badge bg-secondary">Array 0</span>
+                                                            <span className="mx-2"> - </span>
+                                                            <span className="badge bg-primary">SiPM 0</span>
                                                         </div>
                                                     </li>
                                                 </ul>
@@ -169,22 +169,22 @@ const MeasurementStatus = ({ numArrays, formData, measurementStates }) => {
                                 <div className="container">
                                     <div className="row text-center">
                                         <div className="col">
-                                            <div class="d-grid">
-                                                <div class="d-flex justify-content-center align-items-center gap-2">
+                                            <div className="d-grid">
+                                                <div className="d-flex justify-content-center align-items-center gap-2">
                                                     <h4>
-                                                        <span class="badge bg-secondary">Selected</span>
+                                                        <span className="badge bg-secondary">Selected</span>
                                                     </h4>
                                                     <h4>
-                                                        <span class="badge bg-light text-dark">Not selected</span>
+                                                        <span className="badge bg-light text-dark">Not selected</span>
                                                     </h4>
                                                     <h4>
-                                                        <span class="badge bg-primary">Under test</span>
+                                                        <span className="badge bg-primary">Under test</span>
                                                     </h4>
                                                     <h4>
-                                                        <span class="badge bg-danger">Error</span>
+                                                        <span className="badge bg-danger">Error</span>
                                                     </h4>
                                                     <h4>
-                                                        <span class="badge bg-success">Success</span>
+                                                        <span className="badge bg-success">Success</span>
                                                     </h4>
                                                 </div>
                                             </div>

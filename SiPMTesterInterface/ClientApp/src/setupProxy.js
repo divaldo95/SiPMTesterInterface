@@ -7,6 +7,7 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
 const context = [
     "/weatherforecast",
     "/measurement",
+    "/hub",
 ];
 
 const onError = (err, req, resp, target) => {
@@ -22,10 +23,12 @@ module.exports = function (app) {
     onError: onError,
     secure: false,
     // Uncomment this line to add support for proxying websockets
-    //ws: true, 
+    ws: true, 
+    /*
     headers: {
       Connection: 'Keep-Alive'
     }
+    */
   });
 
   app.use(appProxy);

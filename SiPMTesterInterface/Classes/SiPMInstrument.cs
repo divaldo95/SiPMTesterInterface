@@ -13,6 +13,24 @@ using SiPMTesterInterface.Interfaces;
 
 namespace SiPMTesterInterface.Classes
 {
+    public class ConnectionStateChangedEventArgs : EventArgs
+    {
+        public ConnectionStateChangedEventArgs(ConnectionState s) : base()
+        {
+            State = s;
+        }
+        public ConnectionState State { get; set; } = ConnectionState.NotConnected;
+    }
+
+    public class MeasurementStateChangedEventArgs : EventArgs
+    {
+        public MeasurementStateChangedEventArgs(MeasurementState s) : base()
+        {
+            State = s;
+        }
+        public MeasurementState State { get; set; } = MeasurementState.Unknown;
+    }
+
     public abstract class SiPMInstrument : ISiPMInstrument
     {
         protected ReqSocket reqSocket;
@@ -24,8 +42,43 @@ namespace SiPMTesterInterface.Classes
         public string InstrumentName { get; private set; }
         private readonly object _updateLock = new object();
 
-        public ConnectionState ConnectionState { get; private set; }
-        public MeasurementState MeasurementState { get; private set; }
+        private ConnectionState _ConnectionState { get; set; }
+        private MeasurementState _MeasurementState { get; set; }
+
+        public ConnectionState ConnectionState
+        {
+            get
+            {
+                return _ConnectionState;
+            }
+            private set
+            {
+                if (value != _ConnectionState)
+                {
+                    _ConnectionState = value;
+                    OnConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs(_ConnectionState));
+                }
+            }
+        }
+
+        public MeasurementState MeasurementState
+        {
+            get
+            {
+                return _MeasurementState;
+            }
+            private set
+            {
+                if (value != _MeasurementState)
+                {
+                    _MeasurementState = value;
+                    OnMeasurementStateChanged?.Invoke(this, new MeasurementStateChangedEventArgs(_MeasurementState));
+                }
+            }
+        }
+
+        public event EventHandler<ConnectionStateChangedEventArgs> OnConnectionStateChanged;
+        public event EventHandler<MeasurementStateChangedEventArgs> OnMeasurementStateChanged;
 
         private readonly string reqSocIP;
         private readonly string subSocIP;

@@ -1,9 +1,10 @@
 ﻿using SiPMTesterInterface.ClientApp.Services;
+using SiPMTesterInterface.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
+builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddSingleton<MeasurementService>();
@@ -30,6 +31,8 @@ app.MapControllerRoute(
     pattern: "{controller}/{action=Index}/{id?}");
 
 app.MapFallbackToFile("index.html");
+
+app.MapHub<UpdatesHub>("/hub");
 
 app.Run();
 

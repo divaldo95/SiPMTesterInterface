@@ -9,6 +9,8 @@ import SPSVoltageList from "./SPSVoltageList";
 import MeasurementStatus from "./MeasurementStatus";
 import MeasurementStateService from '../services/MeasurementStateService';
 
+import { HubConnectionBuilder } from '@microsoft/signalr';
+
 function Measurement() {
     //state for steps
     const [step, setstep] = useState(1);
@@ -17,7 +19,40 @@ function Measurement() {
     const [measurementStates, setMeasurementStates] = useState(null);
     const [measurementRunning, setMeasurementRunning] = useState(false);
 
+    const [testState, setTestState] = useState("TEST");
+
     useEffect(() => {
+        const connection = new HubConnectionBuilder()
+            .withUrl('hub')
+            .withAutomaticReconnect()
+            .build();
+        connection.start()
+            .then(result => {
+                setTestState("Connected");
+
+                connection.on('ReceiveGlobalStateChange', (globalStateModel) => {
+                    // Handle received global state change
+                    
+                    console.log('Received global state change:', globalStateModel);
+                });
+
+                connection.on('ReceiveIVMeasurementStateChange', (ivModel) => {
+                    // Handle received IV measurement state change
+                    setTestState(ivModel);
+                    console.log('Received IV measurement state change:', ivModel);
+                });
+
+                connection.on('ReceiveSPSMeasurementStateChange', (spsModel) => {
+                    // Handle received SPS measurement state change
+                    console.log('Received SPS measurement state change:', spsModel);
+                });
+            })
+
+            .catch(e => {
+                console.log('Connection failed: ', e);
+                setTestState("Connection failed");
+            });
+
         const fetchData = async () => {
             try {
                 const data = await MeasurementStateService.getMeasurementStates();
@@ -202,17 +237,15 @@ function Measurement() {
                             switch (step) {
                                 case 1:
                                     return (
-                                        <div>
-                                            <SiPMArray
-                                                numArrays={nSiPMArrays}
-                                                formData={formData}
-                                                updateSelectedSiPMs={updateSelectedSiPMs}
-                                                updateIVMeas={handleUpdateIVMeas}
-                                                updateSPSMeas={handleUpdateSPSMeas}
-                                                nextStep={nextStep}
-                                                editable={true}
-                                            />
-                                        </div>
+                                        <SiPMArray
+                                            numArrays={nSiPMArrays}
+                                            formData={formData}
+                                            updateSelectedSiPMs={updateSelectedSiPMs}
+                                            updateIVMeas={handleUpdateIVMeas}
+                                            updateSPSMeas={handleUpdateSPSMeas}
+                                            nextStep={nextStep}
+                                            editable={true}
+                                        />
                                     );
                                 // case 1 to show stepOne form and passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
                                 // case 6:
@@ -224,55 +257,43 @@ function Measurement() {
                                 // case 2 to show stepTwo form passing nextStep, prevStep, and handleInputData as handleFormData method as prop and also formData as value to the fprm
                                 case 2:
                                     return (
-                                        <div>
-                                            <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleUpdateBarcodes} nArrays={nSiPMArrays} />
-                                        </div>
+                                        <BarcodeInput nextStep={nextStep} prevStep={prevStep} formData={formData} onFormChange={handleUpdateBarcodes} nArrays={nSiPMArrays} />
                                     );
                                 case 3:
                                     return (
-                                        <div>
-                                            <MeasurementOrder nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
-                                        </div>
+                                        <MeasurementOrder nextStep={nextStep} prevStep={prevStep} handleFormData={handleInputData} values={formData} nArrays={nSiPMArrays} />
                                     );
                                 case 4:
                                     return (
-                                        <div>
-                                            <IVVoltageList
-                                                nextStep={nextStep}
-                                                prevStep={prevStep}
-                                                updateVoltageList={handleUpdateIVVoltageList}
-                                                formData={formData}
-                                                updateGeneratorData={handleUpdateGeneratorData}
-                                            />
-                                        </div>
+                                        <IVVoltageList
+                                            nextStep={nextStep}
+                                            prevStep={prevStep}
+                                            updateVoltageList={handleUpdateIVVoltageList}
+                                            formData={formData}
+                                            updateGeneratorData={handleUpdateGeneratorData}
+                                        />
                                     );
                                 case 5:
                                     return (
-                                        <div>
-                                            <SPSVoltageList
-                                                nextStep={nextStep}
-                                                prevStep={prevStep}
-                                                updateVoltageList={handleUpdateSPSVoltageList}
-                                                formData={formData}
-                                                updateGeneratorData={handleUpdateGeneratorData}
-                                            />
-                                        </div>
+                                        <SPSVoltageList
+                                            nextStep={nextStep}
+                                            prevStep={prevStep}
+                                            updateVoltageList={handleUpdateSPSVoltageList}
+                                            formData={formData}
+                                            updateGeneratorData={handleUpdateGeneratorData}
+                                        />
                                     );
                                 case 6:
                                     return (
-                                        <div>
-                                            <div>
-                                                <SiPMArray
-                                                    numArrays={nSiPMArrays}
-                                                    formData={formData}
-                                                    updateSelectedSiPMs={updateSelectedSiPMs}
-                                                    updateIVMeas={handleUpdateIVMeas}
-                                                    updateSPSMeas={handleUpdateSPSMeas}
-                                                    nextStep={nextStep}
-                                                    editable={false}
-                                                />
-                                            </div>
-                                        </div>
+                                        <SiPMArray
+                                            numArrays={nSiPMArrays}
+                                            formData={formData}
+                                            updateSelectedSiPMs={updateSelectedSiPMs}
+                                            updateIVMeas={handleUpdateIVMeas}
+                                            updateSPSMeas={handleUpdateSPSMeas}
+                                            nextStep={nextStep}
+                                            editable={false}
+                                        />
                                     );
                                 // default case to show nothing
                                 default:
