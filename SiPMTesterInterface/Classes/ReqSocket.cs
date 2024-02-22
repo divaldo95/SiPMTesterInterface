@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using NetMQ;
 using NetMQ.Sockets;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Helpers;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -70,6 +71,11 @@ namespace SiPMTesterInterface.Classes
             Console.WriteLine("C: Connecting to server...");
 
             var client = new RequestSocket();
+            var clientPair = new NetMQCertificate();
+
+            var serverPair = KeyReader.ReadKeyFiles("REQPrivate.key", "REQPublic.key", true);
+            client.Options.CurveServerKey = serverPair.PublicKey;
+            client.Options.CurveCertificate = clientPair;
             client.Connect(IP);
             client.Options.Linger = TimeSpan.Zero;
             client.ReceiveReady += ClientOnReceiveReady;

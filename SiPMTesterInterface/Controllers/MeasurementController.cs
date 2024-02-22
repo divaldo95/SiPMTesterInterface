@@ -28,8 +28,9 @@ namespace SiPMTesterInterface.Controllers
         private readonly MeasurementService _measurementService;
 
         private readonly ILogger<MeasurementController> _logger;
-        private readonly RequestSocket reqSocket = new RequestSocket();
+        //private readonly RequestSocket reqSocket = new RequestSocket();
 
+        /*
         private bool AskServer(string message, out string response)
         {
             string received = "";
@@ -38,11 +39,12 @@ namespace SiPMTesterInterface.Controllers
             //_logger.LogInformation(response);
             return success;
         }
+        */
 
         public MeasurementController(ILogger<MeasurementController> logger, MeasurementService measurementService)
         {
             _logger = logger;
-            reqSocket.Connect("tcp://192.168.0.45:5556");
+            //reqSocket.Connect("tcp://192.168.0.45:5556");
             _measurementService = measurementService;
         }
 
@@ -88,26 +90,9 @@ namespace SiPMTesterInterface.Controllers
         [HttpGet("ivendpoint")]
         public IActionResult GetIVEndpointState()
         {
-            //reqSocket.SendFrame("Hello");
-
-            string received = "";
-            bool success = AskServer("GetState", out received);
-            if (success)
-            {
-                //var msg = reqSocket.ReceiveFrameString();
-                _logger.LogInformation(received);
-
-            }
-            else
-            {
-                return BadRequest("Server Unavailable");
-            }
-
-            int state = 0;
-            int.TryParse(received, out state);
             var measurementStates = new
             {
-                IV = state,
+                IV = 0,
                 SPS = 0
             };
             return Ok(measurementStates);
