@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
@@ -54,35 +55,24 @@ namespace SiPMTesterInterface.Classes
 	public class NIMachine : SiPMInstrument
 	{
         private object _lockObject = new object();
-        private CurrentSiPMModel _currentSiPM = new CurrentSiPMModel();
 
-        public CurrentSiPMModel SiPMUnderTest
+        public void AddWaitingResponseData(NIMachineStartModel measurementData)
         {
-            get
-            {
-                lock(_lockObject)
-                {
-                    return _currentSiPM;
-                }
-                
-            }
-            private set
-            {
-                lock (_lockObject)
-                {
-                    _currentSiPM = value;
-                }
-            }
+            WaitingResponseData d = new WaitingResponseData(measurementData.Identifier, RequeryMeasurementResults, HandleGettingMeasurementResultsFail);
+            d.Start(TimeSpan.FromSeconds(30));
+            waitingResponseDatas.Add(d);
         }
 
-        public IVModel GetCurrentState()
+        public void StartIVMeasurement(NIMachineStartModel measurementData)
         {
-            IVModel state = new IVModel();
-            state.ConnectionState = ConnectionState;
-            state.MeasurementState = MeasurementState;
-            state.CurrentVoltage = 0.1;
-            state.CurrentSiPM = SiPMUnderTest;
-            return state;
+            string msg = "StartIVMeasurement:" + System.Text.Json.JsonSerializer.Serialize(measurementData);
+            base.reqSocket.RunCommand(msg);
+        }
+
+        public void StartDMMResistanceMeasurement(DMMResistanceModel measurementData)
+        {
+            string msg = "StartDMMResistanceMeasurement:" + System.Text.Json.JsonSerializer.Serialize(measurementData);
+            base.reqSocket.RunCommand(msg);
         }
 
         public NIMachine(IConfiguration config, ILogger<NIMachine> logger) : this(new NIMachineSettings(config), logger)
@@ -99,59 +89,33 @@ namespace SiPMTesterInterface.Classes
 		{
             base.reqSocket.OnMessageReceived += ReqSocket_OnMessageReceived;
             base.reqSocket.OnMessageReceiveFail += ReqSocket_OnMessageReceiveFail;
-            base.reqSocket.AddQueryMessage("GetCurrentSiPM");
+            //base.reqSocket.AddQueryMessage("GetCurrentSiPM");
             if (enabled)
             {
                 base.Start();
             }
 		}
 
-        private void UpdateCurrentSiPM(string data, bool isReceiveOK)
-        {
-            if (!isReceiveOK)
-            {
-                SiPMUnderTest = new CurrentSiPMModel();
-                return;
-            }
-            SiPMUnderTest = new CurrentSiPMModel(data);
-        }
-
-        private void UpdateState(string obj, string data, bool isReceiveOK)
-        {
-            switch (obj)
-            {
-                case "GetCurrentSiPM":
-                    UpdateCurrentSiPM(data, isReceiveOK);
-                    break;
-                default:
-                    break;
-            }
-        }
-
+        /*
+         * Structure of incoming data: Object:Data
+         * Object: The object the data is for
+         * Data: Status update
+         */
         private void ReqSocket_OnMessageReceived(object? sender, MessageReceivedEventArgs resp)
         {
-            Console.WriteLine($"Receive OK event NIMachine: {resp.Message}");
-            string[] datas = resp.Message.Split(':');
-            if (datas.Length != 2)
-            {
-                return;
-            }
-
-            string obj = datas[0];
-            string data = datas[1];
-
-            UpdateState(obj, data, true);
-            //OnMessageReceived?.Invoke(sender, resp);
+            //Console.WriteLine($"Receive OK event NIMachine: {resp.Message}");
+            //ProcessResponseString(resp.Message);
         }
 
+        /*
+         * When the service fails to query the client
+         * this function is called.
+         * It can be used to detect failure of network or service on the other end.
+         */
         private void ReqSocket_OnMessageReceiveFail(object? sender, MessageReceiveFailEventArgs resp)
         {
-            Console.WriteLine($"Receive failed event NIMachine: {resp.Message}");
-            string obj = resp.Message;
-            string data = "";
-
-            UpdateState(obj, data, false);
-            //OnMessageReceiveFail?.Invoke(sender, resp);
+            //Console.WriteLine($"Receive failed event NIMachine: {resp.Message}");
+            //ProcessResponseString(resp.Message, false);
         }
 	}
 }

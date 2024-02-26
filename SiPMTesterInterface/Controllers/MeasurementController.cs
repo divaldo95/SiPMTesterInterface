@@ -7,6 +7,7 @@ using NetMQ;
 using NetMQ.Sockets;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -28,18 +29,6 @@ namespace SiPMTesterInterface.Controllers
         private readonly MeasurementService _measurementService;
 
         private readonly ILogger<MeasurementController> _logger;
-        //private readonly RequestSocket reqSocket = new RequestSocket();
-
-        /*
-        private bool AskServer(string message, out string response)
-        {
-            string received = "";
-            bool success = (reqSocket.TrySendFrame(TimeSpan.FromSeconds(2), message) && reqSocket.TryReceiveFrameString(TimeSpan.FromSeconds(2), out received));
-            response = received;
-            //_logger.LogInformation(response);
-            return success;
-        }
-        */
 
         public MeasurementController(ILogger<MeasurementController> logger, MeasurementService measurementService)
         {
@@ -61,29 +50,29 @@ namespace SiPMTesterInterface.Controllers
             {
                 IVConnectionState = _measurementService.IVConnectionState,
                 SPSConnectionState = _measurementService.SPSConnectionState,
-                IVState = _measurementService.IVState,
-                SPSState = _measurementService.SPSState
+                IVState = _measurementService.GlobalIVState,
+                SPSState = _measurementService.GlobalIVState
             };
             return Ok(measurementStates);
         }
 
-        [HttpPost("states")]
-        public IActionResult UpdateMeasurementStates([FromBody] MeasurementStatesDto measurementStates)
+        [HttpPost("start")]
+        public IActionResult StartMeasurement([FromBody] MeasurementStartModel measurementStart)
         {
-            // Validate the received data
-            if (measurementStates == null)
+            if (_measurementService.GlobalIVState == MeasurementState.Running || _measurementService.GLobalSPSState == MeasurementState.Running)
             {
-                return BadRequest("Invalid input data");
+                return BadRequest(ResponseMessages.Error("Measurements already running"));
+            }
+            // Validate the received data
+            if (measurementStart == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty start data frame"));
             }
 
-            _measurementService.UpdateIVState(measurementStates.IVState);
-            _measurementService.UpdateSPSState(measurementStates.SPSState);
-
-            // Log the received data
-            _logger.LogInformation($"Received measurement states: IVState = {measurementStates.IVState}, SPSState = {measurementStates.SPSState}");
+            _measurementService.StartMeasurement(measurementStart);
 
             // Return a success response
-            return Ok("Measurement states updated successfully");
+            return Ok("Measurement started");
         }
 
         //leave here... using this snippet later

@@ -15,6 +15,9 @@ namespace SiPMTesterInterface.Hubs
         public async Task SendIVMeasurementStateChange(IVModel i)
         => await Clients.All.ReceiveIVMeasurementStateChange(i.MeasurementState);
 
+        public async Task SendGlobalIVMeasurementStateChange(MeasurementState s)
+        => await Clients.All.ReceiveGlobalIVMeasurementStateChange(s);
+
         public async Task SendSPSMeasurementStateChange(SPSModel s)
         => await Clients.All.ReceiveSPSMeasurementStateChange(s.MeasurementState);
 	}

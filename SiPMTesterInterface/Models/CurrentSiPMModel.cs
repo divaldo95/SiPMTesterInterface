@@ -2,18 +2,24 @@
 namespace SiPMTesterInterface.Models
 {
 	public class CurrentSiPMModel
-	{
+    {
+        public int Block { get; set; }
+        public int Module { get; set; }
         public int Array { get; set; }
         public int SiPM { get; set; }
 
 		public CurrentSiPMModel()
 		{
-			Array = -1;
+            Block = -1;
+            Module = -1;
+            Array = -1;
 			SiPM = -1;
 		}
 
-        public CurrentSiPMModel(int array, int sipm)
+        public CurrentSiPMModel(int block, int module, int array, int sipm)
         {
+            Block = block;
+            Module = module;
             Array = array;
             SiPM = sipm;
         }
@@ -30,8 +36,10 @@ namespace SiPMTesterInterface.Models
             {
                 iArray[i] = int.Parse(sArray[i].Replace(',', '.'));
             }
-            Array = iArray[0];
-            SiPM = iArray[1];
+            Block = iArray[0];
+            Module = iArray[1];
+            Array = iArray[2];
+            SiPM = iArray[3];
         }
     }
 }

@@ -64,6 +64,7 @@ namespace SiPMTesterInterface.Classes
         {
             client.Disconnect(IP);
             client.Close();
+            client.Dispose();
         }
 
         RequestSocket CreateServerSocket()

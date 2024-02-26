@@ -1,6 +1,7 @@
 ﻿using System;
 using NetMQ;
 using NetMQ.Sockets;
+using SiPMTesterInterface.Helpers;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -72,6 +73,12 @@ namespace SiPMTesterInterface.Classes
         {
             using (var subscriberSocket = new SubscriberSocket())
             {
+                var clientPair = new NetMQCertificate();
+
+                var serverPair = KeyReader.ReadKeyFiles("PUBPrivate.key", "PUBPublic.key", true);
+                subscriberSocket.Options.CurveServerKey = serverPair.PublicKey;
+                subscriberSocket.Options.CurveCertificate = clientPair;
+
                 subscriberSocket.Connect(publisherAddress);
                 subscriberSocket.Subscribe("[LOG]");
                 subscriberSocket.Subscribe("[MEAS]");
@@ -87,11 +94,12 @@ namespace SiPMTesterInterface.Classes
                             //Event
                             if (message.Contains("[LOG]"))
                             {
-                                OnLogMessageReceived?.Invoke(this, new LogMessageReceivedEventArgs(message));
+
+                                OnLogMessageReceived?.Invoke(this, new LogMessageReceivedEventArgs(message.Remove(0, 5)));
                             }
                             else if (message.Contains("[MEAS]"))
                             {
-                                OnMeasurementMessageReceived?.Invoke(this, new MeasurementMessageReceivedEventArgs(message));
+                                OnMeasurementMessageReceived?.Invoke(this, new MeasurementMessageReceivedEventArgs(message.Remove(0, 6)));
                             }
                             ChangeTimerInterval(ReceiveIntervalTimeout); //restart timer if needed
                         }

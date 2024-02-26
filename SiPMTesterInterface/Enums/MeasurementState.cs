@@ -6,6 +6,10 @@ namespace SiPMTesterInterface.Enums
         NotRunning,
         Running,
         Finished,
+        FinishedIV,
+        FinishedDMM,
+        FinishedSPS,
+        Error,
         Unknown
     }
 }

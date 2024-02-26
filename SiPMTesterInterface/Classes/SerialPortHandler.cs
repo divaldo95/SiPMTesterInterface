@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO.Ports;
 using SiPMTesterInterface.Controllers;
+using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -17,7 +18,15 @@ namespace SiPMTesterInterface.Classes
 
         public string LastLine { get; private set; } = "";
 
-        public SerialPortHandler(string Port, int Baud, int Timeout = 10000)
+        public SerialPortHandler(IConfiguration config, string obj) : this(new SerialSettings(config, obj))
+        {
+        }
+
+        public SerialPortHandler(SerialSettings settings) : this(settings.SerialPort, settings.BaudRate, settings.Timeout, settings.Enabled)
+        {
+        }
+
+        public SerialPortHandler(string Port, int Baud, int Timeout = 10000, bool Enabled = false)
         {
             _messageReceived = new AutoResetEvent(false);
             _timeout = Timeout;
@@ -29,6 +38,10 @@ namespace SiPMTesterInterface.Classes
                 _serialPort.WriteTimeout = _timeout;
                 _serialPort.PortName = Port;
                 _serialPort.BaudRate = Baud;
+                if (Enabled)
+                {
+                    Start();
+                }
             }
         }
 
@@ -37,7 +50,7 @@ namespace SiPMTesterInterface.Classes
             this._messageReceived.Set();
         }
 
-        private void Start()
+        public void Start()
         {
             if (_serialPort != null && !_serialPort.IsOpen)
             {
@@ -45,7 +58,7 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
-        private void Stop()
+        public void Stop()
         {
             if (_serialPort != null && _serialPort.IsOpen)
             {
@@ -80,7 +93,7 @@ namespace SiPMTesterInterface.Classes
 
                         if (LastLine.Contains("ERROR") || LastLine.Contains("invalid")) //if returned with error, increase counter and try again
                         {
-                            Trace.WriteLine("Pulser returned with error. Trying again... (" + retry_cnt + "/" + retry_num + ")");
+                            Trace.WriteLine("Serial port returned with error. Trying again... (" + retry_cnt + "/" + retry_num + ")");
                             retry_cnt++;
                             Thread.Sleep(2000);
                         }

@@ -4,16 +4,23 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO.Ports;
 using static SiPMTesterInterface.Classes.MeasurementMode;
+using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {
 	public class PSoCCommunicator : SerialPortHandler
 	{
-        private readonly ILogger<PSoCCommunicator> _logger;
 
-		public PSoCCommunicator(string Port, int Baud, int Timeout, ILogger<PSoCCommunicator> logger) : base(Port, Baud, Timeout)
+        public PSoCCommunicator(IConfiguration config) : base(config, "Pulser")
+        {
+        }
+
+        public PSoCCommunicator(SerialSettings settings) : base(settings)
+        {
+        }
+
+		public PSoCCommunicator(string Port, int Baud, int Timeout) : base(Port, Baud, Timeout)
 		{
-            _logger = logger;
 		}
 
         //Block - a dupla egység
@@ -55,12 +62,6 @@ namespace SiPMTesterInterface.Classes
             command = command.Remove(command.Length - 1);
 
             WriteCommand(command);
-
-            //Parse lastline
-            if (LastLine.Contains("ERROR") || LastLine.Contains("invalid"))
-            {
-                throw new Exception(LastLine);
-            }
         }
 
         public TemperaturesArray ReadTemperatures(int block)
@@ -70,10 +71,6 @@ namespace SiPMTesterInterface.Classes
             double[] tempd;
             string lastline = LastLine;
             WriteCommand(command);
-            if (LastLine.Contains("ERROR") || LastLine.Contains("invalid"))
-            {
-                throw new Exception(LastLine);
-            }
             lastline = lastline.Remove(0, LastLine.IndexOf('*') + 1); //remove everything until first *
             lastline = lastline.Remove(lastline.IndexOf('*'), 1); //remove last *
             temps = lastline.Split(',');
@@ -91,11 +88,6 @@ namespace SiPMTesterInterface.Classes
             string[] temps;
             double[] tempd;
             WriteCommand(command);
-            //Parse lastline
-            if (LastLine.Contains("ERROR") || LastLine.Contains("invalid"))
-            {
-                throw new Exception(LastLine);
-            }
             Cooler cooler = new Cooler(LastLine);
             //Trace.WriteLine(cooler.ToString());
             return cooler;
@@ -138,11 +130,6 @@ namespace SiPMTesterInterface.Classes
             }
             command += fan_speed.ToString();
             WriteCommand(command);
-            //Parse lastline
-            if (LastLine.Contains("ERROR") || LastLine.Contains("invalid"))
-            {
-                throw new Exception(LastLine);
-            }
         }
 
         

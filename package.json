@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@microsoft/signalr": "^8.0.0"
+    "@microsoft/signalr": "^8.0.0",
+    "react-bootstrap-sidebar-menu": "^2.0.3"
   }
 }
