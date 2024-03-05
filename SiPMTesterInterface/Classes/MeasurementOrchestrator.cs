@@ -71,12 +71,12 @@ namespace SiPMTesterInterface.Classes
 
         public bool IsIVIterationAvailable()
         {
-            return (CurrentIVMeasurementIndex < IVMeasurementOrder.Count);
+            return (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && CurrentIVMeasurementIndex >= 0);
         }
 
         public bool IsSPSterationAvailable()
         {
-            return (CurrentSPSMeasurementIndex < SPSMeasurementOrder.Count);
+            return (CurrentSPSMeasurementIndex < SPSMeasurementOrder.Count && CurrentSPSMeasurementIndex >= 0);
         }
 
         public bool IsIterationAvailable()

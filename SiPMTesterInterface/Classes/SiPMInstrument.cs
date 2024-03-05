@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NetMQ;
 using NetMQ.Sockets;
+using Newtonsoft.Json.Linq;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Controllers;
 using SiPMTesterInterface.Enums;
@@ -95,8 +96,8 @@ namespace SiPMTesterInterface.Classes
         public string InstrumentName { get; private set; }
         private readonly object _updateLock = new object();
 
-        private ConnectionState _ConnectionState { get; set; }
-        private MeasurementState _MeasurementState { get; set; }
+        private ConnectionState _ConnectionState { get; set; } = ConnectionState.Disconnected;
+        private MeasurementState _MeasurementState { get; set; } = MeasurementState.Unknown;
 
         /* Save those commands which needs a response data from the instrument
          * Most likely while the pub-sub socket works this cleared automatically.
@@ -179,36 +180,6 @@ namespace SiPMTesterInterface.Classes
 
         protected bool Enabled { get; set; } = false;
 
-        private void UpdateMeasurementState(string data, bool isReceiveOK)
-        {
-            int state = (int)MeasurementState.Unknown;
-            if (isReceiveOK)
-            {
-                int.TryParse(data, out state);
-            }
-            lock (_updateLock)
-            {
-                MeasurementState = (MeasurementState)state;
-            }
-        }
-
-        private void UpdateConnectionState(string data, bool isReceiveOK)
-        {
-            if (!isReceiveOK)
-            {
-                ConnectionState = ConnectionState.Disconnected;
-                return;
-            }
-            if (data.Equals("pong"))
-            {
-                ConnectionState = ConnectionState.Connected;
-            }
-            else
-            {
-                ConnectionState = ConnectionState.Error;
-            }
-        }
-
         /*
          * Replacing the test code with JSON structures
          */
@@ -220,12 +191,6 @@ namespace SiPMTesterInterface.Classes
         private void OnMessageReceiveFailCallback(object? sender, MessageReceiveFailEventArgs resp)
         {
             ProcessResponseString(resp.Message, false);
-            /*
-            string obj = resp.Message;
-            string data = "";
-
-            UpdateState(obj, data, false);
-            */
         }
 
         private void OnLogMessageReceived(object? sender, LogMessageReceivedEventArgs e)
@@ -236,35 +201,6 @@ namespace SiPMTesterInterface.Classes
         private void OnMeasurementMessageReceived(object? sender, MeasurementMessageReceivedEventArgs e)
         {
             ProcessResponseString(e.Message);
-
-            /*
-            if (root.TryGetProperty("SMUVoltages", out _) &&
-                root.TryGetProperty("SMUCurrent", out _) &&
-                root.TryGetProperty("DMMVoltages", out _))
-            {
-                IVMeasurementResponseModel model = JsonSerializer.Deserialize<IVMeasurementResponseModel>(e.Message);
-
-                RemoveFromWaitingResponseData(model.Identifier);
-                //save data
-            }
-
-            else if (root.TryGetProperty("DMMResistance", out _))
-            {
-                DMMResistanceMeasurementResponseModel model = JsonSerializer.Deserialize<DMMResistanceMeasurementResponseModel>(e.Message);
-
-                RemoveFromWaitingResponseData(model.Identifier);
-                //save data
-            }
-            */
-        }
-
-        private void OnMessageReceivedIntervalElapsed(object? sender, MessageReceivedIntervalElapsedEventArgs e)
-        {
-            /* A timer set to check intervals between messages. If the last message arrived late
-             * this timer will fire this event. In that case the other side can be asked whether it
-             * is alive or resend the necessary data.
-             */
-            _logger.LogInformation("Message received time interval elapsed");
         }
 
         private void OnLogBufferInconsistency(object? sender, MessageBufferIncosistencyEventArgs e)
@@ -301,8 +237,8 @@ namespace SiPMTesterInterface.Classes
             subSocket.OnMeasurementMessageReceived += OnMeasurementMessageReceived;
 
             //automatically query these strings
-            reqSocket.AddQueryMessage("Ping");
-            reqSocket.AddQueryMessage("GetState");
+            reqSocket.AddQueryMessage("Ping:{\"Status:\": 1}"); //Add some placeholder json
+            reqSocket.AddQueryMessage("GetState:{\"Status:\": 1}");
         }
 
         public void Start()
@@ -324,12 +260,17 @@ namespace SiPMTesterInterface.Classes
             DMMResistanceMeasurementResponseModel? dmmRespModel = null;
             StatusChangeResponseModel? statusRespModel = null;
             MeasurementStartResponseModel? startResponseModel = null;
+            MeasurementIdentifier? measurementIdentifier = null;
 
-            string[] splitted = response.Split(':');
-            if (splitted.Count() == 2 && splitted[1].ToLower().Equals("pong"))
+            string sender;
+            string error;
+            JObject obj;
+
+            bool parseSuccessful = Parser.ParseMeasurementStatus(response, out sender, out obj);
+
+            if (sender == "Pong" || sender == "Ping" || sender == "Ping:Pong")
             {
                 ConnectionState = isReceiveOK ? ConnectionState.Connected : ConnectionState.Disconnected;
-                return;
             }
 
             if (!isReceiveOK)
@@ -337,62 +278,43 @@ namespace SiPMTesterInterface.Classes
                 return;
             }
 
-            JsonDocument? document;
-            string msgSender = "";
-            if (!Parser.ParseMeasurementStatus(response, out msgSender, out document))
+            if (!parseSuccessful)
             {
                 _logger.LogInformation($"Failed to parse {response}");
                 return;
             }
 
-            JsonElement root = document.RootElement;
-            JsonElement id;
-
-            if (root.TryGetProperty("State", out id))
+            if (obj.Property("State") != null && Parser.JObject2JSON(obj, out statusRespModel, out error))
             {
-                statusRespModel = JsonSerializer.Deserialize<StatusChangeResponseModel>(root);
-                if (statusRespModel != null)
-                {
-                    MeasurementState = statusRespModel.State;
-                }
-                return; //Received status update
+                MeasurementState = statusRespModel.State;
+                return;
             }
-            else if (!root.TryGetProperty("Identifier", out id))
+            else if (obj.Property("Identifier") == null)
             {
                 return; //Not the droids we are looking for
             }
-            MeasurementIdentifier? measurementIdentifier = JsonSerializer.Deserialize<MeasurementIdentifier>(id);
-
-            if (measurementIdentifier == null)
+            else if (!Parser.JObject2JSON(obj, out measurementIdentifier, out error))
             {
                 return;
             }
 
-            if (root.TryGetProperty("Successful", out _))
+            else if (obj.Property("Successful") != null && Parser.JObject2JSON(obj, out startResponseModel, out error))
             {
-                //received start response
-                startResponseModel = JsonSerializer.Deserialize<MeasurementStartResponseModel>(root);
-                if (startResponseModel != null)
+                if (startResponseModel.Successful)
                 {
-                    if (startResponseModel.Successful)
-                    {
-                        AddWaitingResponseData(startResponseModel.Identifier);
-                    }
-                    else
-                    {
-                        //handle error
-                        _logger.LogError(startResponseModel.ErrorMessage);
-                    }
-
+                    AddWaitingResponseData(startResponseModel.Identifier);
                 }
-                return;
+                else
+                {
+                    //handle error
+                    _logger.LogError(startResponseModel.ErrorMessage);
+                }
             }
 
             switch (measurementIdentifier.Type)
             {
                 case MeasurementType.IVMeasurement:
-                    ivRespModel = JsonSerializer.Deserialize<IVMeasurementResponseModel>(root);
-                    if (ivRespModel != null)
+                    if (Parser.JObject2JSON(obj, out ivRespModel, out error))
                     {
                         RemoveFromWaitingResponseData(ivRespModel.Identifier);
                         OnIVMeasurementDataReceived?.Invoke(this, new IVMeasurementDataReceivedEventArgs(ivRespModel));
@@ -403,8 +325,7 @@ namespace SiPMTesterInterface.Classes
 
                     break;
                 case MeasurementType.DMMResistanceMeasurement:
-                    dmmRespModel = JsonSerializer.Deserialize<DMMResistanceMeasurementResponseModel>(root);
-                    if (dmmRespModel != null)
+                    if (Parser.JObject2JSON(obj, out dmmRespModel, out error))
                     {
                         RemoveFromWaitingResponseData(dmmRespModel.Identifier);
                         OnDMMMeasurementDataReceived?.Invoke(this, new DMMMeasurementDataReceivedEventArgs(dmmRespModel));

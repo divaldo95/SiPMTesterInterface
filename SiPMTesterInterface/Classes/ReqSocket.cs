@@ -4,6 +4,7 @@ using NetMQ;
 using NetMQ.Sockets;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
+using static NetMQ.NetMQSelector;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -141,7 +142,20 @@ namespace SiPMTesterInterface.Classes
                 foreach (var item in queryMsgs)
                 {
                     //AskServer(item);
-                    Task t = new Task(() => AskServer(item));
+                    Task t = new Task(() =>
+                    {
+                        try
+                        {
+                            AskServer(item);
+                        }
+                        catch (NetMQException ex)
+                        {
+                            Console.WriteLine($"Error: {ex.Message}");
+                            TerminateClient(reqSocket);
+                            reqSocket = CreateServerSocket();
+                        }
+                        
+                    });
                     // Start the task.
                     t.Start();
                 }
@@ -168,7 +182,16 @@ namespace SiPMTesterInterface.Classes
         //Run command directly
         public void RunCommand(string command)
         {
-            AskServer(command);
+            try
+            {
+                AskServer(command);
+            }
+            catch (NetMQException ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                TerminateClient(reqSocket);
+                reqSocket = CreateServerSocket();
+            }
         }
 
         public void ChangeTimerInterval(TimeSpan period)

@@ -51,7 +51,7 @@ namespace SiPMTesterInterface.Controllers
                 IVConnectionState = _measurementService.IVConnectionState,
                 SPSConnectionState = _measurementService.SPSConnectionState,
                 IVState = _measurementService.GlobalIVState,
-                SPSState = _measurementService.GlobalIVState
+                SPSState = _measurementService.GlobalIVState //only for testing
             };
             return Ok(measurementStates);
         }
