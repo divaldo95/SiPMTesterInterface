@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NetMQ;
 using NetMQ.Sockets;
+using Newtonsoft.Json;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -69,10 +70,12 @@ namespace SiPMTesterInterface.Controllers
                 return BadRequest(ResponseMessages.Error("Empty start data frame"));
             }
 
+            _logger.LogInformation($"MeasurementStart information received: {JsonConvert.SerializeObject(measurementStart)}");
+
             _measurementService.StartMeasurement(measurementStart);
 
             // Return a success response
-            return Ok("Measurement started");
+            return Ok("Measurement start requested successfully");
         }
 
         //leave here... using this snippet later

@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.AspNetCore.SignalR;
+using Newtonsoft.Json;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Hubs;
@@ -9,7 +10,7 @@ using SiPMTesterInterface.Models;
 namespace SiPMTesterInterface.ClientApp.Services
 {
     public class MeasurementService : MeasurementOrchestrator
-	{
+    {
         private readonly object _lockObject = new object();
 
         private bool MeasStateChanged = false;
@@ -20,7 +21,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         private readonly PSoCCommunicator Pulser;
         private readonly HVPSU hvPSU;
 
-        private readonly MeasurementOrchestrator orchestrator;
+        //private readonly MeasurementOrchestrator orchestrator;
 
         private readonly IConfiguration Configuration;
 
@@ -59,53 +60,57 @@ namespace SiPMTesterInterface.ClientApp.Services
             */
         }
 
-        public void StartMeasurement(MeasurementStartModel measurementData)
+        public void CheckAndRunNext()
         {
-            orchestrator.PrepareMeasurement(measurementData);
-            
-            // Run DMM resistance measurement if any IV measurement is set
-            if (IsIVIterationAvailable())
+            MeasurementType Type;
+            object nextMeasurementData;
+            List<CurrentSiPMModel> sipms;
+            if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
-                if (measurementData.MeasureDMMResistance)
+                
+                if (Type == MeasurementType.DMMResistanceMeasurement)
                 {
-                    niMachine.StartDMMResistanceMeasurement(measurementData.DMMResistance); //start with dmm resistance measurement if enabled
+                    NIDMMStartModel niDMMStart = nextMeasurementData as NIDMMStartModel;
+                    niDMMStart.DMMResistance = globalState.CurrentRun.DMMResistance;
+                    niMachine.StartDMMResistanceMeasurement(niDMMStart);
                 }
-                else
+
+                else if (Type == MeasurementType.IVMeasurement)
                 {
-                    NIMachineStartModel startModel;
-                    if (GetNextIterationData(out startModel))
+                    NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel;
+                    if (sipms.Count != 1)
                     {
-                        niMachine.StartIVMeasurement(startModel);
+                        _logger.LogError("Can not measure more than one SiPM at a time for IV");
+                        return;
                     }
-                    else
-                    {
-                        _logger.LogError("Error while getting the next iteration on StartMeasurement");
-                    }
+                    //set IV settings
+                    //change SiPM relays
+                    niMachine.StartIVMeasurement(niIVStart);
                 }
             }
+        }
 
+        public void StartMeasurement(MeasurementStartModel measurementData)
+        {
+            PrepareMeasurement(measurementData);
+            CheckAndRunNext();
         }
 
         private void OnDMMMeasurementDataReceived(object? sender, DMMMeasurementDataReceivedEventArgs e)
         {
             //save data here
+            _logger.LogInformation("DMMMeasurementReceived");
 
-            NIMachineStartModel startModel;
-            if (GetNextIterationData(out startModel))
-            {
-                niMachine.StartIVMeasurement(startModel);
-            }
+            CheckAndRunNext();
         }
 
         private void OnIVMeasurementDataReceived(object? sender, IVMeasurementDataReceivedEventArgs e)
         {
             //save data here
 
-            NIMachineStartModel startModel;
-            if (GetNextIterationData(out startModel))
-            {
-                niMachine.StartIVMeasurement(startModel);
-            }
+            _logger.LogInformation("IVMeasurementReceived");
+
+            CheckAndRunNext();
         }
 
         public MeasurementService(ILogger<MeasurementService> logger, ILogger<NIMachine> niLogger, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()
@@ -114,20 +119,71 @@ namespace SiPMTesterInterface.ClientApp.Services
             _logger = logger;
             _hubContext = hubContext;
 
-            orchestrator = new MeasurementOrchestrator();
+            try
+            {
+                niMachine = new NIMachine(Configuration, niLogger);
+                niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
+                niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
 
-            niMachine = new NIMachine(Configuration, niLogger);
-            niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
-            niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
+                niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
+                niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
 
-            niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
-            niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
+                Pulser = new PSoCCommunicator(Configuration);
+                hvPSU = new HVPSU(Configuration);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+            }
 
-            Pulser = new PSoCCommunicator(Configuration);
-            hvPSU = new HVPSU(Configuration);
+
+
+            MeasurementStartModel startModel = new MeasurementStartModel();
+            startModel.MeasureDMMResistance = true;
+            startModel.DMMResistance.Voltage = 30.0;
+            startModel.DMMResistance.Iterations = 3;
+            startModel.DMMResistance.CorrectionPercentage = 10;
+
+            startModel.IV = 1;
+            startModel.SPS = 0;
+            startModel.SPSVoltagesIsOffsets = 0;
+            startModel.IVVoltages.Add(10.0);
+            startModel.IVVoltages.Add(11.0);
+            startModel.IVVoltages.Add(12.0);
+            startModel.IVVoltages.Add(13.0);
+
+            startModel.SPSVoltages.Add(8.0);
+            startModel.SPSVoltages.Add(9.0);
+            startModel.SPSVoltages.Add(10.0);
+            startModel.SPSVoltages.Add(11.0);
+
+            startModel.Blocks = new List<Block>();
+
+            for (int i = 0; i < 2; i++)
+            {
+                Block block = new Block();
+                for (int j = 0; j < 2; j++)
+                {
+                    Module module = new Module();
+                    for (int k = 0; k < 4; k++)
+                    {
+                        Models.Array array = new Models.Array();
+                        for (int l = 0; l < 16; l++)
+                        {
+                            SiPM sipm = new SiPM();
+                            array.SiPMs.Add(sipm);
+                        }
+                        module.Arrays.Add(array);
+                    }
+                    block.Modules.Add(module);
+                }
+                startModel.Blocks.Add(block);
+            }
+
+            Console.WriteLine($"TestQuery: {JsonConvert.SerializeObject(startModel)}");
         }
 
-        
+
 
         //Status of individual IV measurements (job is running on NI machine or not
         public MeasurementState IVState

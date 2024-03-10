@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Reflection;
+using Newtonsoft.Json;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -52,26 +55,67 @@ namespace SiPMTesterInterface.Classes
         }
     }
 
-	public class NIMachine : SiPMInstrument
+    public class IVMeasurementDataReceivedEventArgs : EventArgs
+    {
+        public IVMeasurementDataReceivedEventArgs() : base()
+        {
+            Data = new IVMeasurementResponseModel();
+        }
+
+        public IVMeasurementDataReceivedEventArgs(IVMeasurementResponseModel d) : base()
+        {
+            Data = d;
+        }
+        public IVMeasurementResponseModel Data { get; set; }
+    }
+
+    public class DMMMeasurementDataReceivedEventArgs : EventArgs
+    {
+        public DMMMeasurementDataReceivedEventArgs() : base()
+        {
+            Data = new DMMResistanceMeasurementResponseModel();
+        }
+
+        public DMMMeasurementDataReceivedEventArgs(DMMResistanceMeasurementResponseModel d) : base()
+        {
+            Data = d;
+        }
+        public DMMResistanceMeasurementResponseModel Data { get; set; }
+    }
+
+    public class MeasurementStartEventArgs : EventArgs
+    {
+        public MeasurementStartEventArgs() : base()
+        {
+            Response = new MeasurementStartResponseModel();
+        }
+
+        public MeasurementStartEventArgs(MeasurementStartResponseModel r) : base()
+        {
+            Response = r;
+        }
+        public MeasurementStartResponseModel Response { get; set; }
+    }
+
+    public class NIMachine : SiPMInstrument
 	{
         private object _lockObject = new object();
 
-        public void AddWaitingResponseData(NIMachineStartModel measurementData)
-        {
-            WaitingResponseData d = new WaitingResponseData(measurementData.Identifier, RequeryMeasurementResults, HandleGettingMeasurementResultsFail);
-            d.Start(TimeSpan.FromSeconds(30));
-            waitingResponseDatas.Add(d);
-        }
+        public event EventHandler<IVMeasurementDataReceivedEventArgs> OnIVMeasurementDataReceived;
+        public event EventHandler<DMMMeasurementDataReceivedEventArgs> OnDMMMeasurementDataReceived;
+        public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartSuccess;
+        public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartFail;
 
-        public void StartIVMeasurement(NIMachineStartModel measurementData)
+        public void StartIVMeasurement(NIIVStartModel measurementData)
         {
-            string msg = "StartIVMeasurement:" + System.Text.Json.JsonSerializer.Serialize(measurementData);
+            string msg = "StartIVMeasurement:" + JsonConvert.SerializeObject(measurementData);
             base.reqSocket.RunCommand(msg);
         }
 
-        public void StartDMMResistanceMeasurement(DMMResistanceModel measurementData)
+        public void StartDMMResistanceMeasurement(NIDMMStartModel measurementData)
         {
-            string msg = "StartDMMResistanceMeasurement:" + System.Text.Json.JsonSerializer.Serialize(measurementData);
+            string msg = "StartDMMMeasurement:" + JsonConvert.SerializeObject(measurementData);
+            Console.WriteLine($"Sent command: {msg}");
             base.reqSocket.RunCommand(msg);
         }
 
@@ -87,8 +131,8 @@ namespace SiPMTesterInterface.Classes
 		public NIMachine(bool enabled, string ip, int controlPort, int logPort, TimeSpan period, ILogger<NIMachine> logger) :
 			base("NIMachine", ip, controlPort, logPort, period, logger)
 		{
-            base.reqSocket.OnMessageReceived += ReqSocket_OnMessageReceived;
-            base.reqSocket.OnMessageReceiveFail += ReqSocket_OnMessageReceiveFail;
+            OnJSONResponseReceived += OnGenericResponseReceived;
+
             //base.reqSocket.AddQueryMessage("GetCurrentSiPM");
             if (enabled)
             {
@@ -97,25 +141,72 @@ namespace SiPMTesterInterface.Classes
 		}
 
         /*
-         * Structure of incoming data: Object:Data
-         * Object: The object the data is for
-         * Data: Status update
+         * NI machine related possible cases:
+         * - Measurement started successfully
+         * - Measurement start failed
+         * - IV measurement done, data received
+         * - DMM resistance measurement done, data received
+         * Handle all of them here.
          */
-        private void ReqSocket_OnMessageReceived(object? sender, MessageReceivedEventArgs resp)
+        private void OnGenericResponseReceived(object? sender, JSONResponseReceivedEventArgs e)
         {
-            //Console.WriteLine($"Receive OK event NIMachine: {resp.Message}");
-            //ProcessResponseString(resp.Message);
-        }
+            string error = "";
 
-        /*
-         * When the service fails to query the client
-         * this function is called.
-         * It can be used to detect failure of network or service on the other end.
-         */
-        private void ReqSocket_OnMessageReceiveFail(object? sender, MessageReceiveFailEventArgs resp)
-        {
-            //Console.WriteLine($"Receive failed event NIMachine: {resp.Message}");
-            //ProcessResponseString(resp.Message, false);
+            //costs less to check wheter it has an Identifier property than try parsing it
+            if (e.Response.jsonObject.Property("Identifier") == null)
+            {
+                return; //Not the droids we are looking for
+            }
+
+            if (e.Response.Sender == "IVMeasurementDone" || e.Response.Sender == "IVMeasurementResult")
+            {
+                IVMeasurementResponseModel respModel;
+                if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    if (respModel.ErrorHappened)
+                    {
+                        _logger.LogError(respModel.ErrorMessage);
+                    }
+                    RemoveFromWaitingResponseData(respModel.Identifier);
+                    OnIVMeasurementDataReceived?.Invoke(this, new IVMeasurementDataReceivedEventArgs(respModel));
+                }
+                return;
+            }
+
+            if (e.Response.Sender == "DMMMeasurementDone" || e.Response.Sender == "DMMMeasurementResult")
+            {
+                DMMResistanceMeasurementResponseModel respModel;
+                if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    if (respModel.ErrorHappened)
+                    {
+                        _logger.LogError(respModel.ErrorMessage);
+                    }
+                    RemoveFromWaitingResponseData(respModel.Identifier);
+                    OnDMMMeasurementDataReceived?.Invoke(this, new DMMMeasurementDataReceivedEventArgs(respModel));
+                }
+                return;
+            }
+
+            if (e.Response.Sender == "MeasurementStart")
+            {
+                MeasurementStartResponseModel respModel;
+                if (!Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    _logger.LogError($"Failed to parse MeasurementStart event ({error})");
+                    return;
+                }
+                if (respModel.Successful)
+                {
+                    AddWaitingResponseData(respModel.Identifier);
+                    OnMeasurementStartSuccess?.Invoke(this, new MeasurementStartEventArgs(respModel));
+                }
+                else
+                {
+                    OnMeasurementStartFail?.Invoke(this, new MeasurementStartEventArgs(respModel));
+                }
+                return;
+            }
         }
 	}
 }

@@ -5,19 +5,33 @@ namespace SiPMTesterInterface.Classes
 {
 	public class MeasurementIdentifier : IEquatable<MeasurementIdentifier>
     {
-        public MeasurementType Type { get; private set; }
-        public int ID { get; private set; }
+        public MeasurementType Type { get; set; }
+        public string ID { get; set; }
 
         public MeasurementIdentifier()
         {
             Type = MeasurementType.Unknown;
-            ID = -1;
+            ID = "";
+            GenerateID();
         }
 
-        public MeasurementIdentifier(MeasurementType t, int id)
+        public MeasurementIdentifier(MeasurementType type)
+        {
+            Type = type;
+            ID = "";
+            GenerateID();
+        }
+
+        public MeasurementIdentifier(MeasurementType t, string id)
 		{
             Type = t;
             ID = id;
+        }
+
+        public void GenerateID()
+        {
+            Guid guid = Guid.NewGuid();
+            ID = guid.ToString();
         }
 
         public bool Equals(MeasurementIdentifier? other)

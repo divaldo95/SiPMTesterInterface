@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reflection;
@@ -16,6 +17,7 @@ using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Models;
+using static NetMQ.NetMQSelector;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -49,32 +51,18 @@ namespace SiPMTesterInterface.Classes
         public MeasurementState State { get; set; } = MeasurementState.Unknown;
     }
 
-    public class IVMeasurementDataReceivedEventArgs : EventArgs
+    public class JSONResponseReceivedEventArgs : EventArgs
     {
-        public IVMeasurementDataReceivedEventArgs() : base()
+        public JSONResponseReceivedEventArgs() : base()
         {
-            Data = new IVMeasurementResponseModel();
+            Response = new GenericResponseModel();
         }
 
-        public IVMeasurementDataReceivedEventArgs(IVMeasurementResponseModel d) : base()
+        public JSONResponseReceivedEventArgs(GenericResponseModel r) : base()
         {
-            Data = d;
+            Response = r;
         }
-        public IVMeasurementResponseModel Data { get; set; }
-    }
-
-    public class DMMMeasurementDataReceivedEventArgs : EventArgs
-    {
-        public DMMMeasurementDataReceivedEventArgs() : base()
-        {
-            Data = new DMMResistanceMeasurementResponseModel();
-        }
-
-        public DMMMeasurementDataReceivedEventArgs(DMMResistanceMeasurementResponseModel d) : base()
-        {
-            Data = d;
-        }
-        public DMMResistanceMeasurementResponseModel Data { get; set; }
+        public GenericResponseModel Response { get; set; }
     }
 
     /*
@@ -92,7 +80,7 @@ namespace SiPMTesterInterface.Classes
 
         protected MessageBuffer logBuffer;
 
-        private readonly ILogger<SiPMInstrument> _logger;
+        protected readonly ILogger<SiPMInstrument> _logger;
         public string InstrumentName { get; private set; }
         private readonly object _updateLock = new object();
 
@@ -108,7 +96,14 @@ namespace SiPMTesterInterface.Classes
 
         public void RemoveFromWaitingResponseData(MeasurementIdentifier id)
         {
-            waitingResponseDatas.RemoveAll(item => item.Identifier == id); //Got the results
+            WaitingResponseData? foundItem = waitingResponseDatas.FirstOrDefault(item => item.Identifier.ID == id.ID && item.Identifier.Type == id.Type);
+
+            if (foundItem != null)
+            {
+                foundItem.Stop();
+                foundItem.Close();
+            }
+            waitingResponseDatas.RemoveAll(item => item.Identifier.ID == id.ID && item.Identifier.Type == id.Type); //Got the results
         }
 
         public ConnectionState ConnectionState
@@ -158,7 +153,7 @@ namespace SiPMTesterInterface.Classes
 
         public void RequeryMeasurementResults(WaitingResponseData responseData)
         {
-            string msg = "SendResultsAgain:" + JsonSerializer.Serialize(responseData.Identifier);
+            string msg = "GetMeasurementData:" + JsonSerializer.Serialize(responseData.Identifier);
             RunCommand(msg);
         }
 
@@ -172,8 +167,7 @@ namespace SiPMTesterInterface.Classes
         public event EventHandler<ConnectionStateChangedEventArgs> OnConnectionStateChanged;
         public event EventHandler<MeasurementStateChangedEventArgs> OnMeasurementStateChanged;
 
-        public event EventHandler<IVMeasurementDataReceivedEventArgs> OnIVMeasurementDataReceived;
-        public event EventHandler<DMMMeasurementDataReceivedEventArgs> OnDMMMeasurementDataReceived;
+        public event EventHandler<JSONResponseReceivedEventArgs> OnJSONResponseReceived;
 
         private readonly string reqSocIP;
         private readonly string subSocIP;
@@ -228,17 +222,25 @@ namespace SiPMTesterInterface.Classes
             logBuffer = new MessageBuffer();
             logBuffer.OnMessageBufferIncosistency += OnLogBufferInconsistency;
 
-            reqSocket = new ReqSocket(reqSocIP, period);
-            reqSocket.OnMessageReceived += OnMessageReceivedCallback;
-            reqSocket.OnMessageReceiveFail += OnMessageReceiveFailCallback;
+            try
+            {
+                reqSocket = new ReqSocket(reqSocIP, period);
+                reqSocket.OnMessageReceived += OnMessageReceivedCallback;
+                reqSocket.OnMessageReceiveFail += OnMessageReceiveFailCallback;
 
-            subSocket = new SubSocket(subSocIP);
-            subSocket.OnLogMessageReceived += OnLogMessageReceived;
-            subSocket.OnMeasurementMessageReceived += OnMeasurementMessageReceived;
+                subSocket = new SubSocket(subSocIP);
+                subSocket.OnLogMessageReceived += OnLogMessageReceived;
+                subSocket.OnMeasurementMessageReceived += OnMeasurementMessageReceived;
 
-            //automatically query these strings
-            reqSocket.AddQueryMessage("Ping:{\"Status:\": 1}"); //Add some placeholder json
-            reqSocket.AddQueryMessage("GetState:{\"Status:\": 1}");
+                //automatically query these strings
+                reqSocket.AddQueryMessage("Ping:{\"Status:\": 1}"); //Add some placeholder json
+                reqSocket.AddQueryMessage("GetState:{\"Status:\": 1}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error while initializing SiPMInstrument: {ex.Message}");
+            }
+            
         }
 
         public void Start()
@@ -255,28 +257,11 @@ namespace SiPMTesterInterface.Classes
 
         public void ProcessResponseString(string response, bool isReceiveOK = true)
         {
-            _logger.LogInformation($"Processing {response}...");
-            IVMeasurementResponseModel? ivRespModel = null;
-            DMMResistanceMeasurementResponseModel? dmmRespModel = null;
-            StatusChangeResponseModel? statusRespModel = null;
-            MeasurementStartResponseModel? startResponseModel = null;
-            MeasurementIdentifier? measurementIdentifier = null;
-
             string sender;
             string error;
             JObject obj;
 
             bool parseSuccessful = Parser.ParseMeasurementStatus(response, out sender, out obj);
-
-            if (sender == "Pong" || sender == "Ping" || sender == "Ping:Pong")
-            {
-                ConnectionState = isReceiveOK ? ConnectionState.Connected : ConnectionState.Disconnected;
-            }
-
-            if (!isReceiveOK)
-            {
-                return;
-            }
 
             if (!parseSuccessful)
             {
@@ -284,58 +269,36 @@ namespace SiPMTesterInterface.Classes
                 return;
             }
 
-            if (obj.Property("State") != null && Parser.JObject2JSON(obj, out statusRespModel, out error))
+            if (sender == "Pong" || sender == "Ping" || sender == "Ping:Pong")
             {
-                MeasurementState = statusRespModel.State;
+                ConnectionState = isReceiveOK ? ConnectionState.Connected : ConnectionState.Disconnected;
                 return;
             }
-            else if (obj.Property("Identifier") == null)
-            {
-                return; //Not the droids we are looking for
-            }
-            else if (!Parser.JObject2JSON(obj, out measurementIdentifier, out error))
+
+            if (!isReceiveOK)
             {
                 return;
             }
 
-            else if (obj.Property("Successful") != null && Parser.JObject2JSON(obj, out startResponseModel, out error))
+            if (sender == "StatusChange")
             {
-                if (startResponseModel.Successful)
+                StatusChangeResponseModel statusRespModel;
+                if (Parser.JObject2JSON(obj, out statusRespModel, out error))
                 {
-                    AddWaitingResponseData(startResponseModel.Identifier);
+                    MeasurementState = statusRespModel.State;
                 }
-                else
-                {
-                    //handle error
-                    _logger.LogError(startResponseModel.ErrorMessage);
-                }
+                return;
             }
 
-            switch (measurementIdentifier.Type)
-            {
-                case MeasurementType.IVMeasurement:
-                    if (Parser.JObject2JSON(obj, out ivRespModel, out error))
-                    {
-                        RemoveFromWaitingResponseData(ivRespModel.Identifier);
-                        OnIVMeasurementDataReceived?.Invoke(this, new IVMeasurementDataReceivedEventArgs(ivRespModel));
-                        //save data
-                    }
-                    break;
-                case MeasurementType.SPSMeasurement:
+            //Do not print the status messages
+            //_logger.LogInformation($"Processing {response}...");
 
-                    break;
-                case MeasurementType.DMMResistanceMeasurement:
-                    if (Parser.JObject2JSON(obj, out dmmRespModel, out error))
-                    {
-                        RemoveFromWaitingResponseData(dmmRespModel.Identifier);
-                        OnDMMMeasurementDataReceived?.Invoke(this, new DMMMeasurementDataReceivedEventArgs(dmmRespModel));
-                        //save data
-                    }
-                    break;
-                default:
-                    _logger.LogError($"Unknown type of response message received: {measurementIdentifier.Type}");
-                    break;
-            }
+            /* Every response contains a sender and a JSON object
+             * Try to parse and handle the basic instrument stuff here.
+             * Pass the parsed GenericResponse to an event
+             * and handle all the other cases there.
+             */
+            OnJSONResponseReceived?.Invoke(this, new JSONResponseReceivedEventArgs(new GenericResponseModel(sender, obj)));
         }
     }
 }

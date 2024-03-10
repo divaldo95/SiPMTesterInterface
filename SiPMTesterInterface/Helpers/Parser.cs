@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Helpers
 {
@@ -23,6 +24,15 @@ namespace SiPMTesterInterface.Helpers
                 // If an exception is thrown during parsing, the JSON is not valid
                 return false;
             }
+        }
+
+        public static bool ParseMeasurementStatus(string status, out GenericResponseModel parsedResponse)
+        {
+            string sender;
+            JObject obj;
+            bool retVal = ParseMeasurementStatus(status, out sender, out obj);
+            parsedResponse = new GenericResponseModel(sender, obj);
+            return retVal;
         }
 
         public static bool ParseMeasurementStatus(string status, out string sender, out JObject document)

@@ -1,10 +1,13 @@
 ﻿using System;
+using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {
 	public class MeasurementOrchestrator
 	{
+        private bool MeasureDMMResistanceAtBegining = true;
+
         //Only one IV measurement at a time
         private int CurrentIVMeasurementIndex = -1; //-1 - No measurement available, 0 -> IVMeasurementOrder.Count - Actual measurement index
         public List<CurrentSiPMModel> IVMeasurementOrder { get; private set; } = new List<CurrentSiPMModel>();
@@ -14,6 +17,8 @@ namespace SiPMTesterInterface.Classes
         public List<List<CurrentSiPMModel>> SPSMeasurementOrder { get; private set; } = new List<List<CurrentSiPMModel>>(); //don't forget to create the second list
 
         protected GlobalStateModel globalState = new GlobalStateModel();
+
+
 
         public int IVCount
         {
@@ -33,10 +38,12 @@ namespace SiPMTesterInterface.Classes
 
         public MeasurementOrchestrator()
 		{
+            globalState = new GlobalStateModel();
 		}
 
 		public void PrepareMeasurement(MeasurementStartModel measurementStart)
 		{
+            MeasureDMMResistanceAtBegining = true;
             globalState.CurrentRun = measurementStart;
             // Flatten the structure, include indices, and filter items where SiPM.IV == 1
             var filteredSiPMs = globalState.CurrentRun.Blocks
@@ -89,37 +96,57 @@ namespace SiPMTesterInterface.Classes
          * Do some magic here and start IV and/or SPS (simultaneously)
          * TODO: SPSStartModel and related stuff
          */
-        public bool GetNextIterationData(out NIMachineStartModel measurementData)
+        public bool GetNextIterationData(out MeasurementType type, out object nextData, out List<CurrentSiPMModel> sipms)
         {
-            measurementData = new NIMachineStartModel();
+            sipms = new List<CurrentSiPMModel>();
+            if (MeasureDMMResistanceAtBegining)
+            {
+                MeasureDMMResistanceAtBegining = false; //run at the beginning
+                type = MeasurementType.DMMResistanceMeasurement;
+                NIDMMStartModel startModel = new NIDMMStartModel();
+                startModel.Identifier = new MeasurementIdentifier(MeasurementType.DMMResistanceMeasurement);
+                startModel.DMMResistance = globalState.CurrentRun.DMMResistance;
+                nextData = startModel;
+                return true;
+            }
+
             bool retVal = IsIVIterationAvailable();
             if (retVal)
             {
-                measurementData.CurrentSiPM = IVMeasurementOrder[CurrentIVMeasurementIndex]; //return the next one
+                CurrentSiPMModel currentSiPM = IVMeasurementOrder[CurrentIVMeasurementIndex];
+                type = MeasurementType.IVMeasurement;
+                sipms.Add(currentSiPM); //return the next one
+
+                NIIVStartModel ivStart = new NIIVStartModel();
+                ivStart.Identifier = new MeasurementIdentifier(MeasurementType.IVMeasurement);
+                ivStart.IVSettings = globalState.GlobalIVSettings;
+
                 SiPM sipm = globalState.CurrentRun
-                            .Blocks[measurementData.CurrentSiPM.Block]
-                            .Modules[measurementData.CurrentSiPM.Module]
-                            .Arrays[measurementData.CurrentSiPM.Array]
-                            .SiPMs[measurementData.CurrentSiPM.SiPM];
-                measurementData.MeasureDMMResistance = (sipm.DMMResistance > 0);
+                            .Blocks[currentSiPM.Block]
+                            .Modules[currentSiPM.Module]
+                            .Arrays[currentSiPM.Array]
+                            .SiPMs[currentSiPM.SiPM];
+                //measurementData.MeasureDMMResistance = (sipm.DMMResistance > 0);
                 List<double> vs = sipm.IVVoltages;
                 if (vs.Count != 0)
                 {
-                    measurementData.Voltages = vs; //Voltage list can be overriden per SiPM
+                    ivStart.Voltages = vs; //Voltage list can be overriden per SiPM
                 }
                 else
                 {
-                    measurementData.Voltages = globalState.CurrentRun.IVVoltages;
+                    ivStart.Voltages = globalState.CurrentRun.IVVoltages;
                 }
+                CurrentIVMeasurementIndex++; //increment IV index counter
+                nextData = ivStart;
             }
             else
             {
-                measurementData.CurrentSiPM = new CurrentSiPMModel(); //return with -1s
-                measurementData.Voltages = new List<double>();
+                type = MeasurementType.Unknown;
+                nextData = new object();
             }
-            measurementData.IVSettings = globalState.GlobalIVSettings;
-            measurementData.MeasureDMMResistance = (globalState.CurrentRun.MeasureDMMResistance || measurementData.MeasureDMMResistance); //if globally or manually enabled
-            CurrentIVMeasurementIndex++; //increment IV index counter
+            //measurementData.IVSettings = globalState.GlobalIVSettings;
+            //measurementData.MeasureDMMResistance = (globalState.CurrentRun.MeasureDMMResistance || measurementData.MeasureDMMResistance); //if globally or manually enabled
+            
             return retVal;
         }
 	}

@@ -8,6 +8,9 @@ namespace SiPMTesterInterface.Models
         public MeasurementIdentifier Identifier { get; set; }
         public bool ErrorHappened { get; set; }
         public string ErrorMessage { get; set; }
+        public int CorrectionPercentage { get; set; }
+        public List<double> Voltages { get; set; }
+        public List<double> Currents { get; set; }
         public double Resistance { get; set; }
 }
 }

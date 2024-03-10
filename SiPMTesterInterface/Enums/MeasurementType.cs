@@ -1,12 +1,22 @@
 ﻿using System;
+using Newtonsoft.Json.Linq;
+using System.Runtime.Serialization;
+using Newtonsoft.Json.Converters;
+using System.Text.Json.Serialization;
+
 namespace SiPMTesterInterface.Enums
 {
-	public enum MeasurementType
+    //[JsonConverter(typeof(StringEnumConverter))]
+    public enum MeasurementType
 	{
-		IVMeasurement,
-		SPSMeasurement,
-		DMMResistanceMeasurement,
-		Unknown
-	}
+        //[EnumMember(Value = "IVMeasurement")]
+        IVMeasurement = 0,
+        //[EnumMember(Value = "SPSMeasurement")]
+        SPSMeasurement = 1,
+        //[EnumMember(Value = "DMMMeasurement")]
+        DMMResistanceMeasurement = 2,
+        //[EnumMember(Value = "Unknown")]
+        Unknown = 999
+    }
 }
 

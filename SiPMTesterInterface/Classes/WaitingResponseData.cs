@@ -87,7 +87,7 @@ namespace SiPMTesterInterface.Classes
             _timer = new Timer(TimerCallback, this, Timeout.Infinite, Timeout.Infinite);
         }
 
-        public WaitingResponseData(MeasurementType t, int id, Action<WaitingResponseData> callback, Action<WaitingResponseData> failCallback)
+        public WaitingResponseData(MeasurementType t, string id, Action<WaitingResponseData> callback, Action<WaitingResponseData> failCallback)
 		{
             Identifier = new MeasurementIdentifier(t, id);
             CallbackFunction = callback;

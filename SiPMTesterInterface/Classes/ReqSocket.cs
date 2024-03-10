@@ -55,7 +55,7 @@ namespace SiPMTesterInterface.Classes
             outString = args.Socket.ReceiveFrameString();
             //string strReply = Encoding.Unicode.GetString(reply);
 
-            Console.WriteLine("C: Server replied OK ({0})", outString);
+            //Console.WriteLine("C: Server replied OK ({0})", outString);
             retriesLeft = RequestRetries;
             expectReply = false;
             OnMessageReceived?.Invoke(this, new MessageReceivedEventArgs(outString));
@@ -94,7 +94,7 @@ namespace SiPMTesterInterface.Classes
                 {
                     sequence++;
                     Stop(); //stop, because it can take more time than period set
-                    Console.WriteLine("C: Sending ({0})", sequence);
+                    //Console.WriteLine("C: Sending ({0})", sequence);
                     reqSocket.SendFrame(message);
                     expectReply = true;
 
@@ -118,7 +118,7 @@ namespace SiPMTesterInterface.Classes
                             break;
                         }
 
-                        Console.WriteLine("C: No response from server, retrying...");
+                        //Console.WriteLine("C: No response from server, retrying...");
 
                         TerminateClient(reqSocket);
 
@@ -148,10 +148,11 @@ namespace SiPMTesterInterface.Classes
                         {
                             AskServer(item);
                         }
-                        catch (NetMQException ex)
+                        catch (Exception ex)
                         {
                             Console.WriteLine($"Error: {ex.Message}");
                             TerminateClient(reqSocket);
+                            Thread.Sleep(3000);
                             reqSocket = CreateServerSocket();
                         }
                         
