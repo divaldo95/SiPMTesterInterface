@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 using NetMQ;
 using NetMQ.Sockets;
 using SiPMTesterInterface.Helpers;
@@ -31,7 +34,7 @@ namespace SiPMTesterInterface.Classes
     }
 
     public class SubSocket
-	{
+    {
         private NetMQPoller poller;
         private string IP = "";
 
@@ -39,6 +42,9 @@ namespace SiPMTesterInterface.Classes
         public TimeSpan ReceiveIntervalTimeout = Timeout.InfiniteTimeSpan;
 
         private readonly object bufferLock = new object();
+        private readonly ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
+        private readonly CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        private Task messageProcessingTask;
 
         public event EventHandler<MessageReceivedIntervalElapsedEventArgs> OnMessageReceivedIntervalElapsed;
         public event EventHandler<MeasurementMessageReceivedEventArgs> OnMeasurementMessageReceived;
@@ -59,10 +65,12 @@ namespace SiPMTesterInterface.Classes
         {
             //StartSubscriber(subSocIP);
             Task subscriberTask = Task.Run(() => StartSubscriber(IP));
+            messageProcessingTask = Task.Run(() => ProcessMessages(cancellationTokenSource.Token));
         }
 
         public void Stop()
         {
+            cancellationTokenSource.Cancel();
             if (poller != null)
             {
                 poller.StopAsync();
@@ -91,21 +99,37 @@ namespace SiPMTesterInterface.Classes
                             // Receive the message
                             var message = subscriberSocket.ReceiveFrameString();
 
-                            //Event
-                            if (message.Contains("[LOG]"))
-                            {
-
-                                OnLogMessageReceived?.Invoke(this, new LogMessageReceivedEventArgs(message.Remove(0, 5)));
-                            }
-                            else if (message.Contains("[MEAS]"))
-                            {
-                                OnMeasurementMessageReceived?.Invoke(this, new MeasurementMessageReceivedEventArgs(message.Remove(0, 6)));
-                            }
+                            // Enqueue the message for processing
+                            messageQueue.Enqueue(message);
                             ChangeTimerInterval(ReceiveIntervalTimeout); //restart timer if needed
                         }
                     };
 
                     poller.Run();
+                }
+            }
+        }
+
+        private void ProcessMessages(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (messageQueue.TryDequeue(out var message))
+                {
+                    // Process the dequeued message
+                    if (message.Contains("[LOG]"))
+                    {
+                        OnLogMessageReceived?.Invoke(this, new LogMessageReceivedEventArgs(message.Remove(0, 5)));
+                    }
+                    else if (message.Contains("[MEAS]"))
+                    {
+                        OnMeasurementMessageReceived?.Invoke(this, new MeasurementMessageReceivedEventArgs(message.Remove(0, 6)));
+                    }
+                }
+                else
+                {
+                    // If there are no messages, sleep for a short while to avoid busy-waiting
+                    Thread.Sleep(10);
                 }
             }
         }
@@ -116,10 +140,9 @@ namespace SiPMTesterInterface.Classes
         }
 
         public SubSocket(string ip)
-		{
+        {
             IP = ip;
             _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
-	}
+    }
 }
-
