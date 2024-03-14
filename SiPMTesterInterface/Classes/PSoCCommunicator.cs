@@ -149,7 +149,20 @@ namespace SiPMTesterInterface.Classes
             WriteCommand(command);
         }
 
-        
+        public bool IsPulserOpened()
+        {
+            string command = "get_instrument_name";
+            WriteCommand(command);
+            Console.WriteLine($"Received string: {LastLine}");
+            if (LastLine.Contains("Pulser") && LastLine.Contains("OK"))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
     }
 }
 
