@@ -37,7 +37,7 @@ namespace SiPMTesterInterface.Classes
 
         private Timer _timer;
 
-        private const int RequestTimeout = 1000;
+        private const int RequestTimeout = 3000;
         private const int RequestRetries = 3;
 
         private int sequence = 0;

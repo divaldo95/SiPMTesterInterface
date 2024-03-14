@@ -15,6 +15,7 @@ namespace SiPMTesterInterface.Models
 
     public class Array
     {
+        public string Barcode { get; set; } = "";
         public List<SiPM> SiPMs { get; set; } = new List<SiPM>();
     }
 

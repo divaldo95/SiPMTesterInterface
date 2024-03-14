@@ -247,7 +247,12 @@ namespace SiPMTesterInterface.Classes
         {
             reqSocket.Start();
             subSocket.Start();
-            //StartSub();
+        }
+
+        public void Stop()
+        {
+            reqSocket.Stop();
+            subSocket.Stop();
         }
 
         public void RunCommand(string command)

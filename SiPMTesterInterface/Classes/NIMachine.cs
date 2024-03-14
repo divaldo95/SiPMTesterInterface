@@ -119,6 +119,12 @@ namespace SiPMTesterInterface.Classes
             base.reqSocket.RunCommand(msg);
         }
 
+        public new void Stop()
+        {
+            //stop everything here
+            base.Stop();
+        }
+
         public NIMachine(IConfiguration config, ILogger<NIMachine> logger) : this(new NIMachineSettings(config), logger)
         {
 

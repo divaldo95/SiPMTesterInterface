@@ -1,4 +1,6 @@
 ﻿using System;
+using System.ComponentModel;
+using System.Reflection.Metadata;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using SiPMTesterInterface.Classes;
@@ -6,28 +8,115 @@ using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Models;
+using static NetMQ.NetMQSelector;
 
 namespace SiPMTesterInterface.ClientApp.Services
 {
-    public class MeasurementService : MeasurementOrchestrator
+    public class MeasurementServiceSettings
+    {
+        public int BlockCount { get; set; } = 2;
+        public int ModuleCount { get; set; } = 2;
+        public int ArrayCount { get; set; } = 4;
+        public int SiPMCount { get; set; } = 16;
+
+        public MeasurementServiceSettings(IConfiguration config)
+        {
+            var blockCount = config["MeasurementService:BlockCount"];
+            var moduleCount = config["MeasurementService:ModuleCount"];
+            var arrayCount = config["MeasurementService:ArrayCount"];
+            var sipmCount = config["MeasurementService:SiPMCount"];
+
+            if (blockCount != null)
+            {
+                int val;
+                int.TryParse(blockCount, out val);
+                BlockCount = val;
+            }
+            if (moduleCount != null)
+            {
+                int val;
+                int.TryParse(moduleCount, out val);
+                ModuleCount = val;
+            }
+            if (arrayCount != null)
+            {
+                int val;
+                int.TryParse(arrayCount, out val);
+                ArrayCount = val;
+            }
+            if (sipmCount != null)
+            {
+                int val;
+                int.TryParse(sipmCount, out val);
+                SiPMCount = val;
+            }
+        }
+    }
+
+    public class MeasurementService : MeasurementOrchestrator, IDisposable
     {
         private readonly object _lockObject = new object();
 
-        private bool MeasStateChanged = false;
-        private bool MeasDataReceived = false;
+        private bool disposed = false;
 
         //connected instruments
         private readonly NIMachine niMachine;
         private readonly PSoCCommunicator Pulser;
         private readonly HVPSU hvPSU;
 
-        //private readonly MeasurementOrchestrator orchestrator;
+        public MeasurementServiceSettings MeasurementServiceSettings { get; private set; }
+
+        private ServiceStateHandler serviceState;
+        private List<CurrentSiPMModel> ivSiPMs;
+        //private List<CurrentSiPMModel> spsSiPMs;
 
         private readonly IConfiguration Configuration;
 
         private readonly IHubContext<UpdatesHub, IStateContext> _hubContext;
 
         private readonly ILogger<MeasurementService> _logger;
+
+        private void PopulateServiceState()
+        {
+            serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
+                                                        MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
+
+            // Flatten the structure and save all details
+            var SiPMs = globalState.CurrentRun.Blocks
+                .SelectMany((block, blockIdx) => block.Modules
+                    .SelectMany((module, moduleIdx) => module.Arrays
+                        .SelectMany((array, arrayIdx) => array.SiPMs
+                            .Select((sipm, sipmIdx) => new
+                            {
+                                BlockIndex = blockIdx,
+                                ModuleIndex = moduleIdx,
+                                ArrayIndex = arrayIdx,
+                                SiPMIndex = sipmIdx,
+                                SiPM = sipm
+                            })
+                        )
+                    )
+                )
+                //.Where(item => item.SiPM.IV == 1)
+                .ToList();
+
+            foreach (var item in SiPMs)
+            {
+                CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex);
+                c.SiPMLocation = new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex);
+                c.SiPMMeasurementDetails = item.SiPM;
+                //use global IV list if IV is enabled but voltage list is not set directly for this sipm
+                if (c.SiPMMeasurementDetails.IVVoltages.Count <= 0 && c.SiPMMeasurementDetails.IV != 0)
+                {
+                    c.SiPMMeasurementDetails.IVVoltages = globalState.CurrentRun.IVVoltages;
+                }
+                //same for SPS
+                if (c.SiPMMeasurementDetails.SPSVoltages.Count <= 0 && c.SiPMMeasurementDetails.SPS != 0)
+                {
+                    c.SiPMMeasurementDetails.SPSVoltages = globalState.CurrentRun.SPSVoltages;
+                }
+            }
+        }
 
         private void OnIVConnectionStateChangeCallback(object? sender, ConnectionStateChangedEventArgs e)
         {
@@ -65,6 +154,10 @@ namespace SiPMTesterInterface.ClientApp.Services
             MeasurementType Type;
             object nextMeasurementData;
             List<CurrentSiPMModel> sipms;
+
+            //turn off pulser, disconnect all relays
+            Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new [] { 0, 0, 0, 0});
+
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
                 
@@ -72,12 +165,14 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     NIDMMStartModel niDMMStart = nextMeasurementData as NIDMMStartModel;
                     niDMMStart.DMMResistance = globalState.CurrentRun.DMMResistance;
+                    Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
                     niMachine.StartDMMResistanceMeasurement(niDMMStart);
                 }
 
                 else if (Type == MeasurementType.IVMeasurement)
                 {
-                    NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel;
+                    ivSiPMs = sipms;
+                    NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel; //some settings duplicated here and in ServiceState
                     if (sipms.Count != 1)
                     {
                         _logger.LogError("Can not measure more than one SiPM at a time for IV");
@@ -85,6 +180,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     //set IV settings
                     //change SiPM relays
+                    Pulser.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV, new[] { 100, 100, 100, 100 });
+                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM);
+                    c.IVMeasurementID = niIVStart.Identifier;
                     niMachine.StartIVMeasurement(niIVStart);
                 }
             }
@@ -93,6 +191,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         public void StartMeasurement(MeasurementStartModel measurementData)
         {
             PrepareMeasurement(measurementData);
+            PopulateServiceState(); //store measurements
             CheckAndRunNext();
         }
 
@@ -109,8 +208,37 @@ namespace SiPMTesterInterface.ClientApp.Services
             //save data here
 
             _logger.LogInformation("IVMeasurementReceived");
+            CurrentMeasurementDataModel c;
+            if (serviceState.GetSiPMIVMeasurementData(e.Data.Identifier, out c))
+            {
+                c.IVResult = e.Data;
+                c.IsIVDone = true;
+            }
+            
 
             CheckAndRunNext();
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            // Check to see if Dispose has already been called.
+            if (!this.disposed)
+            {
+                // If disposing equals true, dispose all managed
+                // and unmanaged resources.
+                if (disposing)
+                {
+                    niMachine.Stop();
+                }
+
+                disposed = true;
+            }
         }
 
         public MeasurementService(ILogger<MeasurementService> logger, ILogger<NIMachine> niLogger, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()
@@ -121,6 +249,8 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             try
             {
+                MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
+
                 niMachine = new NIMachine(Configuration, niLogger);
                 niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
                 niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;

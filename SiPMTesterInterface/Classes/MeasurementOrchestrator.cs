@@ -18,8 +18,6 @@ namespace SiPMTesterInterface.Classes
 
         protected GlobalStateModel globalState = new GlobalStateModel();
 
-
-
         public int IVCount
         {
             get

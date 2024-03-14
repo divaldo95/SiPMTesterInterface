@@ -23,13 +23,29 @@ namespace SiPMTesterInterface.Classes
 		{
 		}
 
+        public bool IsPulser()
+        {
+            string command = "get_instrument_name";
+            WriteCommand(command);
+            string lastline = LastLine;
+            if (lastline.Contains("OK") && lastline.Contains("Pulser"))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         //Block - a dupla egység
         //Module - bal vagy jobb oldali 4-es modul
         // set_module,%u,%u,%u,%c,%u,%u,%u,%u
-        public void SetMode(int block, int module, int SiPMNum, MeasurementModes mode, int[] brigthness)
+        public void SetMode(int block, int module, int array, int SiPMNum, MeasurementModes mode, int[] brigthness)
         {
             string command = "set_module,";
             string modecmd = "";
+            int actualSiPMNum = 0;
             if (block > 1 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
@@ -40,11 +56,12 @@ namespace SiPMTesterInterface.Classes
                 throw new Exception("Module could not be higher than 1");
             }
             command += module.ToString() + ",";
-            if (SiPMNum > 63 || SiPMNum < 0)
+            if ((SiPMNum > 15 || SiPMNum < 0) || (array > 3 || array < 0))
             {
-                throw new Exception("SiPM num could not be higher than 63");
+                throw new Exception("Incorrect SiPM num or array num");
             }
-            command += SiPMNum.ToString() + ",";
+            actualSiPMNum = array * 16 + SiPMNum;
+            command += actualSiPMNum.ToString() + ",";
             command += MeasurementMode.GetMeasurementChar(mode);
             command += modecmd + ",";
             if (brigthness.Length != 4)
@@ -69,8 +86,8 @@ namespace SiPMTesterInterface.Classes
             string command = "get_temp," + block.ToString();
             string[] temps;
             double[] tempd;
-            string lastline = LastLine;
             WriteCommand(command);
+            string lastline = LastLine;
             lastline = lastline.Remove(0, LastLine.IndexOf('*') + 1); //remove everything until first *
             lastline = lastline.Remove(lastline.IndexOf('*'), 1); //remove last *
             temps = lastline.Split(',');
