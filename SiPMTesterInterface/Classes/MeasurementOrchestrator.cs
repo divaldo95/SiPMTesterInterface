@@ -41,7 +41,7 @@ namespace SiPMTesterInterface.Classes
 
 		public void PrepareMeasurement(MeasurementStartModel measurementStart)
 		{
-            MeasureDMMResistanceAtBegining = true;
+            MeasureDMMResistanceAtBegining = measurementStart.MeasureDMMResistance;
             globalState.CurrentRun = measurementStart;
             // Flatten the structure, include indices, and filter items where SiPM.IV == 1
             var filteredSiPMs = globalState.CurrentRun.Blocks

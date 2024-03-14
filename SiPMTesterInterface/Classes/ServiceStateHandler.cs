@@ -22,6 +22,8 @@ namespace SiPMTesterInterface.Classes
         private int ModuleNum;
         private int SiPMNum;
         private CurrentMeasurementDataModel[] AllSiPMsData; //store data for every single SiPM (flattened)
+        public List<Cooler> CoolerStates { get; private set; }
+        public List<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
 
         //Save current measurement results here in a flattened array
         public ServiceStateHandler(int blockNum = 2, int moduleNum = 2, int arrayNum = 4, int sipmNum = 16)
@@ -35,7 +37,19 @@ namespace SiPMTesterInterface.Classes
 
             //init to default
             AllSiPMsData = new CurrentMeasurementDataModel[allNum].Populate(() => new CurrentMeasurementDataModel());
+            CoolerStates = new List<Cooler>();
+            DMMResistances = new List<DMMResistanceMeasurementResponseModel>();
 		}
+
+        public void AppendCoolerState(Cooler newState)
+        {
+            CoolerStates.Add(newState);
+        }
+
+        public void AppendDMMResistanceMeasurement(DMMResistanceMeasurementResponseModel newRes)
+        {
+            DMMResistances.Add(newRes);
+        }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int block, int module, int array, int sipm)
         {

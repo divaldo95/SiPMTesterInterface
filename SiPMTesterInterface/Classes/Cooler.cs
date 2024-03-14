@@ -68,6 +68,9 @@ namespace SiPMTesterInterface.Classes
             Peltier1Voltage = double.Parse(splitted[6]);
             Peltier2Current = double.Parse(splitted[7]);
             Peltier2Voltage = double.Parse(splitted[8]);
+
+            //Save timestamp
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         }
 
         public string GetState(int state)
@@ -114,6 +117,7 @@ namespace SiPMTesterInterface.Classes
         public double Peltier2Voltage { get; }
         public double Peltier1Current { get; }
         public double Peltier2Current { get; }
+        public long Timestamp { get; }
     }
 }
 
