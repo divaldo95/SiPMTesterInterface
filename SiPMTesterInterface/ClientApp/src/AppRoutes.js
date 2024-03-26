@@ -2,6 +2,7 @@ import { Counter } from "./components/Counter";
 import { FetchData } from "./components/FetchData";
 import { Home } from "./components/Home";
 import Measurement from "./components/Measurement"
+import Test from "./components/Test"
 
 const AppRoutes = [
   {
@@ -15,6 +16,10 @@ const AppRoutes = [
     {
         path: '/sipm',
         element: <Measurement />
+    },
+    {
+        path: '/test',
+        element: <Test />
     },
   {
     path: '/fetch-data',

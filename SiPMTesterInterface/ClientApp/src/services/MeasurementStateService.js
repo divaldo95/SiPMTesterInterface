@@ -1,12 +1,37 @@
 ﻿import axios from 'axios';
 
-const API_BASE_URL = '';
-const API_STATES_URL = 'measurement/states/'
+const API_BASE_URL = 'measurement/';
+const API_STATES_URL = 'states/'
+const API_DATA_URL = 'data/'
 
 const MeasurementStateService = {
     getMeasurementStates: async () => {
         try {
             const response = await axios.get(API_BASE_URL + API_STATES_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching measurement states:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    startMeasurement: async (jsonData) => {
+        try {
+            const json = JSON.stringify(jsonData);
+            const response = await axios.post(API_BASE_URL + API_STATES_URL, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching measurement states:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getMeasurementData: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_DATA_URL);
             return response.data;
         } catch (error) {
             console.error('Error fetching measurement states:', error);

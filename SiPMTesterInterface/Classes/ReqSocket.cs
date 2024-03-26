@@ -63,15 +63,21 @@ namespace SiPMTesterInterface.Classes
 
         void TerminateClient(NetMQSocket client)
         {
+            if (client == null || client.IsDisposed)
+            {
+                return;
+            }
             client.Disconnect(IP);
-            client.Close();
+            //client.Close();
             client.Dispose();
+            GC.Collect();
         }
 
         RequestSocket CreateServerSocket()
         {
             Console.WriteLine("C: Connecting to server...");
 
+            //Handle NetMQ.NetMQException here
             var client = new RequestSocket();
             var clientPair = new NetMQCertificate();
 
