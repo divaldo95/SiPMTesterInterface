@@ -62,9 +62,32 @@ namespace SiPMTesterInterface.Controllers
         [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/")]
         public IActionResult GetSIPMData(int blockId, int moduleId, int arrayId, int sipmId)
         {
-            CurrentMeasurementDataModel data = _measurementService.GetSiPMMeasurementData(blockId, moduleId, arrayId, sipmId);
+            try
+            {
+                CurrentMeasurementDataModel data = _measurementService.GetSiPMMeasurementData(blockId, moduleId, arrayId, sipmId);
+                return Ok(data);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return NotFound(ResponseMessages.Error(ex.Message));
+            }
+            catch(NullReferenceException ex)
+            {
+                return NotFound(ResponseMessages.Error("Measurement not started yet"));
+            }
+            
+        }
 
-            return Ok(data);
+        [HttpGet("times")]
+        public IActionResult GetMeasurementTimes()
+        {
+            var measurementTimes = new
+            {
+                Start = _measurementService.StartTimestamp,
+                End = _measurementService.EndTimestamp,
+                Elapsed = _measurementService.EndTimestamp - _measurementService.StartTimestamp
+            };
+            return Ok(measurementTimes);
         }
 
         [HttpGet("data")]

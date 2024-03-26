@@ -76,6 +76,9 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private readonly ILogger<MeasurementService> _logger;
 
+        public long StartTimestamp { get; private set; } = 0;
+        public long EndTimestamp { get; private set; } = 0;
+
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
         {
             return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
@@ -83,6 +86,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private void PopulateServiceState()
         {
+
             serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
                                                         MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
 
@@ -162,10 +166,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             //turn off pulser, disconnect all relays
             Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new [] { 0, 0, 0, 0});
-
+            EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds(); //just to make sure something is saved
+            Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
-                
+                Console.WriteLine("Found one");
                 if (Type == MeasurementType.DMMResistanceMeasurement)
                 {
                     NIDMMStartModel niDMMStart = nextMeasurementData as NIDMMStartModel;
@@ -191,6 +196,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                     niMachine.StartIVMeasurement(niIVStart);
                 }
             }
+            else
+            {
+                EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+            }
         }
 
         public void StartMeasurement(MeasurementStartModel measurementData)
@@ -198,6 +207,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
             CheckAndRunNext();
+            StartTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         }
 
         public void StopMeasurement()

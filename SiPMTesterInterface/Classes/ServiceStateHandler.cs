@@ -53,11 +53,21 @@ namespace SiPMTesterInterface.Classes
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int block, int module, int array, int sipm)
         {
+            int arrayIndex = GetPulserArrayIndex(block, module, array, sipm);
+            if (AllSiPMsData.Length < arrayIndex)
+            {
+                throw new ArgumentOutOfRangeException("Measurement not started or index out of bounds");
+            }
             return AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
         }
 
         public bool GetSiPMIVMeasurementData(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)
         {
+            if (AllSiPMsData == null)
+            {
+                sipmData = new CurrentMeasurementDataModel();
+                return false;
+            }
             CurrentMeasurementDataModel? sipmMeasData = AllSiPMsData.FirstOrDefault(model => model.IVMeasurementID.Equals(id));
 
             if (sipmMeasData != null)

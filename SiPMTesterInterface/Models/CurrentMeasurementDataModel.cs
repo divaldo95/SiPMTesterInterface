@@ -9,8 +9,8 @@ namespace SiPMTesterInterface.Models
 		public bool IsSPSDone { get; set; } = false;
 		public CurrentSiPMModel SiPMLocation { get; set; }
 		public SiPM SiPMMeasurementDetails { get; set; }
-		public MeasurementIdentifier IVMeasurementID { get; set; }
-        public MeasurementIdentifier SPSMeasurementID { get; set; }
+		public MeasurementIdentifier IVMeasurementID { get; set; } = new MeasurementIdentifier();
+		public MeasurementIdentifier SPSMeasurementID { get; set; } = new MeasurementIdentifier();
         public IVMeasurementResponseModel IVResult { get; set; }
         //placeholder for SPS response
 	}

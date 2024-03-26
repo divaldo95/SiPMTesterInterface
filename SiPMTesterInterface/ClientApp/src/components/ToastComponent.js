@@ -24,7 +24,9 @@ function SiPMArray(props) {
                                     <button onClick={() => dismissMessage(index)} type="button" className="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
                                 </div>
                                 <div className="toast-body">
-                                    {message.Message}
+                                    <div className="text-wrap">
+                                        {message.Message}
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -9,7 +9,7 @@ const initialState = {
             Arrays: Array.from({ length: 4 }, () => ({
                 SiPMs: Array.from({ length: 16 }, () => ({
                     DMMResistance: 0,
-                    IV: 1,
+                    IV: 0,
                     IVVoltages: [],
                     SPS: 0,
                     SPSVoltages: [],
@@ -48,6 +48,10 @@ export const MeasurementProvider = ({ children }) => {
             return updatedMessages;
         });
     };
+
+    const updateIVMeasurementIsRunning = (state) => {
+        setIsIVMeasurementRunning(state);
+    }
 
     const addToast = (messageType, messageText) => {
         setMessages(prevMessages => [
@@ -209,7 +213,7 @@ export const MeasurementProvider = ({ children }) => {
     }
 
     return (
-        <MeasurementContext.Provider value={{ measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet, isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages }}>
+        <MeasurementContext.Provider value={{ measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet, isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages, updateIVMeasurementIsRunning }}>
             {children}
         </MeasurementContext.Provider>
     );

@@ -10,6 +10,17 @@ export const StatusEnum = {
     MeasurementFail: "MeasurementFail"
 };
 
+export const MeasurementStateEnum = {
+    NotRunning: 0,
+    Running: 1,
+    Finished: 2,
+    FinishedIV: 3,
+    FinishedDMM: 4,
+    FinishedSPS: 5,
+    Error: 6,
+    Unknown: 7
+}
+
 export function getStatusBackgroundClass(status) {
     switch (status) {
         case StatusEnum.NotSelected:

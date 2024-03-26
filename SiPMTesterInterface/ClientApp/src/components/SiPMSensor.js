@@ -3,9 +3,9 @@ import { GetSiPMNumber, GetSiPMLocation } from "./HelperMethods";
 import { StatusEnum, getStatusBackgroundClass, GetSelectedColorClass } from '../enums/StatusEnum';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
 import './SiPMArray.css';
-import SiPMModal from './SiPMModal';
 import SiPMSettingsModal from './SiPMSettingsModal';
 import { MeasurementContext } from '../context/MeasurementContext';
+import SiPMMeasurementModal from './SiPMMeasurementModal';
 
 function SiPMSensor(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex, className } = props;
@@ -84,7 +84,7 @@ function SiPMSensor(props) {
                 </button>
             </div>
             {isAnyMeasurementRunning() ? (
-                <SiPMModal showModal={showModal} closeModal={closeModal} arrayNumber={ArrayIndex} sipmNumber={SiPMIndex} />
+                <SiPMMeasurementModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex} />
             ) : (
                 <SiPMSettingsModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex} />
             )}
