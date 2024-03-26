@@ -39,7 +39,15 @@ namespace SiPMTesterInterface.Classes
             globalState = new GlobalStateModel();
 		}
 
-		public void PrepareMeasurement(MeasurementStartModel measurementStart)
+        public MeasurementStartModel MeasurementData
+        {
+            get
+            {
+                return globalState.CurrentRun;
+            }
+        }
+
+        public void PrepareMeasurement(MeasurementStartModel measurementStart)
 		{
             MeasureDMMResistanceAtBegining = measurementStart.MeasureDMMResistance;
             globalState.CurrentRun = measurementStart;

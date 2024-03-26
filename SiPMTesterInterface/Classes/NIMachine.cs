@@ -119,6 +119,13 @@ namespace SiPMTesterInterface.Classes
             base.reqSocket.RunCommand(msg);
         }
 
+        public void StopMeasurement()
+        {
+            string msg = "\"StopMeasurement:{\\\"Status:\\\": 1}\"";
+            Console.WriteLine($"Sent command: {msg}");
+            base.reqSocket.RunCommand(msg);
+        }
+
         public new void Stop()
         {
             //stop everything here

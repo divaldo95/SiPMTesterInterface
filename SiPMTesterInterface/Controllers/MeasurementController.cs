@@ -57,6 +57,29 @@ namespace SiPMTesterInterface.Controllers
             return Ok(measurementStates);
         }
 
+        
+        [HttpGet]
+        [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/")]
+        public IActionResult GetSIPMData(int blockId, int moduleId, int arrayId, int sipmId)
+        {
+            CurrentMeasurementDataModel data = _measurementService.GetSiPMMeasurementData(blockId, moduleId, arrayId, sipmId);
+
+            return Ok(data);
+        }
+
+        [HttpGet("data")]
+        public IActionResult GetMeasurementData()
+        {
+            _measurementService.StopMeasurement();
+            return Ok(_measurementService.MeasurementData);
+        }
+
+        [HttpGet("stop")]
+        public IActionResult StopMeasurement()
+        {
+            return Ok(_measurementService.MeasurementData);
+        }
+
         [HttpPost("start")]
         public IActionResult StartMeasurement([FromBody] MeasurementStartModel measurementStart)
         {

@@ -76,6 +76,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private readonly ILogger<MeasurementService> _logger;
 
+        public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
+        {
+            return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
+        }
+
         private void PopulateServiceState()
         {
             serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
@@ -193,6 +198,11 @@ namespace SiPMTesterInterface.ClientApp.Services
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
             CheckAndRunNext();
+        }
+
+        public void StopMeasurement()
+        {
+            niMachine.StopMeasurement();
         }
 
         private void OnDMMMeasurementDataReceived(object? sender, DMMMeasurementDataReceivedEventArgs e)

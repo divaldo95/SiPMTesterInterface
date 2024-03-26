@@ -34,7 +34,16 @@ const MeasurementStateService = {
             const response = await axios.get(API_BASE_URL + API_DATA_URL);
             return response.data;
         } catch (error) {
-            console.error('Error fetching measurement states:', error);
+            console.error('Error fetching measurement data:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getSiPMMeasurementData: async (blockIndex, moduleIndex, arrayIndex, sipmIndex) => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_DATA_URL + blockIndex + "/" + moduleIndex + "/" + arrayIndex + "/" + sipmIndex + "/");
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching sipm measurement data:', error);
             throw error; // You can handle the error as needed in your application
         }
     },
