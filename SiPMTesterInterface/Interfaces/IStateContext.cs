@@ -11,6 +11,7 @@ namespace SiPMTesterInterface.Interfaces
         public Task ReceiveIVMeasurementStateChange(MeasurementState i);
         public Task ReceiveGlobalIVMeasurementStateChange(MeasurementState g);
         public Task ReceiveSPSMeasurementStateChange(MeasurementState s);
+        public Task ReceiveIVConnectionStateChange(ConnectionState cs);
     }
 }
 

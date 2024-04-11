@@ -12,10 +12,46 @@ import VoltageListComponent from './VoltageListComponent';
 import MeasurementStateService from '../services/MeasurementStateService';
 import { HubConnectionBuilder } from '@microsoft/signalr';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
+import StatesCard from './StatesCard';
 
 function Test() {
     const [count, setCount] = useState(0);
     const { measurementData, addToast, isAnyMeasurementRunning, updateIVMeasurementIsRunning } = useContext(MeasurementContext);
+
+    const [status, setStatus] = useState({
+        ivConnectionState: 0,
+        spsConnectionState: 0,
+        ivState: 0,
+        spsState: 0
+    });
+
+    const updateIvConnectionState = (newValue) => {
+        setStatus(prevStatus => ({
+            ...prevStatus,
+            ivConnectionState: newValue
+        }));
+    };
+
+    const updateSpsConnectionState = (newValue) => {
+        setStatus(prevStatus => ({
+            ...prevStatus,
+            spsConnectionState: newValue
+        }));
+    };
+
+    const updateIvState = (newValue) => {
+        setStatus(prevStatus => ({
+            ...prevStatus,
+            ivState: newValue
+        }));
+    };
+
+    const updateSpsState = (newValue) => {
+        setStatus(prevStatus => ({
+            ...prevStatus,
+            spsState: newValue
+        }));
+    };
 
     const isFirstStep = () => {
         return count === 0;
@@ -57,14 +93,23 @@ function Test() {
     const refreshMeasurementState = async () => {
         //setIsLoading(true);
         try {
-            const data = await MeasurementStateService.getMeasurementStates();
-            addToast(MessageTypeEnum.Debug, JSON.stringify(data));
+            const data = await MeasurementStateService.getMeasurementStates()
+                .then(() => {
+                    updateIvConnectionState(data.ivConnectionState);
+                    updateIvState(data.ivState);
+                    updateSpsConnectionState(data.spsConnectionState);
+                    updateSpsState(data.spsState);
+                    addToast(MessageTypeEnum.Debug, JSON.stringify(data));
+            })
+            
+            /*
             if (data.IVState === 1) {
                 updateIVMeasurementIsRunning(true);
             }
             else {
                 updateIVMeasurementIsRunning(false);
             }
+            */
             
         } catch (error) {
             // Handle the error if needed
@@ -112,30 +157,22 @@ function Test() {
                     // Handle received SPS measurement state change
                     console.log('Received SPS measurement state change:', spsModel);
                 });
+
+                connection.on('ReceiveIVConnectionStateChange', (ivConn) => {
+                    // Handle received SPS measurement state change
+                    console.log(ivConn);
+                    updateIvConnectionState(ivConn);
+                    addToast(MessageTypeEnum.Debug, 'Received SPS measurement state change:', ivConn);
+                });
+
+                
             })
 
             .catch(e => {
                 console.log('Connection failed: ', e);
             });
 
-        const fetchData = async () => {
-            try {
-                const data = await MeasurementStateService.getMeasurementStates();
-                //setMeasurementStates(data);
-                //setIsLoading(false);
-                //alert(data.spsState);
-                if (data.ivState === 0 && data.spsState === 0) {
-                    //setMeasurementRunning(false);
-                }
-                else {
-                    //setMeasurementRunning(true);
-                }
-            } catch (error) {
-                // Handle the error if needed
-            }
-        };
-
-        fetchData();
+        refreshMeasurementState();
     }, [count]); // Empty dependency array ensures the effect runs only once when the component mounts
     
 
@@ -181,7 +218,18 @@ function Test() {
         <>
             <ToastComponent></ToastComponent>
             <div className={`${count !== 0 ? 'd-none' : ''}`}>
-                <FileSelectCard className="mb-4" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
+                <div className="row mb-4">
+                    <div className="col">
+                        <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
+                    </div>
+                    <div className="col">
+                        <StatesCard className="h-100" MeasurementType="IV" ConnectionState={status.ivConnectionState} MeasurementState={status.ivState}></StatesCard>
+                    </div>
+                    <div className="col">
+                        <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={status.spsConnectionState} MeasurementState={status.spsState}></StatesCard>
+                    </div>
+                </div>
+                
                 <SiPMBlock BlockIndex={0} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
                 </SiPMBlock>
             </div>

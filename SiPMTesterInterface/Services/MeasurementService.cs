@@ -131,6 +131,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             globalState.IVModel.ConnectionState = e.State;
             //Send updates to the connected clients: previous state, current state
+            _hubContext.Clients.All.ReceiveIVConnectionStateChange(e.State);
         }
 
         private void OnIVMeasurementStateChangeCallback(object? sender, MeasurementStateChangedEventArgs e)
@@ -165,7 +166,6 @@ namespace SiPMTesterInterface.ClientApp.Services
             List<CurrentSiPMModel> sipms;
 
             //turn off pulser, disconnect all relays
-            Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new [] { 0, 0, 0, 0});
             EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds(); //just to make sure something is saved
             Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
@@ -196,8 +196,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                     niMachine.StartIVMeasurement(niIVStart);
                 }
             }
-            else
+            else //end of measurement
             {
+                Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
                 EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
             }
         }
@@ -219,7 +220,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             //save data here
             _logger.LogInformation("DMMMeasurementReceived");
-
+            
             CheckAndRunNext();
         }
 

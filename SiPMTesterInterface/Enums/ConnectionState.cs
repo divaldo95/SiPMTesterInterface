@@ -3,11 +3,11 @@ namespace SiPMTesterInterface.Enums
 {
 	public enum ConnectionState
 	{
-        Disconnected,
-        Connected,
-        NotConnected,
-        Reconnecting,
-        Error
+        Disconnected = 0,
+        Connected = 1,
+        NotConnected = 2,
+        Reconnecting = 3,
+        Error = 4
     }
 }
 
