@@ -112,7 +112,7 @@ namespace SiPMTesterInterface.Classes
             {
                 return _ConnectionState;
             }
-            private set
+            protected set
             {
                 if (value != _ConnectionState)
                 {
@@ -131,7 +131,7 @@ namespace SiPMTesterInterface.Classes
             {
                 return _MeasurementState;
             }
-            private set
+            protected set
             {
                 if (value != _MeasurementState)
                 {
@@ -197,6 +197,11 @@ namespace SiPMTesterInterface.Classes
             ProcessResponseString(e.Message);
         }
 
+        private void OnStatusMessageReceived(object? sender, StatusMessageReceivedEventArgs e)
+        {
+            ProcessResponseString(e.Message);
+        }
+
         private void OnLogBufferInconsistency(object? sender, MessageBufferIncosistencyEventArgs e)
         {
             _logger.LogInformation("Log buffer is now inconsistent");
@@ -231,6 +236,7 @@ namespace SiPMTesterInterface.Classes
                 subSocket = new SubSocket(subSocIP);
                 subSocket.OnLogMessageReceived += OnLogMessageReceived;
                 subSocket.OnMeasurementMessageReceived += OnMeasurementMessageReceived;
+                subSocket.OnStatusMessageReceived += OnStatusMessageReceived;
 
                 //automatically query these strings
                 reqSocket.AddQueryMessage("Ping:{\"Status:\": 1}"); //Add some placeholder json
@@ -291,9 +297,24 @@ namespace SiPMTesterInterface.Classes
                 if (Parser.JObject2JSON(obj, out statusRespModel, out error))
                 {
                     MeasurementState = statusRespModel.State;
+                    this.reqSocket.Restart();
                 }
                 return;
             }
+            if (sender == "Alive")
+            {
+                _logger.LogInformation("Alive message received");
+                ConnectionState = ConnectionState.Connected;
+                this.reqSocket.Restart();
+            }
+            if (sender == "Exiting")
+            {
+                _logger.LogInformation("Exiting message received");
+                ConnectionState = ConnectionState.Disconnected;
+                MeasurementState = MeasurementState.Finished;
+                this.reqSocket.Restart();
+            }
+
 
             //Do not print the status messages
             //_logger.LogInformation($"Processing {response}...");

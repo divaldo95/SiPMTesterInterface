@@ -5,23 +5,79 @@ using System.Drawing;
 using System.IO.Ports;
 using static SiPMTesterInterface.Classes.MeasurementMode;
 using SiPMTesterInterface.Models;
+using System.Net.WebSockets;
 
 namespace SiPMTesterInterface.Classes
 {
 	public class PSoCCommunicator : SerialPortHandler
 	{
+        private Queue<TemperaturesArray> buffer;
+        private int bufferSize = 5000; //store n number of temperatureArrays
+        private readonly TimeSpan Period = TimeSpan.FromSeconds(10);
+        private Timer _timer;
 
         public PSoCCommunicator(IConfiguration config) : base(config, "Pulser")
         {
+            buffer = new Queue<TemperaturesArray>(bufferSize);
+            _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public PSoCCommunicator(SerialSettings settings) : base(settings)
         {
+            buffer = new Queue<TemperaturesArray>(bufferSize);
+            _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
 		public PSoCCommunicator(string Port, int Baud, int Timeout) : base(Port, Baud, Timeout)
 		{
-		}
+            buffer = new Queue<TemperaturesArray>(bufferSize);
+            _timer = new Timer(TimerCallback, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+        }
+
+        public void AddTemperatureArray(TemperaturesArray temperatureArray)
+        {
+            // If buffer is full, dequeue the oldest element
+            if (buffer.Count == bufferSize)
+            {
+                buffer.Dequeue();
+            }
+
+            // Add the new temperature array to the buffer
+            buffer.Enqueue(temperatureArray);
+        }
+
+        private void TimerCallback(object? state)
+        {
+            //TODO: Handle blocks properly here
+            AddTemperatureArray(ReadTemperatures(0));
+        }
+
+        public void ChangeTimerInterval(TimeSpan period)
+        {
+            _timer.Change(period, period); //wait the period for the first time too
+        }
+
+        public void ChangeTimerInterval(int timeout)
+        {
+            _timer.Change(timeout, timeout); //wait the period for the first time too
+        }
+
+        //if an alive message arrives restart the timer
+        public void Restart()
+        {
+            StopTimer();
+            StartTimer();
+        }
+
+        public void StartTimer()
+        {
+            ChangeTimerInterval(Period);
+        }
+
+        public void StopTimer()
+        {
+            ChangeTimerInterval(Timeout.Infinite);
+        }
 
         public bool IsPulser()
         {

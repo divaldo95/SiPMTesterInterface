@@ -235,7 +235,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IVResult = e.Data;
                 c.IsIVDone = true;
             }
-            
+            _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation); //send mesaurement update
 
             CheckAndRunNext();
         }

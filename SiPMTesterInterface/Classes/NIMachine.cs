@@ -186,7 +186,7 @@ namespace SiPMTesterInterface.Classes
                 return;
             }
 
-            if (e.Response.Sender == "DMMMeasurementDone" || e.Response.Sender == "DMMMeasurementResult")
+            else if (e.Response.Sender == "DMMMeasurementDone" || e.Response.Sender == "DMMMeasurementResult")
             {
                 DMMResistanceMeasurementResponseModel respModel;
                 if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
@@ -201,7 +201,7 @@ namespace SiPMTesterInterface.Classes
                 return;
             }
 
-            if (e.Response.Sender == "MeasurementStart")
+            else if (e.Response.Sender == "MeasurementStart")
             {
                 MeasurementStartResponseModel respModel;
                 if (!Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))

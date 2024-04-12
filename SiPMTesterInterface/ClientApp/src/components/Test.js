@@ -3,7 +3,7 @@ import SiPMSensor from './SiPMSensor';
 import SiPMArray from './SiPMArray';
 import SiPMModule from './SiPMModule';
 import SiPMBlock from './SiPMBlock';
-import { StatusEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
+import { StatusEnum, MeasurementStateEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
 import {  MeasurementContext } from '../context/MeasurementContext';
 import ButtonsComponent from './ButtonsComponent';
 import FileSelectCard from './FileSelectCard';
@@ -99,7 +99,7 @@ function Test() {
                     updateIvState(data.ivState);
                     updateSpsConnectionState(data.spsConnectionState);
                     updateSpsState(data.spsState);
-                    addToast(MessageTypeEnum.Debug, JSON.stringify(data));
+                    //addToast(MessageTypeEnum.Debug, JSON.stringify(data));
             })
             
             /*
@@ -113,7 +113,7 @@ function Test() {
             
         } catch (error) {
             // Handle the error if needed
-            addToast(MessageTypeEnum.Debug, JSON.stringify(error));
+            //addToast(MessageTypeEnum.Debug, JSON.stringify(error));
             //console.log(error);
         }
     };
@@ -141,16 +141,15 @@ function Test() {
 
                 connection.on('ReceiveGlobalStateChange', (globalStateModel) => {
                     // Handle received global state change
-
                     console.log('Received global state change:', globalStateModel);
-                    addToast(MessageTypeEnum.Debug, JSON.stringify(globalStateModel));
+                    //addToast(MessageTypeEnum.Debug, JSON.stringify(globalStateModel));
                 });
 
                 connection.on('ReceiveIVMeasurementStateChange', (ivModel) => {
                     // Handle received IV measurement state change
                     //setTestState(ivModel);
                     console.log('Received IV measurement state change:', ivModel);
-                    addToast(MessageTypeEnum.Debug, JSON.stringify(ivModel));
+                    //addToast(MessageTypeEnum.Debug, JSON.stringify(ivModel));
                 });
 
                 connection.on('ReceiveSPSMeasurementStateChange', (spsModel) => {
@@ -158,11 +157,18 @@ function Test() {
                     console.log('Received SPS measurement state change:', spsModel);
                 });
 
+                connection.on('ReceiveSiPMIVMeasurementDataUpdate', (currentSiPMModel) => {
+                    // Handle received SPS measurement state change
+                    console.log('Received SiPM IV measurement:', currentSiPMModel);
+                    addToast(MessageTypeEnum.Information,`SiPM(${currentSiPMModel.block}, ${currentSiPMModel.module}, ${currentSiPMModel.array}, ${currentSiPMModel.siPM}) IV data received`);
+                });
+                
+
                 connection.on('ReceiveIVConnectionStateChange', (ivConn) => {
                     // Handle received SPS measurement state change
                     console.log(ivConn);
                     updateIvConnectionState(ivConn);
-                    addToast(MessageTypeEnum.Debug, 'Received SPS measurement state change:', ivConn);
+                    addToast(MessageTypeEnum.Debug, 'Received IV connection state change:', ivConn);
                 });
 
                 

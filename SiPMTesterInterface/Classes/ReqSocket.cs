@@ -211,6 +211,13 @@ namespace SiPMTesterInterface.Classes
             _timer.Change(timeout, timeout); //wait the period for the first time too
         }
 
+        //if an alive message arrives restart the timer
+        public void Restart()
+        {
+            Stop();
+            Start();
+        }
+
         public void Start()
         {
             ChangeTimerInterval(Period);

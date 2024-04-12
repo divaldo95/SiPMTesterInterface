@@ -33,6 +33,15 @@ namespace SiPMTesterInterface.Classes
         public string Message { get; set; }
     }
 
+    public class StatusMessageReceivedEventArgs : EventArgs
+    {
+        public StatusMessageReceivedEventArgs(string msg) : base()
+        {
+            Message = msg;
+        }
+        public string Message { get; set; }
+    }
+
     public class SubSocket
     {
         private NetMQPoller poller;
@@ -49,6 +58,7 @@ namespace SiPMTesterInterface.Classes
         public event EventHandler<MessageReceivedIntervalElapsedEventArgs> OnMessageReceivedIntervalElapsed;
         public event EventHandler<MeasurementMessageReceivedEventArgs> OnMeasurementMessageReceived;
         public event EventHandler<LogMessageReceivedEventArgs> OnLogMessageReceived;
+        public event EventHandler<StatusMessageReceivedEventArgs> OnStatusMessageReceived;
 
         public void ChangeTimerInterval(TimeSpan period)
         {
@@ -90,6 +100,7 @@ namespace SiPMTesterInterface.Classes
                 subscriberSocket.Connect(publisherAddress);
                 subscriberSocket.Subscribe("[LOG]");
                 subscriberSocket.Subscribe("[MEAS]");
+                subscriberSocket.Subscribe("[STATUS]");
                 using (var poller = new NetMQPoller { subscriberSocket })
                 {
                     subscriberSocket.ReceiveReady += (sender, args) =>
@@ -124,6 +135,10 @@ namespace SiPMTesterInterface.Classes
                     else if (message.Contains("[MEAS]"))
                     {
                         OnMeasurementMessageReceived?.Invoke(this, new MeasurementMessageReceivedEventArgs(message.Remove(0, 6)));
+                    }
+                    else if (message.Contains("[STATUS]"))
+                    {
+                        OnStatusMessageReceived?.Invoke(this, new StatusMessageReceivedEventArgs(message.Remove(0, 8)));
                     }
                 }
                 else
