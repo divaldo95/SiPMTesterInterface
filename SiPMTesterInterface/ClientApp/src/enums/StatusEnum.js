@@ -21,6 +21,29 @@ export const MeasurementStateEnum = {
     Unknown: 7
 }
 
+export function MeasurementStatusString(status) {
+    switch (status) {
+        case MeasurementStateEnum.NotRunning:
+            return "Not running";
+        case MeasurementStateEnum.Running:
+            return "Running";
+        case MeasurementStateEnum.Finished:
+            return "Finished";
+        case MeasurementStateEnum.FinishedIV:
+            return "Finished IV";
+        case MeasurementStateEnum.FinishedDMM:
+            return "Finished DMM";
+        case MeasurementStateEnum.FinishedSPS:
+            return "Finished SPS";
+        case MeasurementStateEnum.Error:
+            return "Error";
+        case MeasurementStateEnum.Unknown:
+            return "Unknown";
+        default:
+            return "";
+    }
+}
+
 export function getStatusBackgroundClass(status) {
     switch (status) {
         case StatusEnum.NotSelected:
@@ -39,6 +62,61 @@ export function getStatusBackgroundClass(status) {
             return "bg-success"; // Bootstrap class for success background
         case StatusEnum.MeasurementFail:
             return "bg-danger"; // Bootstrap class for danger background
+        default:
+            return "";
+    }
+}
+
+export function getMeasurementStatusBtnClasses(status) {
+    switch (status) {
+        case MeasurementStateEnum.NotRunning:
+            return {
+                buttonColor: "btn-outline-danger",
+                textColor: "",
+                icon: "bi-x-circle",
+            };
+        case MeasurementStateEnum.Running:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.Finished:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.FinishedIV:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.FinishedDMM:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.FinishedSPS:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.Error:
+            return {
+                buttonColor: "btn-danger",
+                textColor: "",
+                icon: "bi-x-circle-fill",
+            };
+        case MeasurementStateEnum.Unknown:
+            return {
+                buttonColor: "btn-outline-warning",
+                textColor: "",
+                icon: "bi-x-circle-fill",
+            };
         default:
             return "";
     }

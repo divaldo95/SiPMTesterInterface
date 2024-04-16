@@ -101,6 +101,13 @@ export const MeasurementProvider = ({ children }) => {
         });
     };
 
+    const resetSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
+        setMeasurementStates(prevMeasurementData => {
+            return initialMeasurementState; //reset state
+
+        });
+    };
+
     /*
     const updateIVMeasurementIsRunning = (state) => {
         if (state === 1 || state === true) {
@@ -287,7 +294,8 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const isAnyMeasurementRunning = () => {
-        return (instrumentStatuses.ivState === 1) || (instrumentStatuses.spsState === 1);
+        return ((instrumentStatuses.ivState === 0) || (instrumentStatuses.ivState === 6) || (instrumentStatuses.ivState === 7)) ? false : true;
+        //return (instrumentStatuses.ivState === 1) || (instrumentStatuses.spsState === 1);
         //return isIVMeasurementRunning || isSPSMeasurementRunning; //add variables and related stuff
     }
 
@@ -297,7 +305,7 @@ export const MeasurementProvider = ({ children }) => {
                 measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet,
                 isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages,
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
-                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates
+                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates
             }}>
             {children}
         </MeasurementContext.Provider>

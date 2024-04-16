@@ -7,6 +7,23 @@ export const ConnectionStatusEnum = {
     Error: 4
 };
 
+export function ConnectionStatusString(status) {
+    switch(status) {
+        case ConnectionStatusEnum.Disconnected:
+            return "Disconnected";
+        case ConnectionStatusEnum.Connected:
+            return "Connected";
+        case ConnectionStatusEnum.NotConnected:
+            return "Not connected";
+        case ConnectionStatusEnum.Reconnecting:
+            return "Reconnecting";
+        case ConnectionStatusEnum.Error:
+            return "Error";
+        default:
+            return "";
+    }
+}
+
 
 export function getConnectionStatusBtnClasses(status) {
     switch (status) {

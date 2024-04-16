@@ -16,7 +16,7 @@ import StatesCard from './StatesCard';
 
 function Test() {
     const [count, setCount] = useState(0);
-    const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages, updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates } = useContext(MeasurementContext);
+    const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages, updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates, resetSiPMMeasurementStates } = useContext(MeasurementContext);
 
     const [status, setStatus] = useState({
         ivConnectionState: 0,
@@ -81,6 +81,7 @@ function Test() {
     const handleButtonClick2 = () => {
         //increment();
         MeasurementStateService.startMeasurement(measurementData);
+        resetSiPMMeasurementStates();
         //updateIVMeasurementIsRunning(true);
         
     };

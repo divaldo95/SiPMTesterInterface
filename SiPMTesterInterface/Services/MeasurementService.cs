@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Models;
@@ -79,6 +80,8 @@ namespace SiPMTesterInterface.ClientApp.Services
         public long StartTimestamp { get; private set; } = 0;
         public long EndTimestamp { get; private set; } = 0;
 
+        private DateTime utcDate;
+
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
         {
             return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
@@ -99,6 +102,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
                                                         MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
 
+            utcDate = DateTime.UtcNow;
             // Flatten the structure and save all details
             var SiPMs = globalState.CurrentRun.Blocks
                 .SelectMany((block, blockIdx) => block.Modules
@@ -245,6 +249,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IsIVDone = true;
             }
             //don't know the analysis result yet
+            FileOperationHelper.SaveIVResult(c, utcDate.ToString("yyyyMMddHHmmss"));
             _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation, new IVMeasurementHubUpdate(false, 0.0, e.Data.StartTimestamp, e.Data.EndTimestamp)); //send mesaurement update
 
             CheckAndRunNext();
