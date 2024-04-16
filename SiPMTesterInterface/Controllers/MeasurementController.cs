@@ -52,7 +52,7 @@ namespace SiPMTesterInterface.Controllers
                 IVConnectionState = _measurementService.IVConnectionState,
                 SPSConnectionState = _measurementService.SPSConnectionState,
                 IVState = _measurementService.GlobalIVState,
-                SPSState = _measurementService.GlobalIVState //only for testing
+                SPSState = _measurementService.GLobalSPSState //only for testing
             };
             return Ok(measurementStates);
         }
@@ -75,7 +75,6 @@ namespace SiPMTesterInterface.Controllers
             {
                 return NotFound(ResponseMessages.Error("Measurement not started yet"));
             }
-            
         }
 
         [HttpGet("times")]
@@ -93,13 +92,29 @@ namespace SiPMTesterInterface.Controllers
         [HttpGet("data")]
         public IActionResult GetMeasurementData()
         {
-            _measurementService.StopMeasurement();
+            // returns current run configuration (MeasurementStartModel)
             return Ok(_measurementService.MeasurementData);
         }
 
-        [HttpGet("stop")]
+        [HttpGet("measurementstates")]
+        public IActionResult GetSiPMMeasurementStates()
+        {
+            // returns the SiPM states of the current run (waiting, mesured, analyzed)
+            try
+            {
+                return Ok(_measurementService.GetSiPMMeasurementStatesJSON());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+            
+        }
+
+        [HttpPost("stop")]
         public IActionResult StopMeasurement()
         {
+            _measurementService.StopMeasurement();
             return Ok(_measurementService.MeasurementData);
         }
 
@@ -122,18 +137,6 @@ namespace SiPMTesterInterface.Controllers
 
             // Return a success response
             return Ok("Measurement start requested successfully");
-        }
-
-        //leave here... using this snippet later
-        [HttpGet("ivendpoint")]
-        public IActionResult GetIVEndpointState()
-        {
-            var measurementStates = new
-            {
-                IV = 0,
-                SPS = 0
-            };
-            return Ok(measurementStates);
         }
     }
 }

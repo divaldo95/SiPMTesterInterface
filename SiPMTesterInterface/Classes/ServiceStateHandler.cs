@@ -41,6 +41,51 @@ namespace SiPMTesterInterface.Classes
             DMMResistances = new List<DMMResistanceMeasurementResponseModel>();
 		}
 
+        public string GetSiPMMeasurementStatesJSON()
+        {
+            if (AllSiPMsData == null)
+            {
+                throw new NullReferenceException("Measurement not started yet");
+            }
+            // Project each group into the desired JSON structure
+            var result = new
+            {
+                Blocks = Enumerable.Range(0, 2).Select(blockIndex =>
+                new
+                {
+                    Modules = Enumerable.Range(0, 2).Select(moduleIndex =>
+                        new
+                        {
+                            Arrays = Enumerable.Range(0, 4).Select(arrayIndex =>
+                                new
+                                {
+                                    SiPMs = Enumerable.Range(0, 16).Select(sipmIndex =>
+                                        new
+                                        {
+                                            IVMeasurementDone = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IsIVDone ?? false,
+                                            SPSMeasurementDone = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IsSPSDone ?? false,
+                                            //Analyse and update these values
+                                            IVResult = new
+                                            {
+                                                isOK = false,
+                                                breakdownVoltage = 0.0,
+                                                startTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.StartTimestamp,
+                                                endTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.EndTimestamp
+                                            },
+                                            SPSResult = new
+                                            {
+                                                isOK = false,
+                                                Gain = 0.0
+                                            }
+                                        })
+                                })
+                        })
+                })
+            };
+                
+            return Newtonsoft.Json.JsonConvert.SerializeObject(result, Newtonsoft.Json.Formatting.Indented);
+        }
+
         public void AppendCoolerState(Cooler newState)
         {
             CoolerStates.Add(newState);

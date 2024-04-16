@@ -29,14 +29,51 @@ const initialState = {
     MeasureDMMResistance: true
 };
 
+const initialMeasurementState = {
+    Blocks: Array.from({ length: 2 }, () => ({
+        Modules: Array.from({ length: 2 }, () => ({
+            Arrays: Array.from({ length: 4 }, () => ({
+                SiPMs: Array.from({ length: 16 }, () => ({
+                    IVMeasurementDone: false,
+                    SPSMeasurementDone: false,
+                    IVResult: {
+                        isOK: false,
+                        breakdownVoltage: 0.0,
+                        startTimestamp: 0,
+                        endTimestamp: 0
+                    },
+                    SPSResult: {
+                        isOK: false,
+                        Gain: 0.0
+                    }
+                })),
+            }))
+        }))
+    }))
+};
+
+const initialInstrumentStates = {
+    ivConnectionState: 0,
+    spsConnectionState: 0,
+    ivState: 0,
+    spsState: 0
+};
+
 const initialToasts = [
 ];
 
 export const MeasurementProvider = ({ children }) => {
     const [measurementData, setMeasurementData] = useState(initialState);
+    const [measurementStates, setMeasurementStates] = useState(initialMeasurementState);
     const [isIVMeasurementRunning, setIsIVMeasurementRunning] = useState(true);
     const [isSPSMeasurementRunning, setIsSPSMeasurementRunning] = useState(false);
+
+    //const [IVMeasurementState, setIsIVMeasurementState] = useState(true);
+    //const [SPSMeasurementState, setIsSPSMeasurementState] = useState(false);
+
     const [messages, setMessages] = useState(initialToasts);
+
+    const [instrumentStatuses, setInstrumentStatuses] = useState(initialInstrumentStates);
 
     // Function to set the "Dismissed" property of a message based on its index
     const setDismissed = (index, dismissed) => {
@@ -49,9 +86,50 @@ export const MeasurementProvider = ({ children }) => {
         });
     };
 
+    const updateSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
+        setMeasurementStates(prevMeasurementData => {
+            const updatedData = prevMeasurementData;
+
+            // Update individual sipm's data
+            if (blockIndex !== undefined && moduleIndex !== undefined && arrayIndex !== undefined && sipmIndex !== undefined) {
+                updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property] = newData;
+                return updatedData;
+            } else {
+                return newData; //update the whole structure with the complete new one
+            }
+
+        });
+    };
+
+    /*
     const updateIVMeasurementIsRunning = (state) => {
-        setIsIVMeasurementRunning(state);
+        if (state === 1 || state === true) {
+            setIsIVMeasurementRunning(true);
+        }
+        else {
+            setIsIVMeasurementRunning(false);
+        }
     }
+    */
+
+    const updateMeasurementStates = (states) => {
+        setMeasurementStates(states);
+        //console.log(states);
+    };
+
+    const updateInstrumentStates = (states) => {
+        setInstrumentStatuses(states);
+        //console.log(states);
+    };
+
+    const updateSiPMMeasurementState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newState) => {
+        setMeasurementStates(prevMeasurementState => {
+            const updatedState = prevMeasurementState;
+            updatedState[property] = newState;
+
+            return updatedState;
+        });
+    };
 
     const addToast = (messageType, messageText) => {
         setMessages(prevMessages => [
@@ -209,11 +287,18 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const isAnyMeasurementRunning = () => {
-        return isIVMeasurementRunning || isSPSMeasurementRunning; //add variables and related stuff
+        return (instrumentStatuses.ivState === 1) || (instrumentStatuses.spsState === 1);
+        //return isIVMeasurementRunning || isSPSMeasurementRunning; //add variables and related stuff
     }
 
     return (
-        <MeasurementContext.Provider value={{ measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet, isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages, updateIVMeasurementIsRunning }}>
+        <MeasurementContext.Provider
+            value={{
+                measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet,
+                isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages,
+                updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
+                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates
+            }}>
             {children}
         </MeasurementContext.Provider>
     );

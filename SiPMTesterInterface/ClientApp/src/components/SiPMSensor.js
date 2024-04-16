@@ -1,6 +1,6 @@
 ﻿import React, { useContext, useState } from 'react';
 import { GetSiPMNumber, GetSiPMLocation } from "./HelperMethods";
-import { StatusEnum, getStatusBackgroundClass, GetSelectedColorClass } from '../enums/StatusEnum';
+import { StatusEnum, getStatusBackgroundClass, GetSelectedColorClass, GetMeasurementStateColorClass } from '../enums/StatusEnum';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
 import './SiPMArray.css';
 import SiPMSettingsModal from './SiPMSettingsModal';
@@ -20,7 +20,7 @@ function SiPMSensor(props) {
         setShowModal(false);
     };
 
-    const { measurementData, updateSiPM, isAnyMeasurementRunning, addToast } = useContext(MeasurementContext);
+    const { measurementData, measurementStates, updateSiPM, isAnyMeasurementRunning, addToast } = useContext(MeasurementContext);
     //console.log(measurementData);
 
     // Function to handle click event
@@ -58,11 +58,22 @@ function SiPMSensor(props) {
         return measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
     };
 
+    const getSiPMMeasurementValue = (property) => {
+        return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
+    }
+
     const isMeasurementRunning = () => {
         return isAnyMeasurementRunning();
     }
 
-    const backgroundClass = GetSelectedColorClass(getSiPMValue("IV"), getSiPMValue("SPS"));
+    const backgroundClass = () => {
+        if (isAnyMeasurementRunning()) {
+            return GetMeasurementStateColorClass(getSiPMMeasurementValue("IVMeasurementDone"));
+        }
+        else {
+            return GetSelectedColorClass(getSiPMValue("IV"), getSiPMValue("SPS"));
+        }
+    }
 
     return (
         <>
@@ -70,14 +81,14 @@ function SiPMSensor(props) {
                 <button
                     type="button"
                     key={GetSiPMNumber(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)}
-                    className={`btn btn-block btn-sm ${backgroundClass}`}
+                    className={`btn btn-block btn-sm ${backgroundClass()}`}
                     onClick={() => toggleSiPM()}
                 >
                     {SiPMIndex}
                 </button>
                 <button
                     type="button"
-                    className={`btn btn-block btn-sm ${backgroundClass}`}
+                    className={`btn btn-block btn-sm ${backgroundClass()}`}
                     onClick={() => openModal()}
                 >
                     <i className={`bi ${isAnyMeasurementRunning() ? 'bi-caret-down' : 'bi-gear'}`}></i>

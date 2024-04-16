@@ -5,6 +5,7 @@ const API_TIMES_URL = 'times/'
 const API_STATES_URL = 'states/'
 const API_START_URL = 'start/'
 const API_DATA_URL = 'getsipmdata/'
+const API_SIPM_MEAS_STATUS_URL = 'measurementstates/'
 
 const MeasurementStateService = {
     getMeasurementStates: async () => {
@@ -55,6 +56,15 @@ const MeasurementStateService = {
             return response.data;
         } catch (error) {
             console.error('Error fetching sipm time data:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getMeasuredSiPMStates: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_SIPM_MEAS_STATUS_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching sipm measurements statuses:', error);
             throw error; // You can handle the error as needed in your application
         }
     },

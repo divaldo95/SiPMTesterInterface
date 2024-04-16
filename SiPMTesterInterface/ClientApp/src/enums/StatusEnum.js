@@ -58,3 +58,13 @@ export function GetSelectedColorClass(IV, SPS) {
         return getStatusBackgroundClass(StatusEnum.NotSelected);
     }
 }
+
+//quick test, add all functionality later
+export function GetMeasurementStateColorClass(IV) {
+    if (IV === true) {
+        return getStatusBackgroundClass(StatusEnum.SelectedBoth);
+    }
+    else {
+        return getStatusBackgroundClass(StatusEnum.NotSelected);
+    }
+}

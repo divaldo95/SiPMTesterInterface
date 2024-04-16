@@ -30,6 +30,7 @@ namespace SiPMTesterInterface.Classes
 	{
 		public string IP { get; private set; }
         private RequestSocket reqSocket;
+        private bool needReconnect = false;
 
         private readonly TimeSpan Period;
         private object _lockObject = new object();
@@ -75,18 +76,37 @@ namespace SiPMTesterInterface.Classes
 
         RequestSocket CreateServerSocket()
         {
+            bool opening = true;
+            int openCount = 0;
+            RequestSocket? client = null;
             Console.WriteLine("C: Connecting to server...");
+            while(opening)
+            {
+                try
+                {
+                    //Handle NetMQ.NetMQException here
+                    client = new RequestSocket();
+                    var clientPair = new NetMQCertificate();
 
-            //Handle NetMQ.NetMQException here
-            var client = new RequestSocket();
-            var clientPair = new NetMQCertificate();
-
-            var serverPair = KeyReader.ReadKeyFiles("REQPrivate.key", "REQPublic.key", true);
-            client.Options.CurveServerKey = serverPair.PublicKey;
-            client.Options.CurveCertificate = clientPair;
-            client.Connect(IP);
-            client.Options.Linger = TimeSpan.Zero;
-            client.ReceiveReady += ClientOnReceiveReady;
+                    var serverPair = KeyReader.ReadKeyFiles("REQPrivate.key", "REQPublic.key", true);
+                    client.Options.CurveServerKey = serverPair.PublicKey;
+                    client.Options.CurveCertificate = clientPair;
+                    client.Connect(IP);
+                    client.Options.Linger = TimeSpan.Zero;
+                    client.ReceiveReady += ClientOnReceiveReady;
+                    opening = false;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Socket opening error: {ex.Message}");
+                    openCount++;
+                    if (openCount >= 10)
+                    {
+                        Console.WriteLine($"Socket opening limit reached");
+                        throw;      
+                    }
+                }
+            }
             return client;
         }
 
@@ -148,8 +168,24 @@ namespace SiPMTesterInterface.Classes
                 foreach (var item in queryMsgs)
                 {
                     //AskServer(item);
+                    bool needReconnect = false;
                     Task t = new Task(() =>
                     {
+                        if (needReconnect)
+                        {
+                            try
+                            {
+                                TerminateClient(reqSocket);
+                                Thread.Sleep(3000);
+                                reqSocket = CreateServerSocket(); //if any error happens, reopen the socket
+                                needReconnect = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error: {ex.Message}");
+                                return;
+                            }
+                        }
                         try
                         {
                             AskServer(item);
@@ -157,11 +193,8 @@ namespace SiPMTesterInterface.Classes
                         catch (Exception ex)
                         {
                             Console.WriteLine($"Error: {ex.Message}");
-                            TerminateClient(reqSocket);
-                            Thread.Sleep(3000);
-                            reqSocket = CreateServerSocket();
-                        }
-                        
+                            needReconnect = true;
+                        }                        
                     });
                     // Start the task.
                     t.Start();

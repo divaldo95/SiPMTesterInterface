@@ -84,6 +84,15 @@ namespace SiPMTesterInterface.ClientApp.Services
             return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
         }
 
+        public string GetSiPMMeasurementStatesJSON()
+        {
+            if (serviceState == null)
+            {
+                throw new NullReferenceException("Measurement not started yet");
+            }
+            return serviceState.GetSiPMMeasurementStatesJSON();
+        }
+
         private void PopulateServiceState()
         {
 
@@ -235,7 +244,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IVResult = e.Data;
                 c.IsIVDone = true;
             }
-            _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation); //send mesaurement update
+            //don't know the analysis result yet
+            _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation, new IVMeasurementHubUpdate(false, 0.0, e.Data.StartTimestamp, e.Data.EndTimestamp)); //send mesaurement update
 
             CheckAndRunNext();
         }

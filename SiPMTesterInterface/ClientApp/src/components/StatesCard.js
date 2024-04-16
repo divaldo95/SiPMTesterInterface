@@ -5,11 +5,11 @@ function StatesCard(props) {
     const { className, MeasurementType, ConnectionState, MeasurementState } = props;
 
     const connectionClasses = getConnectionStatusBtnClasses(ConnectionState);
-    const measurementClasses = getConnectionStatusBtnClasses(ConnectionState);
+    const measurementClasses = getConnectionStatusBtnClasses(MeasurementState);
 
     useEffect(() => {
-        console.log(ConnectionState);
-        console.log(MeasurementState);
+        //console.log(ConnectionState);
+        //console.log(MeasurementState);
     }, []);
 
     return (
@@ -22,7 +22,7 @@ function StatesCard(props) {
                             <button disabled={false} onClick={(e) => { e.preventDefault(); }} className={`btn ${connectionClasses.buttonColor} ${connectionClasses.textColor}`}>
                                 Connection: <i className={`ms-1 bi ${connectionClasses.icon}`}></i>
                             </button>
-                            <button disabled={false} onClick={(e) => { e.preventDefault(); }} className={`btn ${connectionClasses.buttonColor} ${connectionClasses.textColor}`}>
+                            <button disabled={false} onClick={(e) => { e.preventDefault(); }} className={`btn ${measurementClasses.buttonColor} ${measurementClasses.textColor}`}>
                                 Measurement: <i className={`ms-1 bi ${measurementClasses.icon}`}></i>
                             </button>
                         </div>
