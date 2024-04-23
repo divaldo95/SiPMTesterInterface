@@ -169,7 +169,7 @@ namespace SiPMTesterInterface.Classes
             double[] tempd;
             WriteCommand(command);
             string lastline = LastLine;
-            lastline = lastline.Remove(0, LastLine.IndexOf('*') + 1); //remove everything until first *
+            lastline = lastline.Remove(0, lastline.IndexOf('*') + 1); //remove everything until first *
             lastline = lastline.Remove(lastline.IndexOf('*'), 1); //remove last *
             temps = lastline.Split(',');
             tempd = new double[temps.Length];

@@ -20,7 +20,7 @@ namespace SiPMTesterInterface.Classes
             for(int i = 0; i < 8; i++)
             {
                 Module1[i] = psocRespArr[i];
-                Module1[i + 8] = psocRespArr[i];
+                Module2[i] = psocRespArr[i+8];
             }
             Pulser = psocRespArr[16];
             ControlTemperature = psocRespArr[17];

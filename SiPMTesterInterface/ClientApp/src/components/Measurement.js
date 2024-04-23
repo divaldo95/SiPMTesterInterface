@@ -7,6 +7,7 @@ import { StatusEnum, MeasurementStateEnum, getStatusBackgroundClass } from '../e
 import {  MeasurementContext } from '../context/MeasurementContext';
 import ButtonsComponent from './ButtonsComponent';
 import FileSelectCard from './FileSelectCard';
+import OneButtonCard from './OneButtonCard';
 import ToastComponent from './ToastComponent';
 import VoltageListComponent from './VoltageListComponent';
 import MeasurementStateService from '../services/MeasurementStateService';
@@ -19,7 +20,7 @@ function Test() {
     const [count, setCount] = useState(0);
     const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
         updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
-        resetSiPMMeasurementStates, pulserState } = useContext(MeasurementContext);
+        resetSiPMMeasurementStates, pulserState, setPulserState } = useContext(MeasurementContext);
 
     const [status, setStatus] = useState({
         ivConnectionState: 0,
@@ -129,7 +130,7 @@ function Test() {
                         refreshMeasuredSiPMStates();
                     }
                     else {
-                        console.log("sgfa");
+                        //console.log("sgfa");
                     }
             })
             
@@ -146,6 +147,19 @@ function Test() {
             // Handle the error if needed
             addToast(MessageTypeEnum.Error, JSON.stringify(error));
             //console.log(error);
+        }
+    };
+
+    const refreshPulserConnectionState = async () => {
+        //setIsLoading(true);
+        try {
+            const data = await MeasurementStateService.getPulserState()
+                .then((resp) => {
+                    setPulserState(resp.PulserConnected);
+                    //console.log(resp);
+                })
+        } catch (error) {
+            addToast(MessageTypeEnum.Error, JSON.stringify(error));
         }
     };
 
@@ -214,6 +228,7 @@ function Test() {
             });
 
         refreshMeasurementState();
+        refreshPulserConnectionState();
     }, []); // Empty dependency array ensures the effect runs only once when the component mounts
     
 
@@ -265,6 +280,19 @@ function Test() {
                     <div className="col">
                         <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
                     </div>
+                    <div className="col">
+                        <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"
+                            clickFunction={() => { console.log("Stop button pressed") }} tooltipMessage="Stop all running measurements" buttonIcon="bi-sign-stop">
+                        </OneButtonCard>
+                    </div>
+                    <div className="col">
+                        <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
+                            clickFunction={() => { console.log("Clicked export button") }} tooltipMessage="Export current settings" buttonIcon="bi-download">
+                        </OneButtonCard>
+                    </div>
+                </div>
+
+                <div className="row mb-4">
                     <div className="col">
                         <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.ivConnectionState} MeasurementState={instrumentStatuses.ivState}></StatesCard>
                     </div>

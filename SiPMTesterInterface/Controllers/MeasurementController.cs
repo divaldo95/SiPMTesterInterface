@@ -183,7 +183,26 @@ namespace SiPMTesterInterface.Controllers
         }
 
         [HttpGet("pulser")]
-        public IActionResult GetPulserStates()
+        public IActionResult GetPulserState()
+        {
+            // returns the SiPM states of the current run (waiting, mesured, analyzed)
+            try
+            {
+                var data = new
+                {
+                    _measurementService.PulserConnected
+                };
+                string json = JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented);
+                return Ok(json);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpGet("pulser/details")]
+        public IActionResult GetPulserStateDetails()
         {
             // returns the SiPM states of the current run (waiting, mesured, analyzed)
             try
@@ -191,7 +210,7 @@ namespace SiPMTesterInterface.Controllers
                 var data = new
                 {
                     _measurementService.PulserConnected,
-                    _measurementService.PulserReadingInterval,
+                    _measurementService.PulserReadingInterval.TotalSeconds,
                     _measurementService.Temperatures,
                     _measurementService.CoolerStates
                 };

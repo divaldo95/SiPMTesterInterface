@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Reflection.Metadata;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -419,7 +420,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public void SetCooler(CoolerSettingsModel s)
         {
-            Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
+            if (Pulser != null)
+            {
+                Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
+            }
+            
         }
 
         public MeasurementService(ILoggerFactory loggerFactory, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()

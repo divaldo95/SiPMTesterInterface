@@ -307,7 +307,7 @@ export const MeasurementProvider = ({ children }) => {
                 measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet,
                 isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages,
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
-                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates, pulserState
+                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates, pulserState, setPulserState
             }}>
             {children}
         </MeasurementContext.Provider>
