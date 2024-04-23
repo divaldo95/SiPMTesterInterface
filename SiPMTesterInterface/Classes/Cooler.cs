@@ -1,16 +1,23 @@
 ﻿using System;
+using SiPMTesterInterface.Helpers;
+
 namespace SiPMTesterInterface.Classes
 {
 	public class Cooler
 	{
         public enum CoolerState
         {
-            On,
-            Off,
-            TemoeratureSensorError,
-            ThermalRunaway,
-            BlockedFan
+            On = 0,
+            Off = 1,
+            TemoeratureSensorError = 2,
+            ThermalRunaway = 3,
+            BlockedFan = 4
         };
+
+        public Cooler()
+        {
+
+        }
 
         public Cooler(string psoc_out)
         {
@@ -18,7 +25,6 @@ namespace SiPMTesterInterface.Classes
             {
                 throw new Exception(psoc_out);
             }
-            string outstr = psoc_out;
             if (psoc_out.Length <= 0)
             {
                 throw new Exception("psoc_out length is " + psoc_out.Length + ": " + psoc_out);
@@ -70,7 +76,7 @@ namespace SiPMTesterInterface.Classes
             Peltier2Voltage = double.Parse(splitted[8]);
 
             //Save timestamp
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            Timestamp = TimestampHelper.GetUTCTimestamp();
         }
 
         public string GetState(int state)
@@ -107,17 +113,17 @@ namespace SiPMTesterInterface.Classes
             return retVal;
         }
 
-        public int State1 { get; }
-        public int State2 { get; }
-        public bool TempStableFlag1 { get; }
-        public bool TempStableFlag2 { get; }
-        public double Cooler1Temp { get; }
-        public double Cooler2Temp { get; }
-        public double Peltier1Voltage { get; }
-        public double Peltier2Voltage { get; }
-        public double Peltier1Current { get; }
-        public double Peltier2Current { get; }
-        public long Timestamp { get; }
+        public int State1 { get; set; }
+        public int State2 { get; set; }
+        public bool TempStableFlag1 { get; set; }
+        public bool TempStableFlag2 { get; set; }
+        public double Cooler1Temp { get; set; }
+        public double Cooler2Temp { get; set; }
+        public double Peltier1Voltage { get; set; }
+        public double Peltier2Voltage { get; set; }
+        public double Peltier1Current { get; set; }
+        public double Peltier2Current { get; set; }
+        public long Timestamp { get; set; }
     }
 }
 

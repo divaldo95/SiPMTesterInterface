@@ -13,10 +13,13 @@ import MeasurementStateService from '../services/MeasurementStateService';
 import { HubConnectionBuilder } from '@microsoft/signalr';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
 import StatesCard from './StatesCard';
+import SerialStateCard from './SerialStateCard';
 
 function Test() {
     const [count, setCount] = useState(0);
-    const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages, updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates, resetSiPMMeasurementStates } = useContext(MeasurementContext);
+    const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
+        updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
+        resetSiPMMeasurementStates, pulserState } = useContext(MeasurementContext);
 
     const [status, setStatus] = useState({
         ivConnectionState: 0,
@@ -267,6 +270,9 @@ function Test() {
                     </div>
                     <div className="col">
                         <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.spsConnectionState} MeasurementState={instrumentStatuses.spsState}></StatesCard>
+                    </div>
+                    <div className="col">
+                        <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>
                     </div>
                 </div>
                 

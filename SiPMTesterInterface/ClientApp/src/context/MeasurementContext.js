@@ -68,6 +68,8 @@ export const MeasurementProvider = ({ children }) => {
     const [isIVMeasurementRunning, setIsIVMeasurementRunning] = useState(true);
     const [isSPSMeasurementRunning, setIsSPSMeasurementRunning] = useState(false);
 
+    const [pulserState, setPulserState] = useState(true);
+
     //const [IVMeasurementState, setIsIVMeasurementState] = useState(true);
     //const [SPSMeasurementState, setIsSPSMeasurementState] = useState(false);
 
@@ -305,7 +307,7 @@ export const MeasurementProvider = ({ children }) => {
                 measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet,
                 isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages,
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
-                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates
+                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates, pulserState
             }}>
             {children}
         </MeasurementContext.Provider>

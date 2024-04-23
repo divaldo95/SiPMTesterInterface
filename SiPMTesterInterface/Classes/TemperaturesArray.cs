@@ -1,4 +1,6 @@
 ﻿using System;
+using SiPMTesterInterface.Helpers;
+
 namespace SiPMTesterInterface.Classes
 {
     public class TemperaturesArray
@@ -7,6 +9,7 @@ namespace SiPMTesterInterface.Classes
         public double[] Module2 { get; private set; } = new double[8];
         public double Pulser { get; private set; }
         public double ControlTemperature { get; private set; }
+        public long Timestamp { get; private set; }
 
         public TemperaturesArray(double[] psocRespArr)
         {
@@ -21,7 +24,7 @@ namespace SiPMTesterInterface.Classes
             }
             Pulser = psocRespArr[16];
             ControlTemperature = psocRespArr[17];
-
+            Timestamp = TimestampHelper.GetUTCTimestamp();
         }
     }
 }

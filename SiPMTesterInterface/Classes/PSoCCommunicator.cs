@@ -6,60 +6,100 @@ using System.IO.Ports;
 using static SiPMTesterInterface.Classes.MeasurementMode;
 using SiPMTesterInterface.Models;
 using System.Net.WebSockets;
+using static SiPMTesterInterface.Classes.Cooler;
 
 namespace SiPMTesterInterface.Classes
 {
-	public class PSoCCommunicator : SerialPortHandler
+    public class PSoCCommuicatorDataReadEventArgs : EventArgs
+    {
+        public PSoCCommuicatorDataReadEventArgs() : base()
+        {
+            Data = new PSoCCommunicatorDataModel();
+        }
+
+        public PSoCCommuicatorDataReadEventArgs(PSoCCommunicatorDataModel d) : base()
+        {
+            Data = d;
+        }
+        public PSoCCommunicatorDataModel Data { get; set; }
+    }
+
+    public class PSoCCommunicator : SerialPortHandler
 	{
-        private Queue<TemperaturesArray> buffer;
+        public Queue<TemperaturesArray> Temperatures { get; private set; }
+        public Queue<Cooler> CoolerStates { get; private set; }
         private int bufferSize = 5000; //store n number of temperatureArrays
-        private readonly TimeSpan Period = TimeSpan.FromSeconds(10);
+        public TimeSpan UpdatePeriod { get; private set; } = TimeSpan.FromSeconds(0);
         private Timer _timer;
+        public event EventHandler<PSoCCommuicatorDataReadEventArgs> OnDataReadout;
 
-        public PSoCCommunicator(IConfiguration config) : base(config, "Pulser")
+        public PSoCCommunicator(IConfiguration config, ILogger<SerialPortHandler> logger) : this(new SerialSettings(config, "Pulser"), logger)
         {
-            buffer = new Queue<TemperaturesArray>(bufferSize);
-            _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
-        public PSoCCommunicator(SerialSettings settings) : base(settings)
+        public PSoCCommunicator(SerialSettings settings, ILogger<SerialPortHandler> logger) :
+            this(settings.SerialPort, settings.BaudRate, settings.Timeout, logger, settings.Enabled, settings.AutoDetect, settings.AutoDetectString, settings.AutoDetectExpectedAnswer)
         {
-            buffer = new Queue<TemperaturesArray>(bufferSize);
-            _timer = new Timer(TimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
-		public PSoCCommunicator(string Port, int Baud, int Timeout) : base(Port, Baud, Timeout)
+		public PSoCCommunicator(string Port, int Baud, int Timeout, ILogger<SerialPortHandler> logger, bool Enabled, bool autoDetect, string autoDetectString, string autoDetectExpectedAnswer) :
+            base(logger,Port, Baud, Timeout, Enabled, autoDetect, autoDetectString, autoDetectExpectedAnswer)
 		{
-            buffer = new Queue<TemperaturesArray>(bufferSize);
+            Temperatures = new Queue<TemperaturesArray>(bufferSize);
+            CoolerStates = new Queue<Cooler>(bufferSize);
             _timer = new Timer(TimerCallback, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
         }
 
         public void AddTemperatureArray(TemperaturesArray temperatureArray)
         {
             // If buffer is full, dequeue the oldest element
-            if (buffer.Count == bufferSize)
+            if (Temperatures.Count == bufferSize)
             {
-                buffer.Dequeue();
+                Temperatures.Dequeue();
             }
 
             // Add the new temperature array to the buffer
-            buffer.Enqueue(temperatureArray);
+            Temperatures.Enqueue(temperatureArray);
+        }
+
+        public void AddCoolerArray(Cooler coolerState)
+        {
+            // If buffer is full, dequeue the oldest element
+            if (CoolerStates.Count == bufferSize)
+            {
+                CoolerStates.Dequeue();
+            }
+
+            // Add the new temperature array to the buffer
+            CoolerStates.Enqueue(coolerState);
+        }
+
+        public void RefreshData()
+        {
+            //TODO: Handle blocks properly here
+            TemperaturesArray t = ReadTemperatures(0);
+            Cooler c = GetCoolerState(0);
+            AddTemperatureArray(t);
+            AddCoolerArray(c);
+
+            OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
         }
 
         private void TimerCallback(object? state)
         {
-            //TODO: Handle blocks properly here
-            AddTemperatureArray(ReadTemperatures(0));
+            RefreshData();
         }
 
         public void ChangeTimerInterval(TimeSpan period)
         {
+            UpdatePeriod = period;
             _timer.Change(period, period); //wait the period for the first time too
         }
 
+        //in seconds
         public void ChangeTimerInterval(int timeout)
         {
-            _timer.Change(timeout, timeout); //wait the period for the first time too
+            ChangeTimerInterval(TimeSpan.FromSeconds(timeout));
         }
 
         //if an alive message arrives restart the timer
@@ -71,27 +111,12 @@ namespace SiPMTesterInterface.Classes
 
         public void StartTimer()
         {
-            ChangeTimerInterval(Period);
+            ChangeTimerInterval(UpdatePeriod);
         }
 
         public void StopTimer()
         {
             ChangeTimerInterval(Timeout.Infinite);
-        }
-
-        public bool IsPulser()
-        {
-            string command = "get_instrument_name";
-            WriteCommand(command);
-            string lastline = LastLine;
-            if (lastline.Contains("OK") && lastline.Contains("Pulser"))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
 
         //Block - a dupla egység
@@ -158,8 +183,6 @@ namespace SiPMTesterInterface.Classes
         public Cooler GetCoolerState(int block)
         {
             string command = "get_cooler_state," + block.ToString();
-            string[] temps;
-            double[] tempd;
             WriteCommand(command);
             Cooler cooler = new Cooler(LastLine);
             //Trace.WriteLine(cooler.ToString());

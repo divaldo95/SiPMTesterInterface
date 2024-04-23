@@ -138,6 +138,72 @@ namespace SiPMTesterInterface.Controllers
             // Return a success response
             return Ok("Measurement start requested successfully");
         }
+
+
+        [HttpPost("cooler")]
+        public IActionResult SetCooler([FromBody] CoolerSettingsModel coolerSettings)
+        {
+            if (coolerSettings == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty cooler data frame"));
+            }
+
+            _logger.LogInformation($"Cooler information received: {JsonConvert.SerializeObject(coolerSettings)}");
+
+            try
+            {
+                _measurementService.SetCooler(coolerSettings);
+                return Ok("Cooler set successfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }            
+        }
+
+        [HttpPost("pulser")]
+        public IActionResult SetPulser([FromBody] PulserSettingsModel pulserSettings)
+        {
+            if (pulserSettings == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty pulser data frame"));
+            }
+
+            _logger.LogInformation($"Pulser information received: {JsonConvert.SerializeObject(pulserSettings)}");
+
+            try
+            {
+                _measurementService.PulserReadingInterval = TimeSpan.FromSeconds(pulserSettings.RefreshInterval);
+                return Ok("Pulser set successfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpGet("pulser")]
+        public IActionResult GetPulserStates()
+        {
+            // returns the SiPM states of the current run (waiting, mesured, analyzed)
+            try
+            {
+                var data = new
+                {
+                    _measurementService.PulserConnected,
+                    _measurementService.PulserReadingInterval,
+                    _measurementService.Temperatures,
+                    _measurementService.CoolerStates
+                };
+                string json = JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented);
+                return Ok(json);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+
+        }
     }
 }
 

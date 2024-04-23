@@ -28,6 +28,7 @@
     <None Remove="ClientApp\src\enums\" />
     <None Remove="Helpers\" />
     <None Remove="ClientApp\src\context\" />
+    <None Remove="DbModels\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -48,6 +49,7 @@
     <Folder Include="ClientApp\src\enums\" />
     <Folder Include="Helpers\" />
     <Folder Include="ClientApp\src\context\" />
+    <Folder Include="DbModels\" />
   </ItemGroup>
   <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
     <!-- Ensure Node.js is installed -->

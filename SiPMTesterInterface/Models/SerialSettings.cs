@@ -4,6 +4,9 @@ namespace SiPMTesterInterface.Models
 	public class SerialSettings
 	{
         public bool Enabled { get; set; } = true;
+        public bool AutoDetect { get; set; } = false;
+        public string AutoDetectString { get; set; } = "";
+        public string AutoDetectExpectedAnswer { get; set; } = "";
         public string SerialPort { get; set; } = "";
         public int BaudRate { get; set; } = 115200;
         public int Timeout { get; set; } = 10000;
@@ -11,6 +14,9 @@ namespace SiPMTesterInterface.Models
 		public SerialSettings(IConfiguration config, string obj)
 		{
             var enabled = config[obj + ":Enabled"];
+            var autoDetect = config[obj + ":AutoDetect"];
+            var autoDetectString = config[obj + ":AutoDetectString"];
+            var autoDetectExpectedAnswer = config[obj + ":AutoDetectExpectedAnswer"];
             var sPort = config[obj+":SerialPort"];
             var baud = config[obj + ":BaudRate"];
             var timeout = config[obj + ":Timeout"];
@@ -21,7 +27,20 @@ namespace SiPMTesterInterface.Models
                 bool.TryParse(enabled, out val);
                 Enabled = val;
             }
-
+            if (autoDetect != null)
+            {
+                bool val;
+                bool.TryParse(autoDetect, out val);
+                AutoDetect = val;
+            }
+            if (autoDetectString != null)
+            {
+                AutoDetectString = autoDetectString;
+            }
+            if (autoDetectExpectedAnswer != null)
+            {
+                AutoDetectExpectedAnswer = autoDetectExpectedAnswer;
+            }
             if (sPort != null)
             {
                 SerialPort = sPort;

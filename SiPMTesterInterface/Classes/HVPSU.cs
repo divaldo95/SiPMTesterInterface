@@ -7,15 +7,15 @@ namespace SiPMTesterInterface.Classes
 {
 	public class HVPSU : SerialPortHandler
 	{
-        public HVPSU(IConfiguration config) : base(config, "HVPSU")
+        public HVPSU(IConfiguration config, ILogger<SerialPortHandler> logger) : base(config, logger, "HVPSU")
         {
         }
 
-        public HVPSU(SerialSettings settings) : base(settings)
+        public HVPSU(SerialSettings settings, ILogger<SerialPortHandler> logger) : base(settings, logger)
         {
         }
 
-        public HVPSU(string Port, int Baud, int Timeout) : base(Port, Baud, Timeout)
+        public HVPSU(ILogger<SerialPortHandler> logger, string Port, int Baud, int Timeout) : base(logger, Port, Baud, Timeout)
         {
         }
 

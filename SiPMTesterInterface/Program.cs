@@ -34,5 +34,7 @@ app.MapFallbackToFile("index.html");
 
 app.MapHub<UpdatesHub>("/hub");
 
+app.Services.GetService<MeasurementService>(); //warm-up measurement service
+
 app.Run();
 

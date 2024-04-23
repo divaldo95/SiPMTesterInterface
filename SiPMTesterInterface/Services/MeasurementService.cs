@@ -54,6 +54,72 @@ namespace SiPMTesterInterface.ClientApp.Services
         }
     }
 
+    public class IVMeasurementSettings
+    {
+        public double CurrentLimit { get; set; } = 0.01;
+        public double CurrentLimitRange { get; set; } = 0.01;
+        public int LED { get; set; } = 100;
+
+        public IVMeasurementSettings(IConfiguration config)
+        {
+            var currentLimit = config["DefaultMeasurementSettings:IV:CurrentLimit"];
+            var currentLimitRange = config["DefaultMeasurementSettings:IV:CurrentLimitRange"];
+            var led = config["DefaultMeasurementSettings:IV:LED"];
+
+            if (currentLimit != null)
+            {
+                double val;
+                double.TryParse(currentLimit, out val);
+                CurrentLimit = val;
+            }
+            if (currentLimitRange != null)
+            {
+                double val;
+                double.TryParse(currentLimitRange, out val);
+                CurrentLimitRange = val;
+            }
+            if (led != null)
+            {
+                int val;
+                int.TryParse(led, out val);
+                LED = val;
+            }
+        }
+    }
+
+    public class DMMMeasurementSettings
+    {
+        public double Voltage { get; set; } = 30.0;
+        public int Iterations { get; set; } = 5;
+        public int CorrectionPercentage { get; set; } = 10;
+
+        public DMMMeasurementSettings(IConfiguration config)
+        {
+            var voltage = config["DefaultMeasurementSettings:DMMResistance:Voltage"];
+            var iterations = config["DefaultMeasurementSettings:DMMResistance:Iterations"];
+            var correctionPercentage = config["DefaultMeasurementSettings:DMMResistance:CorrectionPercentage"];
+
+            if (voltage != null)
+            {
+                double val;
+                double.TryParse(voltage, out val);
+                Voltage = val;
+            }
+            if (iterations != null)
+            {
+                int val;
+                int.TryParse(iterations, out val);
+                Iterations = val;
+            }
+            if (correctionPercentage != null)
+            {
+                int val;
+                int.TryParse(correctionPercentage, out val);
+                CorrectionPercentage = val;
+            }
+        }
+    }
+
     public class MeasurementService : MeasurementOrchestrator, IDisposable
     {
         private readonly object _lockObject = new object();
@@ -75,6 +141,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private readonly IHubContext<UpdatesHub, IStateContext> _hubContext;
 
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<MeasurementService> _logger;
 
         public long StartTimestamp { get; private set; } = 0;
@@ -179,7 +246,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             List<CurrentSiPMModel> sipms;
 
             //turn off pulser, disconnect all relays
-            EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds(); //just to make sure something is saved
+            EndTimestamp = TimestampHelper.GetUTCTimestamp(); ; //just to make sure something is saved
             Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
@@ -203,6 +270,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     //set IV settings
                     //change SiPM relays
+                    int[] pulserLEDValues = new[]
+                    {
+                        LEDValueHelper.GetPulserValue(100),
+                    };
                     Pulser.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV, new[] { 100, 100, 100, 100 });
                     CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM);
                     c.IVMeasurementID = niIVStart.Identifier;
@@ -212,7 +283,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             else //end of measurement
             {
                 Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
-                EndTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+                EndTimestamp = TimestampHelper.GetUTCTimestamp();
             }
         }
 
@@ -221,7 +292,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
             CheckAndRunNext();
-            StartTimestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+            StartTimestamp = TimestampHelper.GetUTCTimestamp();
         }
 
         public void StopMeasurement()
@@ -248,6 +319,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IVResult = e.Data;
                 c.IsIVDone = true;
             }
+            c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp).ToList();
             //don't know the analysis result yet
             FileOperationHelper.SaveIVResult(c, utcDate.ToString("yyyyMMddHHmmss"));
             _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation, new IVMeasurementHubUpdate(false, 0.0, e.Data.StartTimestamp, e.Data.EndTimestamp)); //send mesaurement update
@@ -277,15 +349,93 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
-        public MeasurementService(ILogger<MeasurementService> logger, ILogger<NIMachine> niLogger, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()
+        public List<TemperaturesArray> Temperatures
+        {
+            get
+            {
+                if (PulserConnected)
+                {
+                    return Pulser.Temperatures.ToList();
+                }
+                else
+                {
+                    return new List<TemperaturesArray>();
+                }
+            }
+        }
+
+        public List<Cooler> CoolerStates
+        {
+            get
+            {
+                if (PulserConnected)
+                {
+                    return Pulser.CoolerStates.ToList();
+                }
+                else
+                {
+                    return new List<Cooler>();
+                }
+            }
+        }
+
+        public bool PulserConnected
+        {
+            get
+            {
+                if (Pulser == null)
+                {
+                    return false;
+                }
+                else
+                {
+                    return Pulser.Connected;
+                }
+            }
+        }
+
+        //this can be used to start or stop the temperature readings
+        public TimeSpan PulserReadingInterval
+        {
+            get
+            {
+                if (Pulser != null)
+                {
+                    return Pulser.UpdatePeriod;
+                }
+                else
+                {
+                    return TimeSpan.FromSeconds(0);
+                }
+            }
+            set
+            {
+                if (Pulser != null)
+                {
+                    Pulser.ChangeTimerInterval(value);
+                }
+            }
+        }
+
+        public void SetCooler(CoolerSettingsModel s)
+        {
+            Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
+        }
+
+        public MeasurementService(ILoggerFactory loggerFactory, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()
         {
             Configuration = configuration;
-            _logger = logger;
+            _loggerFactory = loggerFactory;
+            _logger = _loggerFactory.CreateLogger<MeasurementService>();
             _hubContext = hubContext;
 
             try
             {
                 MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
+
+                var niLogger = _loggerFactory.CreateLogger<NIMachine>();
+                var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
+                var hvpsuSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
 
                 niMachine = new NIMachine(Configuration, niLogger);
                 niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
@@ -294,8 +444,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                 niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
                 niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
 
-                Pulser = new PSoCCommunicator(Configuration);
-                hvPSU = new HVPSU(Configuration);
+                Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
+                hvPSU = new HVPSU(Configuration, hvpsuSerialLogger);
             }
             catch (Exception ex)
             {
