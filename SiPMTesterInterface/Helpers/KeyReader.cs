@@ -10,7 +10,7 @@ namespace SiPMTesterInterface.Helpers
 		//(making an absolute path for a given relative path)
 		public static byte[] ReadKeyFile(string path, bool relativePath = false)
 		{
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = FilePathHelper.GetCurrentDirectory();
 			string absPath = (relativePath ? Path.Combine(baseDir, path) : path);
             if (!File.Exists(absPath))
 			{

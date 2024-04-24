@@ -5,11 +5,16 @@ namespace SiPMTesterInterface.Classes
 {
     public class TemperaturesArray
     {
-        public double[] Module1 { get; private set; } = new double[8];
-        public double[] Module2 { get; private set; } = new double[8];
-        public double Pulser { get; private set; }
-        public double ControlTemperature { get; private set; }
-        public long Timestamp { get; private set; }
+        public double[] Module1 { get; set; } = new double[8];
+        public double[] Module2 { get; set; } = new double[8];
+        public double Pulser { get; set; }
+        public double ControlTemperature { get; set; }
+        public long Timestamp { get; set; }
+
+        public TemperaturesArray()
+        {
+
+        }
 
         public TemperaturesArray(double[] psocRespArr)
         {
