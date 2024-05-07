@@ -14,6 +14,7 @@ namespace SiPMTesterInterface.Models
 		public List<double> SMUVoltage { get; set; }
         public List<double> SMUCurrent { get; set; }
         public List<double> DMMVoltage { get; set; }
+		public IVAnalysationResult AnalysationResult { get; set; }
     }
 }
 

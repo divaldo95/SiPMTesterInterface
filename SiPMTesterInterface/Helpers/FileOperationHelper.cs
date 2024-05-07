@@ -23,6 +23,24 @@ namespace SiPMTesterInterface.Helpers
                 Console.WriteLine($"File ({outPath + fileName}) created");
             }
         }
-	}
+
+        public static void SaveDMMResult(List<DMMResistanceMeasurementResponseModel> data, string folderName)
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string outPath = Path.Combine(baseDir, folderName);
+            string fileName = $"DMMResistance.json";
+            if (!Directory.Exists(outPath))
+            {
+                Directory.CreateDirectory(outPath);
+                Console.WriteLine($"Directory ({outPath}) created");
+            }
+            using (StreamWriter file = File.CreateText(outPath + "/" + fileName))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(file, data);
+                Console.WriteLine($"File ({outPath + fileName}) created");
+            }
+        }
+    }
 }
 

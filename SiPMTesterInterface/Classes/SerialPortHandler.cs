@@ -1,25 +1,62 @@
 ﻿using System;
+using System.Data;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO.Ports;
 using SiPMTesterInterface.Controllers;
+using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {
+
+    public class SerialConnectionStateChangedEventArgs : EventArgs
+    {
+        public SerialConnectionStateChangedEventArgs() : base()
+        {
+        }
+
+        public SerialConnectionStateChangedEventArgs(SerialPortState s, SerialPortState p) : base()
+        {
+            Previous = p;
+            State = s;
+        }
+        public SerialPortState Previous { get; set; } = SerialPortState.Disconnected;
+        public SerialPortState State { get; set; } = SerialPortState.Disconnected;
+    }
+
     public class SerialPortHandler
     {
         private SerialPort? _serialPort = null;
         private static object _lockObject = new object();
         private AutoResetEvent _messageReceived;
         private int _timeout = 10000;
-        public bool Connected { get; private set; } = false;
+        private SerialPortState _state = SerialPortState.Disabled;
+        public SerialPortState State
+        {
+            get
+            {
+                return _state;
+            }
+            private set
+            {
+                if (value != _state)
+                {
+                    SerialConnectionStateChangedEventArgs eventArgs = new SerialConnectionStateChangedEventArgs();
+                    eventArgs.Previous = _state;
+                    _state = value;
+                    eventArgs.State = _state;
+                    OnSerialStateChanged?.Invoke(this, eventArgs);
+                }
+                _state = value;
+            }
+        }
 
-        private readonly ILogger<SerialPortHandler> _logger;
-
+        private int TimeoutCounter { get; set; } = 0;
+        protected readonly ILogger<SerialPortHandler> _logger;
         private bool _error = false;
-
         public string LastLine { get; private set; } = "";
+        public event EventHandler<SerialConnectionStateChangedEventArgs> OnSerialStateChanged;
 
         public SerialPortHandler(IConfiguration config, ILogger<SerialPortHandler> logger, string obj) : this(new SerialSettings(config, obj), logger)
         {
@@ -102,7 +139,7 @@ namespace SiPMTesterInterface.Classes
             if (_serialPort != null && !_serialPort.IsOpen)
             {
                 _serialPort.Open();
-                Connected = true;
+                State = SerialPortState.Connected;
             }
         }
 
@@ -111,8 +148,28 @@ namespace SiPMTesterInterface.Classes
             if (_serialPort != null && _serialPort.IsOpen)
             {
                 _serialPort.Close();
-                Connected = false;
+                State = SerialPortState.Disconnected;
             }
+        }
+
+        protected void TimeoutHandler(bool timeoutHappened = false)
+        {
+            if (timeoutHappened)
+            {
+                TimeoutCounter++;
+            }
+            else
+            {
+                TimeoutCounter = 0;
+            }
+
+            //Try to restart serial communication
+            if (TimeoutCounter >= 3)
+            {
+                Stop();
+                Start();
+            }
+            
         }
 
         protected void WriteCommand(string command)

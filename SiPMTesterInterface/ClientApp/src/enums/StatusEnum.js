@@ -113,9 +113,9 @@ export function getMeasurementStatusBtnClasses(status) {
             };
         case MeasurementStateEnum.Unknown:
             return {
-                buttonColor: "btn-outline-warning",
+                buttonColor: "btn-outline-secondary",
                 textColor: "",
-                icon: "bi-x-circle-fill",
+                icon: "bi-dash-circle",
             };
         default:
             return "";

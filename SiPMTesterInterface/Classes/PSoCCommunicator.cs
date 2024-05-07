@@ -77,12 +77,32 @@ namespace SiPMTesterInterface.Classes
         public void RefreshData()
         {
             //TODO: Handle blocks properly here
-            TemperaturesArray t = ReadTemperatures(0);
-            Cooler c = GetCoolerState(0);
-            AddTemperatureArray(t);
-            AddCoolerArray(c);
+            bool timeoutHappened;
+            try
+            {
+                TemperaturesArray t = ReadTemperatures(0);
+                Cooler c = GetCoolerState(0);
+                AddTemperatureArray(t);
+                AddCoolerArray(c);
+                timeoutHappened = false;
+                OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
+            }
+            catch (TimeoutException ex)
+            {
+                timeoutHappened = true;
+                _logger.LogWarning($"PSoC reading timeout: {ex.Message}");
+            }
 
-            OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
+            try
+            {
+                //it can throw exceptions when attempting to restart serial communication
+                TimeoutHandler(timeoutHappened); //timeout occured
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"PSoC: {ex.Message}");
+            }
+            
         }
 
         private void TimerCallback(object? state)

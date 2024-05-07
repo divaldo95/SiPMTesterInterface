@@ -97,6 +97,35 @@ namespace SiPMTesterInterface.Libraries
             GC.SuppressFinalize(this);
         }
 
+        public static void Analyse(CurrentMeasurementDataModel c, double DMMResistance = 0.0)
+        {
+            //Calculate DMM currents
+
+            Console.WriteLine("Starting analysis...");
+            RootIVAnalyser iv = new RootIVAnalyser();
+            double vbr;
+            double cvbr;
+            double cs;
+
+            iv.AnalyseIV(c.IVResult.DMMVoltage.ToArray(), c.IVResult.SMUCurrent.ToArray(), (nuint)c.IVResult.SMUCurrent.Count,
+                25.0, 26.0, 0, 0, (ulong)c.IVResult.StartTimestamp, FilePathHelper.GetCurrentDirectory());
+
+
+            iv.GetResult(out vbr, out cvbr, out cs);
+            c.IVResult.AnalysationResult.BreakdownVoltage = vbr;
+            c.IVResult.AnalysationResult.CompensatedBreakdownVoltage = cvbr;
+            c.IVResult.AnalysationResult.ChiSquare = cs;
+
+            Console.WriteLine($"Vbr: {vbr}, cVbr: {cvbr}, ChiSquare: {cs}");
+            c.IVResult.AnalysationResult.Analysed = true;
+
+            if (cs < 0.02) //fine tune this value
+            {
+                c.IVResult.AnalysationResult.IsOK = true;
+            }
+            Console.WriteLine("Analysis end");
+        }
+
         public static void TestLibrary()
         {
             try

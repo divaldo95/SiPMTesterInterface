@@ -1,5 +1,6 @@
 ﻿using System;
 using SiPMTesterInterface.Models;
+using static SiPMTesterInterface.Classes.Cooler;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -21,9 +22,13 @@ namespace SiPMTesterInterface.Classes
         private int ArrayNum;
         private int ModuleNum;
         private int SiPMNum;
+
+        private int bufferSize = 5000;
+
         private CurrentMeasurementDataModel[] AllSiPMsData; //store data for every single SiPM (flattened)
-        public List<Cooler> CoolerStates { get; private set; }
-        public List<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
+        public Queue<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
+
+        public CoolerSettingsModel[] coolerSettings = new CoolerSettingsModel[2 * 2];
 
         //Save current measurement results here in a flattened array
         public ServiceStateHandler(int blockNum = 2, int moduleNum = 2, int arrayNum = 4, int sipmNum = 16)
@@ -37,9 +42,35 @@ namespace SiPMTesterInterface.Classes
 
             //init to default
             AllSiPMsData = new CurrentMeasurementDataModel[allNum].Populate(() => new CurrentMeasurementDataModel());
-            CoolerStates = new List<Cooler>();
-            DMMResistances = new List<DMMResistanceMeasurementResponseModel>();
+            DMMResistances = new Queue<DMMResistanceMeasurementResponseModel>();
+
+            for (int i = 0; i < coolerSettings.Count(); i++)
+            {
+                coolerSettings[i] = new CoolerSettingsModel();
+                coolerSettings[i].Block = i / 2;
+                coolerSettings[i].Module = i % 2;
+            }
 		}
+
+        public CoolerSettingsModel GetCoolerSettings(int block, int module)
+        {
+            if (block > 1 || block < 0 || module > 1 || module < 0)
+            {
+                throw new ArgumentException("Invalid block or module number");
+            }
+            int index = block * 2 + module;
+            return coolerSettings[index];
+        }
+
+        public void SetCoolerSettings(CoolerSettingsModel settings)
+        {
+            if (settings.Block > 1 || settings.Block < 0 || settings.Module > 1 || settings.Module < 0)
+            {
+                throw new ArgumentException("Invalid block or module number");
+            }
+            int index = settings.Block * 2 + settings.Module;
+            coolerSettings[index] = settings;
+        }
 
         public string GetSiPMMeasurementStatesJSON()
         {
@@ -65,13 +96,12 @@ namespace SiPMTesterInterface.Classes
                                             IVMeasurementDone = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IsIVDone ?? false,
                                             SPSMeasurementDone = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IsSPSDone ?? false,
                                             //Analyse and update these values
-                                            IVResult = new
+                                            IVTimes = new
                                             {
-                                                isOK = false,
-                                                breakdownVoltage = 0.0,
                                                 startTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.StartTimestamp,
                                                 endTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.EndTimestamp
                                             },
+                                            IVAnalysationResult = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex].IVResult.AnalysationResult,
                                             SPSResult = new
                                             {
                                                 isOK = false,
@@ -80,20 +110,22 @@ namespace SiPMTesterInterface.Classes
                                         })
                                 })
                         })
-                })
+                }),
             };
                 
             return Newtonsoft.Json.JsonConvert.SerializeObject(result, Newtonsoft.Json.Formatting.Indented);
         }
 
-        public void AppendCoolerState(Cooler newState)
-        {
-            CoolerStates.Add(newState);
-        }
-
         public void AppendDMMResistanceMeasurement(DMMResistanceMeasurementResponseModel newRes)
         {
-            DMMResistances.Add(newRes);
+            // If buffer is full, dequeue the oldest element
+            if (DMMResistances.Count == bufferSize)
+            {
+                DMMResistances.Dequeue();
+            }
+
+            // Add the new temperature array to the buffer
+            DMMResistances.Enqueue(newRes);
         }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int block, int module, int array, int sipm)

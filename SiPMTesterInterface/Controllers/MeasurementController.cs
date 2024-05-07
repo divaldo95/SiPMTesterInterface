@@ -190,7 +190,7 @@ namespace SiPMTesterInterface.Controllers
             {
                 var data = new
                 {
-                    _measurementService.PulserConnected
+                    _measurementService.PulserState
                 };
                 string json = JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented);
                 return Ok(json);
@@ -209,7 +209,7 @@ namespace SiPMTesterInterface.Controllers
             {
                 var data = new
                 {
-                    _measurementService.PulserConnected,
+                    _measurementService.PulserState,
                     _measurementService.PulserReadingInterval.TotalSeconds,
                     _measurementService.Temperatures,
                     _measurementService.CoolerStates
