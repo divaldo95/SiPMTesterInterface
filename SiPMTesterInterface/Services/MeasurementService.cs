@@ -446,6 +446,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     Pulser.ChangeTimerInterval(value);
                 }
+                else
+                {
+                    throw new NullReferenceException("Pulser may be disabled or not available");
+                }
             }
         }
 
@@ -455,6 +459,10 @@ namespace SiPMTesterInterface.ClientApp.Services
             {
                 Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
                 serviceState.SetCoolerSettings(s);
+            }
+            else
+            {
+                throw new NullReferenceException("Cooler may be disabled or not available");
             }
         }
 

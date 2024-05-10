@@ -1,11 +1,18 @@
 ﻿import { useMemo, useEffect, useState } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal, Button, Spinner } from 'react-bootstrap';
 import { Chart } from 'react-charts';
 import MeasurementStateService from '../services/MeasurementStateService';
 
 function PulserModalComponent(props) {
     const { showModal, closeModal } = props;
     const [isLoading, setIsLoading] = useState(true);
+    const [isIntervalWaitingUpdate, setIsIntervalWaitingUpdate] = useState(false);
+    const [isIntervalUpdateSuccess, setIsIntervalUpdateSuccess] = useState(false);
+    const [isIntervalUpdateError, setIsIntervalUpdateError] = useState(false);
+
+    const [isCoolerWaitingUpdate, setIsCoolerWaitingUpdate] = useState(false);
+    const [isCoolerUpdateSuccess, setIsCoolerUpdateSuccess] = useState(false);
+    const [isCoolerUpdateError, setIsCoolerUpdateError] = useState(false);
 
     const [coolerFormData, setCoolerFormData] = useState({
         Block: 0,
@@ -41,14 +48,58 @@ function PulserModalComponent(props) {
     const handleCoolerSubmit = (e) => {
         e.preventDefault();
         // Handle form submission logic here
-        MeasurementStateService.setCooler(coolerFormData.Block, coolerFormData.Module, coolerFormData.Enabled, coolerFormData.TargetTemperature, coolerFormData.FanSpeed);
+        MeasurementStateService.setCooler(coolerFormData.Block, coolerFormData.Module, coolerFormData.Enabled, coolerFormData.TargetTemperature, coolerFormData.FanSpeed)
+            .then((resp) => {
+                setIsCoolerUpdateSuccess(true);
+                setIsCoolerUpdateError(false);
+                setIsCoolerWaitingUpdate(false);
+
+                setTimeout(() => {
+                    setIsCoolerUpdateSuccess(false);
+                    setIsCoolerUpdateError(false);
+                }, 3000);
+            }).catch((err) => {
+                //alert("Pulser not set")
+                setIsCoolerUpdateSuccess(false);
+                setIsCoolerUpdateError(true);
+                setIsCoolerWaitingUpdate(false);
+
+                setTimeout(() => {
+                    setIsCoolerUpdateSuccess(false);
+                    setIsCoolerUpdateError(false);
+                }, 3000);
+            });
         console.log("Submitted cooler");
     };
 
     const handlePulserSubmit = (e) => {
         e.preventDefault();
+        setIsIntervalWaitingUpdate(true);
+
+        MeasurementStateService.setPulser(pulserFormData.PulserReadingInterval)
+            .then((resp) => {
+                setIsIntervalUpdateSuccess(true);
+                setIsIntervalUpdateError(false);
+                setIsIntervalWaitingUpdate(false);
+
+                setTimeout(() => {
+                    setIsIntervalUpdateSuccess(false);
+                    setIsIntervalUpdateError(false);
+                }, 3000);
+            }).catch((err) => {
+                //alert("Pulser not set")
+                setIsIntervalUpdateSuccess(false);
+                setIsIntervalUpdateError(true);
+                setIsIntervalWaitingUpdate(false);
+
+                setTimeout(() => {
+                    setIsIntervalUpdateSuccess(false);
+                    setIsIntervalUpdateError(false);
+                }, 3000);
+            });
+
         // Handle form submission logic here
-        MeasurementStateService.setPulser(pulserFormData.PulserReadingInterval);
+        
         console.log("Submitted pulser");
     };
 
@@ -136,7 +187,23 @@ function PulserModalComponent(props) {
                             name="PulserReadingInterval"
                         >
                         </input>
-                        <button className="btn btn-primary" type="submit" id="pulser-submit-btn">Apply pulser</button>
+                        <button
+                            className={`btn ${isIntervalUpdateSuccess ? "btn-success" : isIntervalUpdateError ? "btn-danger" : "btn-primary"}`}
+                            type="submit"
+                            id="pulser-submit-btn"
+                            disabled={isIntervalWaitingUpdate || isIntervalUpdateSuccess || isIntervalUpdateError}
+                        >
+                            {isIntervalWaitingUpdate ? (
+                                <>
+                                    Applying pulser...
+                                    <Spinner animation="border" role="status" size="sm" className="ms-2">
+                                        <span className="visually-hidden">Loading...</span>
+                                    </Spinner>
+                                </>
+                            ) : (
+                                    isIntervalUpdateSuccess ? "Pulser applied" : isIntervalUpdateError ? "Error applying pulser" : "Apply pulser"
+                            )}
+                        </button>
                     </div>
                 </form>
 
@@ -173,7 +240,22 @@ function PulserModalComponent(props) {
                     </div>
                     <div className="row mb-3">
                         <div className="col-sm-10 offset-sm-2">
-                            <button type="submit" className="btn btn-primary">Apply Cooler</button>
+                            <button
+                                type="submit"
+                                className={`btn ${isCoolerUpdateSuccess ? "btn-success" : isCoolerUpdateError ? "btn-danger" : "btn-primary"}`}
+                                disabled={isCoolerUpdateError || isCoolerUpdateSuccess || isCoolerWaitingUpdate}
+                            >
+                                {isCoolerWaitingUpdate ? (
+                                    <>
+                                        Applying cooler...
+                                        <Spinner animation="border" role="status" size="sm" className="ms-2">
+                                            <span className="visually-hidden">Loading...</span>
+                                        </Spinner>
+                                    </>
+                                ) : (
+                                        isCoolerUpdateSuccess ? "Cooler applied" : isCoolerUpdateError ? "Error applying cooler" : "Apply cooler"
+                                )}
+                            </button>
                         </div>
                     </div>
                 </form>

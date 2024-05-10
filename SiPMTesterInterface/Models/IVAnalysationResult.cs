@@ -8,6 +8,7 @@ namespace SiPMTesterInterface.Models
 		public double BreakdownVoltage { get; set; } = 0.0;
 		public double CompensatedBreakdownVoltage { get; set; } = 0.0;
 		public double ChiSquare { get; set; } = 0.0;
+		public string RootFileLocation { get; set; } = "";
         public IVAnalysationResult()
 		{
 			

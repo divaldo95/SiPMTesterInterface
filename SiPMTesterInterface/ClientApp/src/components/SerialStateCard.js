@@ -1,5 +1,5 @@
 ﻿import { useContext, useEffect, useState } from 'react';
-import { getConnectionStatusBtnClasses, ConnectionStatusString } from '../enums/SerialStatusEnum';
+import { getConnectionStatusBtnClasses, ConnectionStatusString, SerialConnectionStateEnum } from '../enums/SerialStatusEnum';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import PulserModalComponent from './PulserModalComponent';
@@ -9,7 +9,9 @@ function SerialStateCard(props) {
     const [showModal, setShowModal] = useState(false);
 
     const openModal = () => {
-        setShowModal(true);
+        if (ConnectionState === SerialConnectionStateEnum.Connected || ConnectionState === SerialConnectionStateEnum.Timeout) {
+            setShowModal(true);
+        }
     };
 
     const closeModal = () => {

@@ -131,6 +131,17 @@ const MeasurementStateService = {
             throw error; // You can handle the error as needed in your application
         }
     },
+    getRootFile: async (blockIndex, moduleIndex, arrayIndex, sipmIndex) => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_DATA_URL + blockIndex + "/" + moduleIndex + "/" + arrayIndex + "/" + sipmIndex + "/RootFile", {
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching sipm measurement data file:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
 };
 
 export default MeasurementStateService;

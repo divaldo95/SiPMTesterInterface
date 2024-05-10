@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using SiPMTesterInterface.AnalysisModels;
 using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
 
@@ -15,16 +16,12 @@ namespace SiPMTesterInterface.Libraries
         public static extern void RIVA_Class_Delete(IntPtr ivAnalyser);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RIVA_Class_AnalyseIV(IntPtr ivAnalyser,
-                                                   double[] voltages,
-                                                   double[] currents,
-                                                   UIntPtr dataPoints,
-                                                   double preTemp,
-                                                   double postTemp,
-                                                   int arrayID,
-                                                   int sipmID,
-                                                   ulong timestamp,
-                                                   string outBasePath);
+        public static extern IntPtr RIVA_Class_AnalyseIV(IntPtr ivAnalyser,
+                                                    SiPMData data,
+                                                    AnalysisTypes method,
+                                                    bool savePlots,
+                                                    string outBasePath,
+                                                    string filePrefix);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void RIVA_Class_GetResults(IntPtr ivAnalyser,
@@ -56,10 +53,9 @@ namespace SiPMTesterInterface.Libraries
             ivAnalyser = RIVA_Class_Create();
         }
 
-        public void AnalyseIV(double[] voltages, double[] currents, UIntPtr dataPoints, double preTemp, double postTemp,
-                                int arrayID, int sipmID, ulong timestamp, string outBasePath)
+        public void AnalyseIV(SiPMData data, AnalysisTypes type, bool savePlots, string outBasePath, string filePrefix)
         {
-            RIVA_Class_AnalyseIV(ivAnalyser, voltages, currents, dataPoints, preTemp, postTemp, arrayID, sipmID, timestamp, outBasePath);
+            RIVA_Class_AnalyseIV(ivAnalyser, data, type, savePlots, outBasePath, filePrefix);
         }
 
         public void GetResult(out double RawBreakdownVoltage, out double CompensatedBreakdownVoltage, out double ChiSquare)
@@ -107,11 +103,35 @@ namespace SiPMTesterInterface.Libraries
             double cvbr;
             double cs;
 
-            iv.AnalyseIV(c.IVResult.DMMVoltage.ToArray(), c.IVResult.SMUCurrent.ToArray(), (nuint)c.IVResult.SMUCurrent.Count,
-                25.0, 26.0, 0, 0, (ulong)c.IVResult.StartTimestamp, FilePathHelper.GetCurrentDirectory());
+            double[] voltagesArray = c.IVResult.DMMVoltage.ToArray();
+            double[] currentsArray = c.IVResult.SMUCurrent.ToArray();
 
+            // Pin the arrays to get their pointers
+            GCHandle voltagesHandle = GCHandle.Alloc(voltagesArray, GCHandleType.Pinned);
+            GCHandle currentsHandle = GCHandle.Alloc(currentsArray, GCHandleType.Pinned);
+
+            SiPMData data = new SiPMData
+            {
+                voltages = voltagesHandle.AddrOfPinnedObject(),
+                currents = currentsHandle.AddrOfPinnedObject(),
+                dataPoints = (nuint)c.IVResult.SMUCurrent.Count,
+                preTemp = 25.0,
+                postTemp = 30.0,
+                timestamp = (ulong)c.IVResult.StartTimestamp
+            };
+
+            string outPath = Path.Combine(FilePathHelper.GetCurrentDirectory(), "results");
+            Directory.CreateDirectory(outPath);
+
+            string outFilePrefix = $"{c.SiPMLocation.Block}_{c.SiPMLocation.Module}_{c.SiPMLocation.Array}_{c.SiPMLocation.SiPM}";
+
+            iv.AnalyseIV(data, AnalysisTypes.RelativeDerivativeMethod, true, outPath, outFilePrefix);
+
+            voltagesHandle.Free();
+            currentsHandle.Free();
 
             iv.GetResult(out vbr, out cvbr, out cs);
+
             c.IVResult.AnalysationResult.BreakdownVoltage = vbr;
             c.IVResult.AnalysationResult.CompensatedBreakdownVoltage = cvbr;
             c.IVResult.AnalysationResult.ChiSquare = cs;
@@ -119,44 +139,11 @@ namespace SiPMTesterInterface.Libraries
             Console.WriteLine($"Vbr: {vbr}, cVbr: {cvbr}, ChiSquare: {cs}");
             c.IVResult.AnalysationResult.Analysed = true;
 
-            if (cs < 0.02) //fine tune this value
+            if (cs < 0.08) //fine tune this value
             {
                 c.IVResult.AnalysationResult.IsOK = true;
             }
             Console.WriteLine("Analysis end");
-        }
-
-        public static void TestLibrary()
-        {
-            try
-            {
-                Console.WriteLine("Starting analysis...");
-                RootIVAnalyser iv = new RootIVAnalyser();
-                double vbr;
-                double cvbr;
-                double cs;
-                iv.GetResult(out vbr, out cvbr, out cs);
-
-                Console.WriteLine($"Vbr: {vbr.ToString()}, cVbr: {cvbr.ToString()}, ChiSquare: {cs}");
-
-                CurrentMeasurementDataModel c = JSONHelper.ReadJsonFile<CurrentMeasurementDataModel>(FilePathHelper.GetCurrentDirectory() + "IV_0_0_0_0.json");
-
-                iv.AnalyseIV(c.IVResult.DMMVoltage.ToArray(), c.IVResult.SMUCurrent.ToArray(), (nuint)c.IVResult.SMUCurrent.Count, 25.0, 26.0, 0, 0, (ulong)c.IVResult.StartTimestamp, FilePathHelper.GetCurrentDirectory());
-
-
-                iv.GetResult(out vbr, out cvbr, out cs);
-
-                Console.WriteLine($"Vbr: {vbr.ToString()}, cVbr: {cvbr.ToString()}, ChiSquare: {cs}");
-
-                Console.WriteLine("Analysis end");
-            }
-            catch (DllNotFoundException ex)
-            {
-                // Handle the case where the library is not found
-                Console.WriteLine($"The required library is not available: {ex.Message}");
-                // Log or take any other appropriate action
-            }
-            
         }
     }
 }

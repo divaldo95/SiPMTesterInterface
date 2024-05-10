@@ -77,6 +77,36 @@ namespace SiPMTesterInterface.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/RootFile")]
+        public IActionResult GetSIPMRootFile(int blockId, int moduleId, int arrayId, int sipmId)
+        {
+            try
+            {
+                CurrentMeasurementDataModel data = _measurementService.GetSiPMMeasurementData(blockId, moduleId, arrayId, sipmId);
+                if (!data.IVResult.AnalysationResult.Analysed || string.IsNullOrWhiteSpace(data.IVResult.AnalysationResult.RootFileLocation))
+                {
+                    return NotFound(ResponseMessages.Error("Not analysed or Root file is not available"));
+                }
+                if (!System.IO.File.Exists(data.IVResult.AnalysationResult.RootFileLocation))
+                {
+                    return NotFound(ResponseMessages.Error("Root file is not available"));
+                }
+
+                // Return the file as a physical file result
+                string filename = Path.GetFileName(data.IVResult.AnalysationResult.RootFileLocation);
+                return PhysicalFile(data.IVResult.AnalysationResult.RootFileLocation, "application/octet-stream", filename);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return NotFound(ResponseMessages.Error(ex.Message));
+            }
+            catch (NullReferenceException ex)
+            {
+                return NotFound(ResponseMessages.Error("Measurement not started yet"));
+            }
+        }
+
         [HttpGet("times")]
         public IActionResult GetMeasurementTimes()
         {

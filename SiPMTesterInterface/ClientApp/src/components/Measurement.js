@@ -155,7 +155,7 @@ function Test() {
         try {
             const data = await MeasurementStateService.getPulserState()
                 .then((resp) => {
-                    setPulserState(resp.PulserConnected);
+                    setPulserState(resp.PulserState);
                     //console.log(resp);
                 })
         } catch (error) {
