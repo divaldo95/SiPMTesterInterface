@@ -11,8 +11,12 @@ const RootTGraph = (props) => {
     }
 
     useEffect(() => {
-        const len = x.length;
-        console.log(len);
+        let len = 0;
+        if (x && y) {
+            len = Math.min(x.length, y.length);
+            console.log(len);
+        }
+
         const g = JSROOT.createTGraph(len, x, y);
         g.fTitle = 'Data';
         g.fLineStyle = 3;
