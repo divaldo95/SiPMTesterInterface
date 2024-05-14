@@ -116,7 +116,7 @@ namespace SiPMTesterInterface.Classes
                     serial.WriteCommand(""); //if the buffer is not empty, this will clear it
                     serial.WriteCommand(autoDetectString);
                     serial.Stop();
-                    if (serial.LastLine.Contains(autoDetectExpectedAnswer)) //in case of non visible characters
+                    if (serial.LastLine.ToLower().Contains(autoDetectExpectedAnswer.ToLower())) //in case of non visible characters, case insesitive
                     {
                         return port;
                     }
@@ -197,7 +197,7 @@ namespace SiPMTesterInterface.Classes
                         LastLine = _serialPort.ReadLine();
                         _logger.LogDebug("Received: " + LastLine);
 
-                        if (LastLine.Contains("ERROR") || LastLine.Contains("invalid")) //if returned with error, increase counter and try again
+                        if (LastLine.ToLower().Contains("ERROR".ToLower()) || LastLine.ToLower().Contains("invalid".ToLower())) //if returned with error, increase counter and try again
                         {
                             _logger.LogDebug("Serial port returned with error. Trying again... (" + retry_cnt + "/" + retry_num + ")");
                             retry_cnt++;
