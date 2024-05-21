@@ -41,6 +41,36 @@ namespace SiPMTesterInterface.Helpers
                 Console.WriteLine($"File ({outPath + fileName}) created");
             }
         }
+
+        public static void CreateOrAppendToFileDMMMeasurement(string basePath, string fileName, DMMResistanceMeasurementResponseModel data)
+        {
+            List<DMMResistanceMeasurementResponseModel>? dataList;
+            string outFile = Path.Combine(basePath, fileName);
+
+            // Deserialize existing data from the file, or create a new list if the file doesn't exist
+            if (File.Exists(outFile))
+            {
+                string json = File.ReadAllText(outFile);
+                dataList = JsonConvert.DeserializeObject<List<DMMResistanceMeasurementResponseModel>>(json);
+                if (dataList == null)
+                {
+                    dataList = new List<DMMResistanceMeasurementResponseModel>();
+                }
+            }
+            else
+            {
+                dataList = new List<DMMResistanceMeasurementResponseModel>();
+            }
+
+            // Add the new measurement data to the list
+            dataList.Add(data);
+
+            // Serialize the updated list to JSON
+            string updatedJson = JsonConvert.SerializeObject(dataList, Formatting.Indented);
+
+            // Write the JSON string back to the file
+            File.WriteAllText(outFile, updatedJson);
+        }
     }
 }
 

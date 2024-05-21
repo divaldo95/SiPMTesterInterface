@@ -145,6 +145,35 @@ namespace SiPMTesterInterface.Classes
                 CurrentIVMeasurementIndex++; //increment IV index counter
                 nextData = ivStart;
             }
+            else if (retVal = IsSPSterationAvailable())
+            {
+                // Define the valid array combinations
+                HashSet<int[]> validArrayCombinations = new HashSet<int[]>
+                {
+                    new int[] {0, 2, 4, 6},
+                    new int[] {1, 3, 5, 7}
+                };
+
+                // Filter the SPSMeasurementOrder list based on the criteria
+                var selectedSipms = SPSMeasurementOrder
+                    // Group by Block, Module, and SiPM
+                    .GroupBy(
+                        list => new { list[0].Block, list[0].Module, list[0].SiPM },
+                        (key, lists) => lists
+                            // Filter the lists based on the valid array combinations
+                            .Where(list => validArrayCombinations.Contains(list.Select(item => item.Array).ToArray()))
+                            // Select only the first four lists
+                            .Take(4)
+                    )
+                    // Flatten the resulting sequence of sequences
+                    .SelectMany(list => list)
+                    // Flatten the lists of CurrentSiPMModel into a single list
+                    .SelectMany(list => list);
+
+                // Return the selected sipms
+                type = MeasurementType.SPSMeasurement;
+                sipms = selectedSipms.ToList();
+            }
             else
             {
                 type = MeasurementType.Unknown;
