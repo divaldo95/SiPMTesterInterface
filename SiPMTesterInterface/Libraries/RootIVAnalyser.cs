@@ -106,9 +106,27 @@ namespace SiPMTesterInterface.Libraries
             double[] voltagesArray = c.IVResult.DMMVoltage.ToArray();
             double[] currentsArray = c.IVResult.SMUCurrent.ToArray();
 
+            //compensate current
+            if (DMMResistance > 0)
+            {
+                for (int i = 0; i < voltagesArray.Length; i++)
+                {
+                    double current = voltagesArray[i] / DMMResistance;
+                    currentsArray[i] = currentsArray[i] - current;
+                    if (currentsArray[i] < 0)
+                    {
+                        Console.WriteLine($"Negative current ({current.ToString("0.00")}). Consider increasing the DMM resistance compensation percentage");
+                    }
+                }
+            }
+            
             // Pin the arrays to get their pointers
             GCHandle voltagesHandle = GCHandle.Alloc(voltagesArray, GCHandleType.Pinned);
             GCHandle currentsHandle = GCHandle.Alloc(currentsArray, GCHandleType.Pinned);
+
+            List<double> temperatures = GetTemperatures(c);
+
+            double usedTemp = temperatures.Average();
 
             SiPMData data = new SiPMData
             {
@@ -116,7 +134,7 @@ namespace SiPMTesterInterface.Libraries
                 currents = currentsHandle.AddrOfPinnedObject(),
                 dataPoints = (nuint)c.IVResult.SMUCurrent.Count,
                 preTemp = 25.0,
-                postTemp = 30.0,
+                postTemp = usedTemp,
                 timestamp = (ulong)c.IVResult.StartTimestamp
             };
 
@@ -144,6 +162,32 @@ namespace SiPMTesterInterface.Libraries
                 c.IVResult.AnalysationResult.IsOK = true;
             }
             Console.WriteLine("Analysis end");
+        }
+
+        public static int GetUsedTemperatureIndex(int arrayIndex, int sipmIndex)
+        {
+            int sipmIndexOffset = arrayIndex * 2 + (sipmIndex < 8 ? 0 : 1);
+            return sipmIndexOffset;
+        }
+
+        public static List<double> GetTemperatures(CurrentMeasurementDataModel c)
+        {
+            List<double> temperatures = new List<double>();
+            int index = GetUsedTemperatureIndex(c.SiPMLocation.Array, c.SiPMLocation.SiPM);
+            for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
+            {
+                if (c.SiPMLocation.Module == 0)
+                {
+                    double temp = c.IVResult.Temperatures[i].Module1[index];
+                    temperatures.Add(temp);
+                }
+                else
+                {
+                    double temp = c.IVResult.Temperatures[i].Module2[index];
+                    temperatures.Add(temp);
+                }
+            }
+            return temperatures;
         }
     }
 }

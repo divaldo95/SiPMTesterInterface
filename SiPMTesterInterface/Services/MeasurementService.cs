@@ -1,10 +1,5 @@
-﻿using System;
-using System.ComponentModel;
-using System.Net.WebSockets;
-using System.Reflection.Metadata;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -12,7 +7,6 @@ using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Libraries;
 using SiPMTesterInterface.Models;
-using static NetMQ.NetMQSelector;
 
 namespace SiPMTesterInterface.ClientApp.Services
 {
