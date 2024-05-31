@@ -2,6 +2,7 @@
 import { Modal, Button, Spinner } from 'react-bootstrap';
 import { Chart } from 'react-charts';
 import MeasurementStateService from '../services/MeasurementStateService';
+import TemperaturesTable from './TemperaturesTable';
 
 function PulserModalComponent(props) {
     const { showModal, closeModal } = props;
@@ -260,6 +261,8 @@ function PulserModalComponent(props) {
                     </div>
                 </form>
 
+                <TemperaturesTable temperaturesArray={pulserFormData.Temperatures}>
+                </TemperaturesTable>
                 
 
                 <div style={{ height: '400px' }}>

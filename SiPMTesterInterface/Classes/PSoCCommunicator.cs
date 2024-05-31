@@ -107,6 +107,10 @@ namespace SiPMTesterInterface.Classes
 
         private void TimerCallback(object? state)
         {
+            if (State != Enums.SerialPortState.Connected)
+            {
+                return;
+            }
             RefreshData();
         }
 

@@ -201,6 +201,11 @@ namespace SiPMTesterInterface.Controllers
 
             _logger.LogInformation($"Pulser information received: {JsonConvert.SerializeObject(pulserSettings)}");
 
+            if (_measurementService.PulserState != SerialPortState.Connected)
+            {
+                return BadRequest(ResponseMessages.Error("Pulser is not connected"));
+            }
+
             try
             {
                 _measurementService.PulserReadingInterval = TimeSpan.FromSeconds(pulserSettings.RefreshInterval);
