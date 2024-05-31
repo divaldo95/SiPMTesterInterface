@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Text;
+
 namespace SiPMTesterInterface.Models
 {
 	public class CurrentSiPMModel
@@ -40,6 +42,16 @@ namespace SiPMTesterInterface.Models
             Module = iArray[1];
             Array = iArray[2];
             SiPM = iArray[3];
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append($"Block: {Block}\t|\t");
+            sb.Append($"Module: {Module}\t|\t");
+            sb.Append($"Array: {Array}\t|\t");
+            sb.Append($"SiPM: {SiPM}");
+            return sb.ToString();
         }
     }
 }

@@ -5,6 +5,8 @@ VisualStudioVersion = 25.0.1706.7
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiPMTesterInterface", "SiPMTesterInterface\SiPMTesterInterface.csproj", "{ABC2DEEA-DA11-478A-A6B6-868E682806D4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceTests", "InterfaceTests\InterfaceTests.csproj", "{4362E662-8D8E-485D-A629-A72D9304834A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{ABC2DEEA-DA11-478A-A6B6-868E682806D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ABC2DEEA-DA11-478A-A6B6-868E682806D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ABC2DEEA-DA11-478A-A6B6-868E682806D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4362E662-8D8E-485D-A629-A72D9304834A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4362E662-8D8E-485D-A629-A72D9304834A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4362E662-8D8E-485D-A629-A72D9304834A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4362E662-8D8E-485D-A629-A72D9304834A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

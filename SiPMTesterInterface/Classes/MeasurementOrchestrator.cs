@@ -66,20 +66,78 @@ namespace SiPMTesterInterface.Classes
                             })
                         )
                     )
-                )
-                .Where(item => item.SiPM.IV == 1)
-                .ToList();
+                );
+            var iv = filteredSiPMs.Where(item => item.SiPM.IV == 1).ToList();
 
             // Output the filtered SiPMs
             //do some shufflin'
             IVMeasurementOrder.Clear(); //empty list if everything went fine until this point
-            foreach (var item in filteredSiPMs)
+            foreach (var item in iv)
             {
                 IVMeasurementOrder.Add(new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex));
                 Console.WriteLine($"BlockIndex: {item.BlockIndex}, ModuleIndex: {item.ModuleIndex}, ArrayIndex: {item.ArrayIndex}, SiPMIndex: {item.SiPMIndex}, DMMResistance: {item.SiPM.DMMResistance}, IV: {item.SiPM.IV}, SPS: {item.SiPM.SPS}");
             }
 
-            CurrentIVMeasurementIndex = 0; //reset the index counter
+            if (IVMeasurementOrder.Count > 0)
+            {
+                CurrentIVMeasurementIndex = 0; //reset the index counter
+            }
+
+
+            // Define the valid array combinations
+            HashSet<int[]> validArrayCombinations = new HashSet<int[]>
+                {
+                    new int[] {0, 2, 4, 6},
+                    new int[] {1, 3, 5, 7}
+                };
+
+            SPSMeasurementOrder.Clear();
+
+            var sps = filteredSiPMs.Where(item => item.SiPM.SPS == 1).ToList();
+
+            var groups = sps.GroupBy(item => new { item.SiPMIndex });
+
+            foreach (var group in groups)
+            {
+                var module0Arrays = group.Where(item => item.ModuleIndex == 0).Select(item => item.ArrayIndex).ToList();
+                var module1Arrays = group.Where(item => item.ModuleIndex == 1).Select(item => item.ArrayIndex).ToList();
+
+                List<int> selectedArrays = new List<int>();
+                if (module0Arrays.Intersect(new[] { 0, 2 }).Count() == 2 && module1Arrays.Intersect(new[] { 0, 2 }).Count() == 2)
+                {
+                    selectedArrays.AddRange(new[] { 0, 2 });
+                }
+                else if (module0Arrays.Intersect(new[] { 1, 3 }).Count() == 2 && module1Arrays.Intersect(new[] { 1, 3 }).Count() == 2)
+                {
+                    selectedArrays.AddRange(new[] { 1, 3 });
+                }
+
+                var selectedSiPMs = group
+                    .Where(item => selectedArrays.Contains(item.ArrayIndex))
+                    .Select(item => new CurrentSiPMModel
+                    {
+                        Block = item.BlockIndex,
+                        Module = item.ModuleIndex,
+                        Array = item.ArrayIndex,
+                        SiPM = item.SiPMIndex
+                    })
+                    .ToList();
+
+                if (selectedSiPMs.Count > 0)
+                {
+                    SPSMeasurementOrder.Add(selectedSiPMs);
+                }
+            }
+
+            if (SPSMeasurementOrder.Count > 0)
+            {
+                CurrentSPSMeasurementIndex = 0; //reset the index counter
+                Console.WriteLine("Non empty SPS data");
+            }
+            else
+            {
+                Console.WriteLine("Empty SPS data");
+            }
         }
 
         public bool IsIVIterationAvailable()
@@ -147,32 +205,10 @@ namespace SiPMTesterInterface.Classes
             }
             else if (retVal = IsSPSterationAvailable())
             {
-                // Define the valid array combinations
-                HashSet<int[]> validArrayCombinations = new HashSet<int[]>
-                {
-                    new int[] {0, 2, 4, 6},
-                    new int[] {1, 3, 5, 7}
-                };
-
-                // Filter the SPSMeasurementOrder list based on the criteria
-                var selectedSipms = SPSMeasurementOrder
-                    // Group by Block, Module, and SiPM
-                    .GroupBy(
-                        list => new { list[0].Block, list[0].Module, list[0].SiPM },
-                        (key, lists) => lists
-                            // Filter the lists based on the valid array combinations
-                            .Where(list => validArrayCombinations.Contains(list.Select(item => item.Array).ToArray()))
-                            // Select only the first four lists
-                            .Take(4)
-                    )
-                    // Flatten the resulting sequence of sequences
-                    .SelectMany(list => list)
-                    // Flatten the lists of CurrentSiPMModel into a single list
-                    .SelectMany(list => list);
-
-                // Return the selected sipms
                 type = MeasurementType.SPSMeasurement;
-                sipms = selectedSipms.ToList();
+                nextData = new SPSStartModel(); //add details
+                sipms = SPSMeasurementOrder[CurrentSPSMeasurementIndex];
+                CurrentSPSMeasurementIndex++;
             }
             else
             {

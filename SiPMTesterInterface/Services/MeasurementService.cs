@@ -541,6 +541,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                         for (int l = 0; l < 16; l++)
                         {
                             SiPM sipm = new SiPM();
+                            sipm.IV = 1;
+                            sipm.SPS = 1;
                             array.SiPMs.Add(sipm);
                         }
                         module.Arrays.Add(array);

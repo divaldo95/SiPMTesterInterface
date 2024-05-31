@@ -57,6 +57,21 @@ namespace SiPMTesterInterface.Helpers
             return false;
         }
 
+        public static bool String2JSON<T>(string obj, out T? doc)
+        {
+            try
+            {
+                doc = JsonConvert.DeserializeObject<T>(obj);
+                return true;
+            }
+            catch (JsonSerializationException ex)
+            {
+                Console.WriteLine($"Error deserializing JObject: {ex.Message}");
+                doc = default;
+                return false;
+            }
+        }
+
         public static bool JObject2JSON<T>(JObject obj, out T doc, out string error)
         {
             try
