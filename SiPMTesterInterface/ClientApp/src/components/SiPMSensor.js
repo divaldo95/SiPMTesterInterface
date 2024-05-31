@@ -1,11 +1,12 @@
 ﻿import React, { useContext, useState } from 'react';
 import { GetSiPMNumber, GetSiPMLocation } from "./HelperMethods";
-import { StatusEnum, getStatusBackgroundClass, GetSelectedColorClass, GetMeasurementStateColorClass } from '../enums/StatusEnum';
+import { StatusEnum, getStatusBackgroundClass, GetSelectedColorClass, GetMeasurementStateColorClass, GetStatusBorderColorClass } from '../enums/StatusEnum';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
 import './SiPMArray.css';
 import SiPMSettingsModal from './SiPMSettingsModal';
 import { MeasurementContext } from '../context/MeasurementContext';
 import SiPMMeasurementModal from './SiPMMeasurementModal';
+import { Button, Badge } from 'react-bootstrap';
 
 function SiPMSensor(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex, className } = props;
@@ -68,16 +69,25 @@ function SiPMSensor(props) {
 
     const backgroundClass = () => {
         if (isAnyMeasurementRunning()) {
-            return GetMeasurementStateColorClass(getSiPMMeasurementValue("IVMeasurementDone"));
+            return GetMeasurementStateColorClass();
         }
         else {
             return GetSelectedColorClass(getSiPMValue("IV"), getSiPMValue("SPS"));
         }
     }
 
+    const borderClass = () => {
+        if (isAnyMeasurementRunning()) {
+            return GetStatusBorderColorClass(getSiPMMeasurementValue("IVMeasurementDone"), getSiPMMeasurementValue("SPSMeasurementDone"));
+        }
+        else {
+            return "";
+        }
+    }
+
     return (
         <>
-            <div className={`btn-group ${className}`} role="group" aria-label="sensor block with settings">
+            <div className={`btn-group border border-1 ${borderClass()} ${className}`} role="group" aria-label="sensor block with settings">
                 <button
                     type="button"
                     key={GetSiPMNumber(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)}

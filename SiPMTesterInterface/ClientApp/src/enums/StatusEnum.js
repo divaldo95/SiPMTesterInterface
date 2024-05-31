@@ -21,6 +21,12 @@ export const MeasurementStateEnum = {
     Unknown: 7
 }
 
+export const AnalysisStateEnum = {
+    Unknown: 0,
+    OK: 1,
+    Failed: 2
+}
+
 export function MeasurementStatusString(status) {
     switch (status) {
         case MeasurementStateEnum.NotRunning:
@@ -39,6 +45,32 @@ export function MeasurementStatusString(status) {
             return "Error";
         case MeasurementStateEnum.Unknown:
             return "Unknown";
+        default:
+            return "";
+    }
+}
+
+export function AnalysisStatusString(status) {
+    switch (status) {
+        case AnalysisStateEnum.Unknown:
+            return "Unknown";
+        case AnalysisStateEnum.OK:
+            return "OK";
+        case AnalysisStateEnum.Failed:
+            return "Failed";
+        default:
+            return "";
+    }
+}
+
+export function getAnalysisStatusBackgroundClass(status) {
+    switch (status) {
+        case AnalysisStateEnum.Unknown:
+            return "";
+        case AnalysisStateEnum.OK:
+            return "bg-success text-light";
+        case AnalysisStateEnum.Failed:
+            return "bg-danger";
         default:
             return "";
     }
@@ -64,6 +96,21 @@ export function getStatusBackgroundClass(status) {
             return "bg-danger"; // Bootstrap class for danger background
         default:
             return "";
+    }
+}
+
+export function GetStatusBorderColorClass(IV, SPS) {
+    if (IV === 1 && SPS === 1) {
+        return "border-info";
+    }
+    else if (IV === 1 && SPS === 0) {
+        return "border-info";
+    }
+    else if (IV === 0 && SPS === 1) {
+        return "border-info";
+    }
+    else {
+        return "";
     }
 }
 
