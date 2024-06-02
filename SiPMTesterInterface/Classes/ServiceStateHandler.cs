@@ -1,5 +1,6 @@
 ﻿using System;
 using SiPMTesterInterface.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using static SiPMTesterInterface.Classes.Cooler;
 
 namespace SiPMTesterInterface.Classes
@@ -26,6 +27,7 @@ namespace SiPMTesterInterface.Classes
         private int bufferSize = 5000;
 
         private CurrentMeasurementDataModel[] AllSiPMsData; //store data for every single SiPM (flattened)
+        private PulserValues[] pulserValues; //store pulser values for every single SiPM (flattened)
         public Queue<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
 
         public CoolerSettingsModel[] coolerSettings = new CoolerSettingsModel[2 * 2];
@@ -42,6 +44,7 @@ namespace SiPMTesterInterface.Classes
 
             //init to default
             AllSiPMsData = new CurrentMeasurementDataModel[allNum].Populate(() => new CurrentMeasurementDataModel());
+            pulserValues = new PulserValues[allNum].Populate(() => new PulserValues());
             DMMResistances = new Queue<DMMResistanceMeasurementResponseModel>();
 
             for (int i = 0; i < coolerSettings.Count(); i++)
@@ -126,6 +129,21 @@ namespace SiPMTesterInterface.Classes
 
             // Add the new temperature array to the buffer
             DMMResistances.Enqueue(newRes);
+        }
+
+        public PulserValues GetSiPMPulserValues(int block, int module, int array, int sipm)
+        {
+            return pulserValues[GetPulserArrayIndex(block, module, array, sipm)];
+        }
+
+        public void SetIVPulserValue(int block, int module, int array, int sipm, int value)
+        {
+            pulserValues[GetPulserArrayIndex(block, module, array, sipm)].IVPulser = value;
+        }
+
+        public void SetSPSPulserValue(int block, int module, int array, int sipm, int value)
+        {
+            pulserValues[GetPulserArrayIndex(block, module, array, sipm)].SPSPulser = value;
         }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int block, int module, int array, int sipm)

@@ -218,13 +218,13 @@ namespace SiPMTesterInterface.Classes
                     {
                         //Trace.WriteLine("Serial port error: " + e.Message);
                         _error = true;
-                        throw new Exception(e.Message);
+                        throw;
                     }
                 }
                 if (retry_cnt >= retry_num)
                 {
                     _error = true;
-                    throw new Exception("Serial port timeout");
+                    throw new TimeoutException("Serial port timeout");
                 }
             }
 
