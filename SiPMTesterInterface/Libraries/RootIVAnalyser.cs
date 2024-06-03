@@ -124,9 +124,12 @@ namespace SiPMTesterInterface.Libraries
             GCHandle voltagesHandle = GCHandle.Alloc(voltagesArray, GCHandleType.Pinned);
             GCHandle currentsHandle = GCHandle.Alloc(currentsArray, GCHandleType.Pinned);
 
+            double usedTemp = 25.0;
             List<double> temperatures = GetTemperatures(c);
-
-            double usedTemp = temperatures.Average();
+            if (temperatures.Count > 0)
+            {
+                usedTemp = temperatures.Average();
+            }
 
             SiPMData data = new SiPMData
             {
@@ -150,6 +153,7 @@ namespace SiPMTesterInterface.Libraries
 
             iv.GetResult(out vbr, out cvbr, out cs);
 
+            c.IVResult.AnalysationResult = new IVAnalysationResult();
             c.IVResult.AnalysationResult.BreakdownVoltage = vbr;
             c.IVResult.AnalysationResult.CompensatedBreakdownVoltage = cvbr;
             c.IVResult.AnalysationResult.ChiSquare = cs;

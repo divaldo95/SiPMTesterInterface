@@ -29,6 +29,11 @@ function Test() {
         spsState: 0
     });
 
+    const updateIvAnalysationResultState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, newData) => {
+        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVAnalysationResult", newData.ivAnalysationResult);
+        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVTimes", newData.ivTimes);
+    };
+
     const updateIvConnectionState = (newValue) => {
         updateInstrumentStates(prevStatus => ({
             ...prevStatus,
@@ -109,7 +114,7 @@ function Test() {
                     console.log(resp);
                 })
         } catch (error) {
-            addToast(MessageTypeEnum.Error, JSON.stringify(error));
+            //addToast(MessageTypeEnum.Error, JSON.stringify(error));
         }
     }
 
@@ -220,7 +225,12 @@ function Test() {
                     //addToast(MessageTypeEnum.Debug, 'Received IV connection state change:', ivConn);
                 });
 
-                
+                connection.on('ReceiveSiPMIVMeasurementDataUpdate', (currentSiPM, ivARes) => {
+                    console.log(currentSiPM);
+                    console.log(ivARes);
+                    updateIvAnalysationResultState(currentSiPM.block, currentSiPM.module, currentSiPM.array, currentSiPM.siPM, ivARes);
+                    addToast(MessageTypeEnum.Debug, 'Received IV analysation data:', ivARes);
+                });
             })
 
             .catch(e => {

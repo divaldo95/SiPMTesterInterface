@@ -134,7 +134,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private ServiceStateHandler serviceState;
         private List<CurrentSiPMModel> ivSiPMs;
-        //private List<CurrentSiPMModel> spsSiPMs;
+        private List<CurrentSiPMModel> spsSiPMs;
 
         private readonly IConfiguration Configuration;
 
@@ -148,26 +148,10 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private DateTime utcDate;
 
-        public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
-        {
-            return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
-        }
-
-        public string GetSiPMMeasurementStatesJSON()
-        {
-            if (serviceState == null)
-            {
-                throw new NullReferenceException("Measurement not started yet");
-            }
-            return serviceState.GetSiPMMeasurementStatesJSON();
-        }
-
         private void PopulateServiceState()
         {
-
             serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
                                                         MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
-
             utcDate = DateTime.UtcNow;
             // Flatten the structure and save all details
             var SiPMs = globalState.CurrentRun.Blocks
@@ -206,38 +190,6 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
-        private void OnIVConnectionStateChangeCallback(object? sender, ConnectionStateChangedEventArgs e)
-        {
-            globalState.IVModel.ConnectionState = e.State;
-            //Send updates to the connected clients: previous state, current state
-            _hubContext.Clients.All.ReceiveIVConnectionStateChange(e.State);
-        }
-
-        private void OnIVMeasurementStateChangeCallback(object? sender, MeasurementStateChangedEventArgs e)
-        {
-            /*
-             * Save the global state. If there is an available iteration but the measurement is not running
-             * it means that the current iteration is finished, but the full set is not measured yet.
-             */
-            if (e.State != MeasurementState.Running && !IsIVIterationAvailable())
-            {
-                globalState.GlobalIVMeasurementState = e.State; //that can be Finished, Not running or Unknown
-                _hubContext.Clients.All.ReceiveGlobalIVMeasurementStateChange(globalState.GlobalIVMeasurementState);
-            }
-            globalState.IVModel.MeasurementState = e.State;
-            Console.WriteLine($"IV state changed from {e.Previous} to {e.State}");
-            //Send updates to the connected clients: Current global state, state, current sipm, number of measurements, current measurement number
-            _hubContext.Clients.All.ReceiveIVMeasurementStateChange(globalState.IVModel.MeasurementState);
-
-            /*
-             * Next measurement will start when data is received from instrument
-            if (e.State == MeasurementState.Finished && IsIVIterationAvailable())
-            {
-                
-            }
-            */
-        }
-
         public void CheckAndRunNext()
         {
             MeasurementType Type;
@@ -249,7 +201,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
-                Console.WriteLine("Found one");
+                Console.WriteLine($"Next measurement type is {Type}");
                 if (Type == MeasurementType.DMMResistanceMeasurement)
                 {
                     NIDMMStartModel niDMMStart = nextMeasurementData as NIDMMStartModel;
@@ -283,6 +235,36 @@ namespace SiPMTesterInterface.ClientApp.Services
                     c.IVMeasurementID = niIVStart.Identifier;
                     niMachine.StartIVMeasurement(niIVStart);
                 }
+
+                //WIP
+                else if (Type == MeasurementType.SPSMeasurement)
+                {
+                    spsSiPMs = sipms;
+                    int[] sipmCounts = GetSiPMCountPerBlock(spsSiPMs);
+
+                    for (int i = 0; i < sipmCounts.Count(); i++)
+                    {
+                        MeasurementMode.MeasurementModes mode = MeasurementMode.MeasurementModes.Off;
+                        switch(sipmCounts[i])
+                        {
+                            case 0:
+                                mode = MeasurementMode.MeasurementModes.Off;
+                                break;
+                            case 1:
+                                mode = MeasurementMode.MeasurementModes.SPSVoltageMeasurement;
+                                break;
+                            case 2:
+                                mode = MeasurementMode.MeasurementModes.DualSPS;
+                                break;
+                            case 3:
+                                mode = MeasurementMode.MeasurementModes.QuadSPS;
+                                break;
+                            case 4:
+                                mode = MeasurementMode.MeasurementModes.QuadSPS;
+                                break;
+                        }
+                    }
+                }
             }
             else //end of measurement
             {
@@ -291,14 +273,39 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
+        public static int[] GetSiPMCountPerBlock(List<CurrentSiPMModel> selectedSiPMs)
+        {
+            int[] sipmCounts;
+            var siPMCountPerBlock = selectedSiPMs
+            .GroupBy(sipm => sipm.Block)
+            .Select(group => new
+            {
+                Block = group.Key,
+                SiPMCount = group.Count()
+            })
+            .ToList();
+
+            sipmCounts = new int[siPMCountPerBlock.Count];
+
+            for(int i = 0; i < siPMCountPerBlock.Count; i++)
+            {
+                sipmCounts[i] = siPMCountPerBlock[i].SiPMCount;
+                Console.WriteLine($"Block: {siPMCountPerBlock[i].Block}, SiPMCount: {siPMCountPerBlock[i].SiPMCount}");
+            }
+            return sipmCounts;
+        }
+
         private Task RunAnalysis(CurrentMeasurementDataModel data)
         {
-            Task t = new Task(() =>
+            Task t = Task.Run(() =>
             {
                 try
                 {
+                    _logger.LogInformation("Starting analysis task...");
                     RootIVAnalyser.Analyse(data);
-                    _hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, data.IVResult.AnalysationResult);
+                    //_hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, data.IVResult.AnalysationResult);
+                    _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
+                    _logger.LogInformation("Analysis task done");
                 }
                 catch (Exception ex)
                 {
@@ -322,13 +329,130 @@ namespace SiPMTesterInterface.ClientApp.Services
             niMachine.StopMeasurement();
         }
 
+        public MeasurementService(ILoggerFactory loggerFactory, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base(loggerFactory.CreateLogger<MeasurementOrchestrator>())
+        {
+            Configuration = configuration;
+            _loggerFactory = loggerFactory;
+            _logger = _loggerFactory.CreateLogger<MeasurementService>();
+            _hubContext = hubContext;
+
+            try
+            {
+                MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
+                ivMeasurementSettings = new IVMeasurementSettings(Configuration);
+                dmmMeasurementSettings = new DMMMeasurementSettings(Configuration);
+
+                var niLogger = _loggerFactory.CreateLogger<NIMachine>();
+                var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
+                var hvpsuSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
+
+                niMachine = new NIMachine(Configuration, niLogger);
+                niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
+                niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
+
+                niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
+                niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
+
+                Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
+                Pulser.OnSerialStateChanged += Pulser_OnSerialStateChanged;
+                Pulser.OnDataReadout += Pulser_OnDataReadout;
+                hvPSU = new HVPSU(Configuration, hvpsuSerialLogger);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+            }
+
+
+
+            MeasurementStartModel startModel = new MeasurementStartModel();
+            startModel.MeasureDMMResistance = true;
+            startModel.DMMResistance.Voltage = 30.0;
+            startModel.DMMResistance.Iterations = 3;
+            startModel.DMMResistance.CorrectionPercentage = 10;
+
+            startModel.IV = 1;
+            startModel.SPS = 0;
+            startModel.SPSVoltagesIsOffsets = 0;
+            startModel.IVVoltages.Add(10.0);
+            startModel.IVVoltages.Add(11.0);
+            startModel.IVVoltages.Add(12.0);
+            startModel.IVVoltages.Add(13.0);
+
+            startModel.SPSVoltages.Add(8.0);
+            startModel.SPSVoltages.Add(9.0);
+            startModel.SPSVoltages.Add(10.0);
+            startModel.SPSVoltages.Add(11.0);
+
+            startModel.Blocks = new List<Block>();
+
+            for (int i = 0; i < 2; i++)
+            {
+                Block block = new Block();
+                for (int j = 0; j < 2; j++)
+                {
+                    Module module = new Module();
+                    for (int k = 0; k < 4; k++)
+                    {
+                        Models.Array array = new Models.Array();
+                        for (int l = 0; l < 16; l++)
+                        {
+                            SiPM sipm = new SiPM();
+                            sipm.IV = 1;
+                            sipm.SPS = 1;
+                            array.SiPMs.Add(sipm);
+                        }
+                        module.Arrays.Add(array);
+                    }
+                    block.Modules.Add(module);
+                }
+                startModel.Blocks.Add(block);
+            }
+
+            Console.WriteLine($"TestQuery: {JsonConvert.SerializeObject(startModel)}");
+        }
+
+        //Events--------------------------------------------------------------------
+
+        private void OnIVConnectionStateChangeCallback(object? sender, ConnectionStateChangedEventArgs e)
+        {
+            globalState.IVModel.ConnectionState = e.State;
+            //Send updates to the connected clients: previous state, current state
+            _hubContext.Clients.All.ReceiveIVConnectionStateChange(e.State);
+        }
+
+        private void OnIVMeasurementStateChangeCallback(object? sender, MeasurementStateChangedEventArgs e)
+        {
+            /*
+             * Save the global state. If there is an available iteration but the measurement is not running
+             * it means that the current iteration is finished, but the full set is not measured yet.
+             */
+            if (e.State != MeasurementState.Running && !IsIVIterationAvailable())
+            {
+                globalState.GlobalIVMeasurementState = e.State; //that can be Finished, Not running or Unknown
+                _hubContext.Clients.All.ReceiveGlobalIVMeasurementStateChange(globalState.GlobalIVMeasurementState);
+            }
+            globalState.IVModel.MeasurementState = e.State;
+            Console.WriteLine($"IV state changed from {e.Previous} to {e.State}");
+            //Send updates to the connected clients: Current global state, state, current sipm, number of measurements, current measurement number
+            _hubContext.Clients.All.ReceiveIVMeasurementStateChange(globalState.IVModel.MeasurementState);
+
+            /*
+             * Next measurement will start when data is received from instrument
+            if (e.State == MeasurementState.Finished && IsIVIterationAvailable())
+            {
+                
+            }
+            */
+        }
+
         private void OnDMMMeasurementDataReceived(object? sender, DMMMeasurementDataReceivedEventArgs e)
         {
             //save data here
             serviceState.AppendDMMResistanceMeasurement(e.Data);
 
             _logger.LogInformation("DMMMeasurementReceived");
-            
+
             CheckAndRunNext();
         }
 
@@ -346,32 +470,105 @@ namespace SiPMTesterInterface.ClientApp.Services
             c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp).ToList();
             //don't know the analysis result yet
             FileOperationHelper.SaveIVResult(c, utcDate.ToString("yyyyMMddHHmmss"));
-            _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation, new IVMeasurementHubUpdate(false, 0.0, e.Data.StartTimestamp, e.Data.EndTimestamp)); //send mesaurement update
 
             RunAnalysis(c); //async call
 
             CheckAndRunNext();
         }
 
-        public void Dispose()
+        private void Pulser_OnDataReadout(object? sender, PSoCCommuicatorDataReadEventArgs e)
         {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            _hubContext.Clients.All.ReceivePulserTempCoolerData(e);
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Pulser_OnSerialStateChanged(object? sender, SerialConnectionStateChangedEventArgs e)
         {
-            // Check to see if Dispose has already been called.
-            if (!this.disposed)
-            {
-                // If disposing equals true, dispose all managed
-                // and unmanaged resources.
-                if (disposing)
-                {
-                    niMachine.Stop();
-                }
+            _hubContext.Clients.All.ReceivePulserStateChange(e);
+        }
 
-                disposed = true;
+        //Getter-Setter--------------------------------------------------------------------
+
+        public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
+        {
+            return serviceState.GetSiPMMeasurementData(blockIndex, moduleIndex, arrayIndex, sipmIndex);
+        }
+
+        public string GetSiPMMeasurementStatesJSON()
+        {
+            if (serviceState == null)
+            {
+                throw new NullReferenceException("Measurement not started yet");
+            }
+            return serviceState.GetSiPMMeasurementStatesJSON();
+        }
+
+        //Status of individual IV measurements (job is running on NI machine or not
+        public MeasurementState IVState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.IVModel.MeasurementState;
+                }
+            }
+        }
+
+        //Status of the whole IV measurement
+        public MeasurementState GlobalIVState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.GlobalIVMeasurementState;
+                }
+            }
+        }
+
+        //Status of individual SPS measurements (job is running on SPS machine or not
+        public MeasurementState SPSState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.SPSModel.MeasurementState;
+                }
+            }
+        }
+
+        //Status of the whole SPS measurement
+        public MeasurementState GLobalSPSState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.GlobalSPSMeasurementState;
+                }
+            }
+        }
+
+        public ConnectionState IVConnectionState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.IVModel.ConnectionState;
+                }
+            }
+        }
+
+        public ConnectionState SPSConnectionState
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return globalState.SPSModel.ConnectionState;
+                }
             }
         }
 
@@ -472,170 +669,29 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
-        public MeasurementService(ILoggerFactory loggerFactory, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base()
+        public void Dispose()
         {
-            Configuration = configuration;
-            _loggerFactory = loggerFactory;
-            _logger = _loggerFactory.CreateLogger<MeasurementService>();
-            _hubContext = hubContext;
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
 
-            try
+        protected virtual void Dispose(bool disposing)
+        {
+            // Check to see if Dispose has already been called.
+            if (!this.disposed)
             {
-                MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
-                ivMeasurementSettings = new IVMeasurementSettings(Configuration);
-                dmmMeasurementSettings = new DMMMeasurementSettings(Configuration);
-
-                var niLogger = _loggerFactory.CreateLogger<NIMachine>();
-                var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
-                var hvpsuSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
-
-                niMachine = new NIMachine(Configuration, niLogger);
-                niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
-                niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
-
-                niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
-                niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
-
-                Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
-                Pulser.OnSerialStateChanged += Pulser_OnSerialStateChanged;
-                Pulser.OnDataReadout += Pulser_OnDataReadout;
-                hvPSU = new HVPSU(Configuration, hvpsuSerialLogger);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-            }
-
-
-
-            MeasurementStartModel startModel = new MeasurementStartModel();
-            startModel.MeasureDMMResistance = true;
-            startModel.DMMResistance.Voltage = 30.0;
-            startModel.DMMResistance.Iterations = 3;
-            startModel.DMMResistance.CorrectionPercentage = 10;
-
-            startModel.IV = 1;
-            startModel.SPS = 0;
-            startModel.SPSVoltagesIsOffsets = 0;
-            startModel.IVVoltages.Add(10.0);
-            startModel.IVVoltages.Add(11.0);
-            startModel.IVVoltages.Add(12.0);
-            startModel.IVVoltages.Add(13.0);
-
-            startModel.SPSVoltages.Add(8.0);
-            startModel.SPSVoltages.Add(9.0);
-            startModel.SPSVoltages.Add(10.0);
-            startModel.SPSVoltages.Add(11.0);
-
-            startModel.Blocks = new List<Block>();
-
-            for (int i = 0; i < 2; i++)
-            {
-                Block block = new Block();
-                for (int j = 0; j < 2; j++)
+                // If disposing equals true, dispose all managed
+                // and unmanaged resources.
+                if (disposing)
                 {
-                    Module module = new Module();
-                    for (int k = 0; k < 4; k++)
-                    {
-                        Models.Array array = new Models.Array();
-                        for (int l = 0; l < 16; l++)
-                        {
-                            SiPM sipm = new SiPM();
-                            sipm.IV = 1;
-                            sipm.SPS = 1;
-                            array.SiPMs.Add(sipm);
-                        }
-                        module.Arrays.Add(array);
-                    }
-                    block.Modules.Add(module);
+                    niMachine.Stop();
                 }
-                startModel.Blocks.Add(block);
-            }
 
-            Console.WriteLine($"TestQuery: {JsonConvert.SerializeObject(startModel)}");
-        }
-
-        private void Pulser_OnDataReadout(object? sender, PSoCCommuicatorDataReadEventArgs e)
-        {
-            _hubContext.Clients.All.ReceivePulserTempCoolerData(e);
-        }
-
-        private void Pulser_OnSerialStateChanged(object? sender, SerialConnectionStateChangedEventArgs e)
-        {
-            _hubContext.Clients.All.ReceivePulserStateChange(e);
-        }
-
-
-
-        //Status of individual IV measurements (job is running on NI machine or not
-        public MeasurementState IVState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.IVModel.MeasurementState;
-                }
+                disposed = true;
             }
         }
 
-        //Status of the whole IV measurement
-        public MeasurementState GlobalIVState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.GlobalIVMeasurementState;
-                }
-            }
-        }
-
-        //Status of individual SPS measurements (job is running on SPS machine or not
-        public MeasurementState SPSState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.SPSModel.MeasurementState;
-                }
-            }
-        }
-
-        //Status of the whole SPS measurement
-        public MeasurementState GLobalSPSState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.GlobalSPSMeasurementState;
-                }
-            }
-        }
-
-        public ConnectionState IVConnectionState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.IVModel.ConnectionState;
-                }
-            }
-        }
-
-        public ConnectionState SPSConnectionState
-        {
-            get
-            {
-                lock (_lockObject)
-                {
-                    return globalState.SPSModel.ConnectionState;
-                }
-            }
-        }
+        
     }
 }
 

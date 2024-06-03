@@ -60,6 +60,7 @@ function SiPMSensor(props) {
     };
 
     const getSiPMMeasurementValue = (property) => {
+        //console.log(measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex]);
         return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
     }
 
@@ -67,9 +68,30 @@ function SiPMSensor(props) {
         return isAnyMeasurementRunning();
     }
 
+    const getAnalysationBackgroundClass = () => {
+        let result = getSiPMMeasurementValue("IVAnalysationResult");
+        if (result === null) {
+            //console.log("null bg");
+            return "bg-light";
+        }
+        //console.log(result);
+        if (!result.Analysed) {
+            //console.log("not analysed bg");
+            return "bg-secondary text-white";
+        }
+        if (result.isOK) {
+            //console.log("ok bg");
+            return "bg-success";
+        }
+        else {
+            //console.log("error bg");
+            return "bg-danger";
+        }
+    }
+
     const backgroundClass = () => {
         if (isAnyMeasurementRunning()) {
-            return GetMeasurementStateColorClass();
+            return getAnalysationBackgroundClass();
         }
         else {
             return GetSelectedColorClass(getSiPMValue("IV"), getSiPMValue("SPS"));

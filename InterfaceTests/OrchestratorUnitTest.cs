@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection.PortableExecutable;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestPlatform.TestHost;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
@@ -16,10 +18,13 @@ public class OrchestratorUnitTest
     [TestMethod]
     public void SPSOutputTest()
     {
+        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
+        ILogger<MeasurementOrchestrator> logger = factory.CreateLogger<MeasurementOrchestrator>();
+
         string inJson = InputJSONs.inputJSON1;
         MeasurementStartModel? startModel;
         bool success = Parser.String2JSON(inJson, out startModel);
-        MeasurementOrchestrator orchestrator = new MeasurementOrchestrator();
+        MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(logger);
         if (!success || startModel == null)
         {
             Debug.Fail("Invalid input json string");

@@ -100,13 +100,13 @@ export function getStatusBackgroundClass(status) {
 }
 
 export function GetStatusBorderColorClass(IV, SPS) {
-    if (IV === 1 && SPS === 1) {
+    if (IV === true && SPS === true) {
         return "border-info";
     }
-    else if (IV === 1 && SPS === 0) {
+    else if (IV === true && SPS === false) {
         return "border-info";
     }
-    else if (IV === 0 && SPS === 1) {
+    else if (IV === false && SPS === true) {
         return "border-info";
     }
     else {

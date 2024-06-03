@@ -1,5 +1,7 @@
 ﻿using System;
+using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
+using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
@@ -15,6 +17,8 @@ namespace SiPMTesterInterface.Classes
         //Up to 8 SPS measurements simultenaously
         private int CurrentSPSMeasurementIndex = -1; //Same as IVMeasurementIndex
         public List<List<CurrentSiPMModel>> SPSMeasurementOrder { get; private set; } = new List<List<CurrentSiPMModel>>(); //don't forget to create the second list
+
+        private readonly ILogger<MeasurementOrchestrator> _logger;
 
         protected GlobalStateModel globalState = new GlobalStateModel();
 
@@ -34,10 +38,11 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
-        public MeasurementOrchestrator()
+        public MeasurementOrchestrator(ILogger<MeasurementOrchestrator> logger)
 		{
             globalState = new GlobalStateModel();
-		}
+            _logger = logger;
+        }
 
         public MeasurementStartModel MeasurementData
         {
@@ -83,6 +88,7 @@ namespace SiPMTesterInterface.Classes
                 CurrentIVMeasurementIndex = 0; //reset the index counter
             }
 
+            ShuffleIVList(IVMeasurementOrder);
 
             // Define the valid array combinations
             HashSet<int[]> validArrayCombinations = new HashSet<int[]>
@@ -220,6 +226,35 @@ namespace SiPMTesterInterface.Classes
             
             return retVal;
         }
-	}
+
+        //Private functions-----------------------------------------------------
+        private void ShuffleIVList(List<CurrentSiPMModel> list, int maxIterations = 20)
+        {
+            bool isValid = false;
+            int iterationCounter = 0;
+            while (!isValid && iterationCounter < maxIterations)
+            {
+                list.Shuffle();
+
+                isValid = true;
+                for (int i = 1; i < list.Count; i++)
+                {
+                    if (Math.Abs(list[i].SiPM - list[i - 1].SiPM) == 1
+                            && list[i].Block == list[i - 1].Block
+                            && list[i].Module == list[i - 1].Module
+                            && list[i].Array == list[i - 1].Array)
+                    {
+                        isValid = false;
+                        break;
+                    }
+                }
+                iterationCounter++;
+            }
+            if (iterationCounter >= maxIterations && !isValid)
+            {
+                _logger.LogWarning($"Max iteration reached without meeting the neighboring criteria");
+            }
+        }
+    }
 }
 

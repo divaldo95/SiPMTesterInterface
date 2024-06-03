@@ -1,22 +1,35 @@
 ﻿using System;
 namespace SiPMTesterInterface.Models
 {
-	public class IVMeasurementHubUpdate
-	{
-        public bool isOK { get; set; } = false;
-        public double breakdownVoltage { get; set; } = 0.0;
+    public class IVTimes
+    {
         public long startTimestamp { get; set; } = 0;
         public long endTimestamp { get; set; } = 0;
+
+        public IVTimes()
+        {
+        }
+
+        public IVTimes(long start, long end)
+        {
+            startTimestamp = start;
+            endTimestamp = end;
+        }
+    }
+
+	public class IVMeasurementHubUpdate
+	{
+        public IVTimes IVTimes { get; set; } = new IVTimes();
+        public IVAnalysationResult IVAnalysationResult { get; set; } = new IVAnalysationResult();
+        
         public IVMeasurementHubUpdate()
 		{
             
         }
-        public IVMeasurementHubUpdate(bool ok, double vbr, long start, long end)
+        public IVMeasurementHubUpdate(IVAnalysationResult res, IVTimes times)
         {
-            isOK = ok;
-            breakdownVoltage = vbr;
-            startTimestamp = start;
-            endTimestamp = end;
+            IVTimes = times;
+            IVAnalysationResult = res;
         }
     }
 }

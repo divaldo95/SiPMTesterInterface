@@ -36,15 +36,21 @@ const initialMeasurementState = {
                 SiPMs: Array.from({ length: 16 }, () => ({
                     IVMeasurementDone: false,
                     SPSMeasurementDone: false,
-                    IVResult: {
+                    IVAnalysationResult: {
+                        Analysed: false,
                         isOK: false,
-                        breakdownVoltage: 0.0,
-                        startTimestamp: 0,
-                        endTimestamp: 0
+                        BreakdownVoltage: 0.0,
+                        ChiSquare: 0.0,
+                        CompensatedBreakdownVoltage: 0.0,
+                        RootFileLocation: ""
                     },
                     SPSResult: {
                         isOK: false,
                         Gain: 0.0
+                    },
+                    IVTimes: {
+                        startTimestamp: 0,
+                        endTimestamp: 0
                     }
                 })),
             }))

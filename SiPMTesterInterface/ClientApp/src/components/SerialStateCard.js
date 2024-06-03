@@ -9,7 +9,7 @@ function SerialStateCard(props) {
     const [showModal, setShowModal] = useState(false);
 
     const openModal = () => {
-        if (ConnectionState === SerialConnectionStateEnum.Connected || ConnectionState === SerialConnectionStateEnum.Timeout) {
+        if (ConnectionState === SerialConnectionStateEnum.Connected || ConnectionState === SerialConnectionStateEnum.Timeout || true) {
             setShowModal(true);
         }
     };
