@@ -30,8 +30,6 @@ namespace SiPMTesterInterface.Classes
         private PulserValues[] pulserValues; //store pulser values for every single SiPM (flattened)
         public Queue<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
 
-        public CoolerSettingsModel[] coolerSettings = new CoolerSettingsModel[2 * 2];
-
         //Save current measurement results here in a flattened array
         public ServiceStateHandler(int blockNum = 2, int moduleNum = 2, int arrayNum = 4, int sipmNum = 16)
 		{
@@ -46,34 +44,7 @@ namespace SiPMTesterInterface.Classes
             AllSiPMsData = new CurrentMeasurementDataModel[allNum].Populate(() => new CurrentMeasurementDataModel());
             pulserValues = new PulserValues[allNum].Populate(() => new PulserValues());
             DMMResistances = new Queue<DMMResistanceMeasurementResponseModel>();
-
-            for (int i = 0; i < coolerSettings.Count(); i++)
-            {
-                coolerSettings[i] = new CoolerSettingsModel();
-                coolerSettings[i].Block = i / 2;
-                coolerSettings[i].Module = i % 2;
-            }
 		}
-
-        public CoolerSettingsModel GetCoolerSettings(int block, int module)
-        {
-            if (block > 1 || block < 0 || module > 1 || module < 0)
-            {
-                throw new ArgumentException("Invalid block or module number");
-            }
-            int index = block * 2 + module;
-            return coolerSettings[index];
-        }
-
-        public void SetCoolerSettings(CoolerSettingsModel settings)
-        {
-            if (settings.Block > 1 || settings.Block < 0 || settings.Module > 1 || settings.Module < 0)
-            {
-                throw new ArgumentException("Invalid block or module number");
-            }
-            int index = settings.Block * 2 + settings.Module;
-            coolerSettings[index] = settings;
-        }
 
         public string GetSiPMMeasurementStatesJSON()
         {

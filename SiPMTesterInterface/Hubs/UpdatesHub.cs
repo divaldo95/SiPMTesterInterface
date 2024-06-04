@@ -24,8 +24,11 @@ namespace SiPMTesterInterface.Hubs
         public async Task SendIVConnectionStateChange(ConnectionState cs)
             => await Clients.All.ReceiveIVConnectionStateChange(cs);
 
-        public async Task SendIVAnalysationResult(CurrentSiPMModel cs, IVAnalysationResult res)
+        public async Task SendIVAnalysationResult(CurrentSiPMModel cs, IVMeasurementHubUpdate res)
             => await Clients.All.ReceiveIVAnalysationResult(cs, res);
+
+        public async Task SendErrorMessage(string sender, string message)
+            => await Clients.All.ReceiveErrorMessage(sender, message);
     }
 }
 

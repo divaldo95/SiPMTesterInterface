@@ -79,7 +79,7 @@ function SiPMSensor(props) {
             //console.log("not analysed bg");
             return "bg-secondary text-white";
         }
-        if (result.isOK) {
+        if (result.ChiSquare < 0.15) {
             //console.log("ok bg");
             return "bg-success";
         }
@@ -107,6 +107,39 @@ function SiPMSensor(props) {
         }
     }
 
+    const GetBreakdownVoltage = () => {
+        let Vbr = 0.0;
+        let result = getSiPMMeasurementValue("IVAnalysationResult");
+        if (result === null) {
+            return Vbr;
+        }
+        else {
+            return result.BreakdownVoltage;
+        }
+    }
+
+    const GetCompensatedBreakdownVoltage = () => {
+        let cVbr = 0.0;
+        let result = getSiPMMeasurementValue("IVAnalysationResult");
+        if (result === null) {
+            return cVbr;
+        }
+        else {
+            return result.CompensatedBreakdownVoltage;
+        }
+    }
+
+    const GetChiSquare = () => {
+        let c2 = 0.0;
+        let result = getSiPMMeasurementValue("IVAnalysationResult");
+        if (result === null) {
+            return c2;
+        }
+        else {
+            return result.ChiSquare;
+        }
+    }
+
     return (
         <>
             <div className={`btn-group border border-1 ${borderClass()} ${className}`} role="group" aria-label="sensor block with settings">
@@ -127,7 +160,17 @@ function SiPMSensor(props) {
                 </button>
             </div>
             {isAnyMeasurementRunning() ? (
-                <SiPMMeasurementModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex} />
+                <SiPMMeasurementModal
+                    showModal={showModal}
+                    closeModal={closeModal}
+                    BlockIndex={BlockIndex}
+                    ModuleIndex={ModuleIndex}
+                    ArrayIndex={ArrayIndex}
+                    SiPMIndex={SiPMIndex}
+                    BreakdownVoltage={GetBreakdownVoltage()}
+                    CompensatedBreakdownVoltage={GetCompensatedBreakdownVoltage()}
+                    Chi2={GetChiSquare()}
+                />
             ) : (
                 <SiPMSettingsModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex} />
             )}

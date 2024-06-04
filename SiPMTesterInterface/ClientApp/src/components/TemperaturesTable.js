@@ -36,7 +36,7 @@ function TemperaturesTable(props) {
                                     <td>{item.Module2.join(', ')}</td>
                                     <td>{item.Pulser}</td>
                                     <td>{item.ControlTemperature}</td>
-                                    <td>{new Date(item.Timestamp).toLocaleString()}</td>
+                                    <td>{new Date(item.Timestamp).toLocaleDateString()} {new Date(item.Timestamp).toTimeString().split(' ')[0]}</td>
                                 </tr>
                             ))}
                         </tbody>

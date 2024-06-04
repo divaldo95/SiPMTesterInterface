@@ -213,7 +213,7 @@ function Test() {
                     // Handle received SPS measurement state change
                     console.log('Received SiPM IV measurement:', currentSiPMModel, data);
                     updateSiPMMeasurementStates(currentSiPMModel.block, currentSiPMModel.module, currentSiPMModel.array, currentSiPMModel.siPM, "IVMeasurementDone", true);
-                    updateSiPMMeasurementStates(currentSiPMModel.block, currentSiPMModel.module, currentSiPMModel.array, currentSiPMModel.siPM, "IVResult", data);
+                    updateIvAnalysationResultState(currentSiPMModel.block, currentSiPMModel.module, currentSiPMModel.array, currentSiPMModel.siPM, data);
                     addToast(MessageTypeEnum.Information,`SiPM(${currentSiPMModel.block}, ${currentSiPMModel.module}, ${currentSiPMModel.array}, ${currentSiPMModel.siPM}) IV data received`);
                 });
                 
@@ -225,11 +225,17 @@ function Test() {
                     //addToast(MessageTypeEnum.Debug, 'Received IV connection state change:', ivConn);
                 });
 
-                connection.on('ReceiveSiPMIVMeasurementDataUpdate', (currentSiPM, ivARes) => {
+                connection.on('ReceiveIVAnalysationResult', (currentSiPM, ivARes) => {
                     console.log(currentSiPM);
                     console.log(ivARes);
                     updateIvAnalysationResultState(currentSiPM.block, currentSiPM.module, currentSiPM.array, currentSiPM.siPM, ivARes);
                     addToast(MessageTypeEnum.Debug, 'Received IV analysation data:', ivARes);
+                });
+
+                connection.on('ReceiveErrorMessage', (sender, message) => {
+                    console.log(sender);
+                    console.log(message);
+                    addToast(MessageTypeEnum.Error, sender, message);
                 });
             })
 

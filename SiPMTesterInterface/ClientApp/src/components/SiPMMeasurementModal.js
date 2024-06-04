@@ -1,11 +1,11 @@
 ﻿import { useState, useEffect } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal, Button, Table } from 'react-bootstrap';
 import MeasurementStateService from '../services/MeasurementStateService';
 
 import RootTGraphComponent from './RootTGraphComponent';
 
 function SiPMMeasurementModal(props) {
-    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex } = props;
+    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex, BreakdownVoltage, CompensatedBreakdownVoltage, Chi2 } = props;
     const [ error, setError ] = useState();
     const [isLoading, setIsLoading] = useState(true);
     const [x, setX] = useState([]);
@@ -68,8 +68,26 @@ function SiPMMeasurementModal(props) {
                                                 </div>
                                             </div>
                                         ) : (
-                                                <RootTGraphComponent render={renderGraph} x={x} y={ y }>
+                                            <>
+                                                <RootTGraphComponent render={renderGraph} x={x} y={y}>
                                                 </RootTGraphComponent>
+                                                <Table bordered>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Breakdown Voltage</th>
+                                                            <th>Compensated Breakdown Voltage</th>
+                                                            <th>Chi2</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr key={0}>
+                                                            <td>{BreakdownVoltage}</td>
+                                                            <td>{CompensatedBreakdownVoltage}</td>
+                                                            <td>{Chi2}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </Table>
+                                            </> 
                                         )}
                                     </>
                             )}

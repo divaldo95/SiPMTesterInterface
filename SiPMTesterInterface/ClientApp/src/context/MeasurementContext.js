@@ -1,7 +1,8 @@
-﻿import React, { createContext, useState } from 'react';
+﻿import React, { useContext, createContext, useState } from 'react';
 
 
 export const MeasurementContext = createContext();
+export const useMeasurement = () => useContext(MeasurementContext);
 
 const initialState = {
     Blocks: Array.from({ length: 2 }, () => ({
@@ -79,11 +80,13 @@ export const MeasurementProvider = ({ children }) => {
     //const [IVMeasurementState, setIsIVMeasurementState] = useState(true);
     //const [SPSMeasurementState, setIsSPSMeasurementState] = useState(false);
 
-    const [messages, setMessages] = useState(initialToasts);
+    //const [messages, setMessages] = useState(initialToasts);
+    const [toasts, setToasts] = useState(initialToasts);
 
     const [instrumentStatuses, setInstrumentStatuses] = useState(initialInstrumentStates);
 
     // Function to set the "Dismissed" property of a message based on its index
+    /*
     const setDismissed = (index, dismissed) => {
         setMessages(prevMessages => {
             const updatedMessages = [...prevMessages];
@@ -92,6 +95,26 @@ export const MeasurementProvider = ({ children }) => {
             }
             return updatedMessages;
         });
+    };
+    */
+
+    const addToast = (messageType, message) => {
+        const newToast = {
+            id: Date.now(),
+            messageType,
+            message,
+            dismissed: false,
+            dateTime: Date.now()
+        };
+        setToasts((prevToasts) => [...prevToasts, newToast]);
+    };
+
+    const dismissToast = (id) => {
+        setToasts((prevToasts) =>
+            prevToasts.map((toast) =>
+                toast.id === id ? { ...toast, dismissed: true } : toast
+            )
+        );
     };
 
     const updateSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
@@ -146,6 +169,7 @@ export const MeasurementProvider = ({ children }) => {
         });
     };
 
+    /*
     const addToast = (messageType, messageText) => {
         setMessages(prevMessages => [
             ...prevMessages,
@@ -156,6 +180,7 @@ export const MeasurementProvider = ({ children }) => {
             }
         ]);
     };
+    */
 
     const updateMeasurementData = (newData) => {
         setMeasurementData({ ...measurementData, ...newData });
@@ -311,9 +336,10 @@ export const MeasurementProvider = ({ children }) => {
         <MeasurementContext.Provider
             value={{
                 measurementData, updateMeasurementData, updateSiPM, updateBarcode, areAllPropertiesSet,
-                isAnyMeasurementRunning, messages, setDismissed, addToast, updateVoltages,
+                isAnyMeasurementRunning, toasts, addToast, dismissToast, updateVoltages,
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
-                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates, resetSiPMMeasurementStates, pulserState, setPulserState
+                instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates,
+                resetSiPMMeasurementStates, pulserState, setPulserState
             }}>
             {children}
         </MeasurementContext.Provider>

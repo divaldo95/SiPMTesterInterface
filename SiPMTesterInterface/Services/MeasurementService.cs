@@ -133,6 +133,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         public DMMMeasurementSettings dmmMeasurementSettings { get; private set; }
 
         private ServiceStateHandler serviceState;
+        private CoolerStateHandler coolerState;
         private List<CurrentSiPMModel> ivSiPMs;
         private List<CurrentSiPMModel> spsSiPMs;
 
@@ -206,7 +207,17 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     NIDMMStartModel niDMMStart = nextMeasurementData as NIDMMStartModel;
                     niDMMStart.DMMResistance = globalState.CurrentRun.DMMResistance;
-                    Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
+                    try
+                    {
+                        Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error on DMM CheckAndRunNext(): {ex.Message}");
+                        globalState.GlobalIVMeasurementState = MeasurementState.Error;
+                        return;
+                    }
+                    
                     niMachine.StartDMMResistanceMeasurement(niDMMStart);
                 }
 
@@ -229,8 +240,17 @@ namespace SiPMTesterInterface.ClientApp.Services
                         LEDValueHelper.GetPulserValue(ivMeasurementSettings.LED),
                         LEDValueHelper.GetPulserValue(ivMeasurementSettings.LED),
                     };
-                    Pulser.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV,
-                        new[] { pulserLEDValues[0], pulserLEDValues[1], pulserLEDValues[2], pulserLEDValues[3] });
+                    try
+                    {
+                        Pulser.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV,
+                            new[] { pulserLEDValues[0], pulserLEDValues[1], pulserLEDValues[2], pulserLEDValues[3] });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error on IV CheckAndRunNext(): {ex.Message}");
+                        globalState.GlobalIVMeasurementState = MeasurementState.Error;
+                        return;
+                    }
                     CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM);
                     c.IVMeasurementID = niIVStart.Identifier;
                     niMachine.StartIVMeasurement(niIVStart);
@@ -304,7 +324,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     _logger.LogInformation("Starting analysis task...");
                     RootIVAnalyser.Analyse(data);
                     //_hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, data.IVResult.AnalysationResult);
-                    _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
+                    _hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
                     _logger.LogInformation("Analysis task done");
                 }
                 catch (Exception ex)
@@ -335,6 +355,8 @@ namespace SiPMTesterInterface.ClientApp.Services
             _loggerFactory = loggerFactory;
             _logger = _loggerFactory.CreateLogger<MeasurementService>();
             _hubContext = hubContext;
+
+            coolerState = new CoolerStateHandler();
 
             try
             {
@@ -649,7 +671,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (Pulser != null)
             {
                 Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
-                serviceState.SetCoolerSettings(s);
+                coolerState.SetCoolerSettings(s);
             }
             else
             {
@@ -661,7 +683,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             if (Pulser != null)
             {
-                return serviceState.GetCoolerSettings(block, module);
+                return coolerState.GetCoolerSettings(block, module);
             }
             else
             {

@@ -1,40 +1,45 @@
 ﻿import { useContext } from 'react';
-import { MeasurementContext } from '../context/MeasurementContext';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
+import { useMeasurement } from '../context/MeasurementContext';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
 
-function SiPMArray(props) {
+function ToastComponent(props) {
     const { className } = props;
-    const { messages, setDismissed } = useContext(MeasurementContext);
-
-    const dismissMessage = (index) => {
-        setDismissed(index, true);
-    };
+    const { toasts, dismissToast } = useMeasurement();
 
     return (
-        <>
-            <div aria-live="polite" aria-atomic="true" className="">
-                <div className="toast-container position-fixed bottom-0 end-0 p-3">
-                    {messages.map((message, index) => (
-                        <div key={index}>
-                            <div className={`mb-3 toast ${message.Dismissed ? '' : 'show'}`} role="alert" aria-live="assertive" aria-atomic="true">
-                                <div className="toast-header">
-                                    <div className={`me-2 ${getIconClass(message.MessageType)}`} alt="..."></div>
-                                    <strong className="me-auto">{message.MessageType}</strong>
-                                    <small className="text-body-secondary">just now</small>
-                                    <button onClick={() => dismissMessage(index)} type="button" className="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                                </div>
-                                <div className="toast-body">
-                                    <div className="text-wrap">
-                                        {message.Message}
-                                    </div>
-                                </div>
+        <div
+            aria-live="polite"
+            aria-atomic="true"
+            className=""
+        >
+            <ToastContainer position="bottom-end" className="position-fixed m-3" style={{ zIndex: 1 }}>
+                {toasts
+                    .filter((toast) => !toast.dismissed)
+                    .map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        onClose={() => dismissToast(toast.id)}
+                        delay={5000}
+                        autohide
+                        animation={true}
+                    >
+                        <Toast.Header>
+                            <div className={`me-2 ${getIconClass(toast.messageType)}`} alt="..."></div>
+                            <strong className="me-auto">{toast.messageType}</strong>
+                                <small className="text-body-secondary">{new Date(toast.dateTime).toLocaleDateString()} {new Date(toast.dateTime).toTimeString().split(' ')[0]}</small>
+                        </Toast.Header>
+                        <Toast.Body>
+                            <div className="text-wrap">
+                                {toast.message}
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </>
+                        </Toast.Body>
+                    </Toast>
+                ))}
+            </ToastContainer>
+        </div>
     );
 }
 
-export default SiPMArray;
+export default ToastComponent;
