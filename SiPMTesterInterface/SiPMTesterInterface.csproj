@@ -31,6 +31,7 @@
     <None Remove="DbModels\" />
     <None Remove="Libraries\" />
     <None Remove="AnalysisModels\" />
+    <None Remove="ClientApp\src\helpers\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,6 +55,7 @@
     <Folder Include="DbModels\" />
     <Folder Include="Libraries\" />
     <Folder Include="AnalysisModels\" />
+    <Folder Include="ClientApp\src\helpers\" />
   </ItemGroup>
   <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
     <!-- Ensure Node.js is installed -->

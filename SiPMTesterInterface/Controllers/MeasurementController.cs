@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NetMQ;
 using NetMQ.Sockets;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -124,6 +126,53 @@ namespace SiPMTesterInterface.Controllers
         {
             // returns current run configuration (MeasurementStartModel)
             return Ok(_measurementService.MeasurementData);
+        }
+
+        [HttpGet("logs/all")]
+        public IActionResult GetAllLogs()
+        {
+            string errors = JsonConvert.SerializeObject(_measurementService.GetAllLogs());
+            return Ok(errors);
+        }
+
+        [HttpGet("logs/needsattention")]
+        public IActionResult GetNeedsAttentionLogs()
+        {
+            string errors = JsonConvert.SerializeObject(_measurementService.GetAttentionNeededLogs());
+            return Ok(errors);
+        }
+
+        [HttpGet("logs/unresolved")]
+        public IActionResult GetUnresolvedLogs()
+        {
+            string errors = JsonConvert.SerializeObject(_measurementService.GetUnresolvedLogs());
+            return Ok(errors);
+        }
+
+        [HttpPost("logs/resolve")]
+        public IActionResult ResolveLogMessage([FromBody] JsonElement data)
+        {
+            try
+            {
+                Console.WriteLine($"Received data: {data}");
+                // Extract properties from the JSON object
+                if (!data.TryGetProperty("ID", out JsonElement idElement) || !data.TryGetProperty("UserResponse", out JsonElement userResponseElement))
+                {
+                    throw new InvalidDataException("Invalid error data received");
+                }
+
+                var errorMessageModel = new LogMessageModel
+                {
+                    ID = idElement.GetString(),
+                    UserResponse = (ResponseButtons)userResponseElement.GetInt32()
+                };
+                _measurementService.TryResolveLog(errorMessageModel);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            } 
         }
 
         [HttpGet("measurementstates")]

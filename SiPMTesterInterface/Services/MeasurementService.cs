@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using System.Collections.Generic;
+using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
+using SiPMTesterInterface.AnalysisModels;
 using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -191,6 +193,15 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
+        public LogMessageModel CreateAndSendLogMessage(string sender, string message, LogMessageType logType, bool interactionNeeded, ResponseButtons buttons, MeasurementType type = MeasurementType.Unknown)
+        {
+            LogMessageModel logMessage;
+            logMessage = new LogMessageModel(sender, message, logType, type, interactionNeeded, buttons);
+            _hubContext.Clients.All.ReceiveLogMessage(logMessage);
+            Logs.Add(logMessage);
+            return logMessage;
+        }
+
         public void CheckAndRunNext()
         {
             MeasurementType Type;
@@ -199,6 +210,15 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             //turn off pulser, disconnect all relays
             EndTimestamp = TimestampHelper.GetUTCTimestamp(); ; //just to make sure something is saved
+
+            var logList = GetAttentionNeededLogs();
+
+            if (logList.Count > 0)
+            {
+                _logger.LogWarning($"{logList.Count} logs waiting for user response");
+                return;
+            }
+
             Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
             {
@@ -215,6 +235,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     {
                         _logger.LogError($"Error on DMM CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
+                        CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
                         return;
                     }
                     
@@ -227,6 +248,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel; //some settings duplicated here and in ServiceState
                     if (sipms.Count != 1)
                     {
+                        CreateAndSendLogMessage("CheckAndRunNext - IV", "Can not measure more than one SiPM at a time for IV", LogMessageType.Error, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
                         _logger.LogError("Can not measure more than one SiPM at a time for IV");
                         return;
                     }
@@ -249,6 +271,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     {
                         _logger.LogError($"Error on IV CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
+                        CreateAndSendLogMessage("CheckAndRunNext - IV", ex.Message, LogMessageType.Error, true, ResponseButtons.StopRetryContinue, MeasurementType.IVMeasurement);
                         return;
                     }
                     CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM);
@@ -271,11 +294,12 @@ namespace SiPMTesterInterface.ClientApp.Services
                                 mode = MeasurementMode.MeasurementModes.Off;
                                 break;
                             case 1:
-                                mode = MeasurementMode.MeasurementModes.SPSVoltageMeasurement;
+                                mode = MeasurementMode.MeasurementModes.SPS;
                                 break;
                             case 2:
                                 mode = MeasurementMode.MeasurementModes.DualSPS;
                                 break;
+                            //can not do this!
                             case 3:
                                 mode = MeasurementMode.MeasurementModes.QuadSPS;
                                 break;
@@ -288,6 +312,39 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
             else //end of measurement
             {
+                /* SPS - 0. element pulser
+                 * DualSPS - 0, 1. element pulser
+                 * Invalid
+                 * QuadSPS - 0, 1, 2, 3 element pulser
+                 */
+
+                /* Up/Down selection Quad:
+                 * Module 0, Array 0 - 0,2
+                 * Module 0, Array 1 - 1,3
+                 * 
+                 * Up/Down selection Dual:
+                 * Module 0, Array 0 - 0,2
+                 * Module 0, Array 1 - 1,3
+                 * OR
+                 * Module 1, Array 0 - 0,2
+                 * Module 1, Array 1 - 1,3
+                 * 
+                 * Up/Down selection Single:
+                 * Module x, Array y, SiPM z - X Y Z
+                 * Intensity array first item must be set all the time
+                 */
+
+                /*
+                 * Pulser connects the HV to the right SiPMs set above
+                 */
+
+                /*
+                 * DAQ flow chart:
+                 * Off -> SPS V measure -> Set HVs -> SPS V measure for all channels -> Desired SPS mode -> Measurement
+                 * (Next HV level -> Set HVs -> SPS V measure for all channels -> Measurement) x N V level
+                 * HVs off -> Off
+                 */
+
                 Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
                 EndTimestamp = TimestampHelper.GetUTCTimestamp();
             }
@@ -329,6 +386,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 }
                 catch (Exception ex)
                 {
+                    CreateAndSendLogMessage("RunAnalysis", ex.Message, LogMessageType.Error, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
                     _logger.LogError($"{ex.Message}");
                 }
                 
@@ -340,6 +398,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
+            CreateAndSendLogMessage("StartMeasurement", "Measurement is starting...", LogMessageType.Info, false, ResponseButtons.OK, MeasurementType.Unknown);
             CheckAndRunNext();
             StartTimestamp = TimestampHelper.GetUTCTimestamp();
         }
@@ -382,10 +441,9 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
             catch (Exception ex)
             {
+                CreateAndSendLogMessage("MeasurementService", ex.Message, LogMessageType.Error, false, ResponseButtons.OK, MeasurementType.Unknown);
                 _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
             }
-
-
 
             MeasurementStartModel startModel = new MeasurementStartModel();
             startModel.MeasureDMMResistance = true;
@@ -449,7 +507,7 @@ namespace SiPMTesterInterface.ClientApp.Services
              * Save the global state. If there is an available iteration but the measurement is not running
              * it means that the current iteration is finished, but the full set is not measured yet.
              */
-            if (e.State != MeasurementState.Running && !IsIVIterationAvailable())
+                if (e.State != MeasurementState.Running && !IsIVIterationAvailable())
             {
                 globalState.GlobalIVMeasurementState = e.State; //that can be Finished, Not running or Unknown
                 _hubContext.Clients.All.ReceiveGlobalIVMeasurementStateChange(globalState.GlobalIVMeasurementState);
@@ -509,6 +567,111 @@ namespace SiPMTesterInterface.ClientApp.Services
         }
 
         //Getter-Setter--------------------------------------------------------------------
+        public List<LogMessageModel> GetUnresolvedLogs()
+        {
+            var list = Logs.Where(e => e.Resolved != true).ToList();
+            return list;
+        }
+
+        public List<LogMessageModel> GetAttentionNeededLogs()
+        {
+            var list = Logs.Where(e => e.Resolved != true && e.NeedsInteraction).ToList();
+            return list;
+        }
+
+        public List<LogMessageModel> GetAllLogs()
+        {
+            return Logs;
+        }
+
+        public bool CheckResponseButtonIsValid(ResponseButtons availableButtons, ResponseButtons userResponse)
+        {
+            bool retVal = false;
+
+            if (availableButtons == ResponseButtons.StopRetryContinue)
+            {
+                if (userResponse == ResponseButtons.Stop || userResponse == ResponseButtons.Retry || userResponse == ResponseButtons.Continue)
+                {
+                    retVal = true;
+                }
+            }
+            else if (availableButtons == ResponseButtons.CancelOK)
+            {
+                if (userResponse == ResponseButtons.Cancel || userResponse == ResponseButtons.OK)
+                {
+                    retVal = true;
+                }
+            }
+            else if (availableButtons == userResponse) //grouped buttons handled earlier, so it can be checked directly
+            {
+                retVal = true;
+            }
+
+            return retVal;
+        }
+
+        public void TryResolveLog(LogMessageModel message)
+        {
+            if (Logs == null)
+            {
+                _logger.LogError($"Log list is null");
+                return;
+            }
+            LogMessageModel? log = Logs.FirstOrDefault(model => model.ID.Equals(message.ID));
+            if (log == null)
+            {
+                _logger.LogError($"Could not find received log");
+                throw new KeyNotFoundException("Error with the received ID not exists");
+            }
+            if (!CheckResponseButtonIsValid(log.ValidInteractionButtons, message.UserResponse))
+            {
+                _logger.LogError($"Invalid response from user. Available responses: {log.ValidInteractionButtons.ToString()} Received: {message.UserResponse}");
+                throw new InvalidOperationException($"Invalid response from user. Available responses: {log.ValidInteractionButtons.ToString()} Received: {message.UserResponse}");
+            }
+            log.UserResponse = message.UserResponse;
+            if (log.NeedsInteraction)
+            {
+                //other responses are not needed
+                switch (log.UserResponse)
+                {
+                    case ResponseButtons.Cancel:
+                        log.NextStep = ErrorNextStep.Stop;
+                        break;
+                    case ResponseButtons.Continue:
+                        log.NextStep = ErrorNextStep.Continue;
+                        break;
+                    case ResponseButtons.Retry:
+                        log.NextStep = ErrorNextStep.Retry;
+                        break;
+                    case ResponseButtons.OK:
+                        log.NextStep = ErrorNextStep.Continue;
+                        break;
+                    case ResponseButtons.Stop:
+                        log.NextStep = ErrorNextStep.Stop;
+                        break;
+                    default:
+                        _logger.LogError($"Unknown or invalid response button received: {log.UserResponse.ToString()}");
+                        throw new InvalidDataException($"Unknown or invalid response button received: {log.UserResponse.ToString()}");
+                }
+            }
+            log.Resolved = true;
+            log.NeedsInteraction = false;
+            switch (log.NextStep)
+            {
+                case ErrorNextStep.Continue:
+                    CheckAndRunNext();
+                    break;
+                case ErrorNextStep.Retry:
+                    SetRetryFailedMeasurement(log.MeasurementType);
+                    CheckAndRunNext();
+                    break;
+                case ErrorNextStep.Stop:
+                    StopMeasurement();
+                    break;
+                default:
+                    break;
+            }
+        }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)
         {

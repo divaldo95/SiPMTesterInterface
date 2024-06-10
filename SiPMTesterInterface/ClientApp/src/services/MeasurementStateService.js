@@ -11,6 +11,11 @@ const API_PULSER_STATE_URL = 'pulser/'
 const API_PULSER_DETAIL_URL = API_PULSER_STATE_URL + 'details/'
 const API_COOLER_URL = 'cooler/'
 
+const API_ALL_LOGS = 'logs/all/'
+const API_UNRESOLVED_LOGS = 'logs/unresolved/'
+const API_NEEDSATTENTION_LOGS = 'logs/needsattention/'
+const API_RESOLVE_LOGS = 'logs/resolve/'
+
 const MeasurementStateService = {
     getMeasurementStates: async () => {
         try {
@@ -89,6 +94,65 @@ const MeasurementStateService = {
         } catch (error) {
             console.error('Error fetching pulser state details:', error);
             throw error; // You can handle the error as needed in your application
+        }
+    },
+    getAllLogs: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_ALL_LOGS);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching all logs:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getUnresolvedLogs: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_UNRESOLVED_LOGS);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching unresolved logs:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getNeedsAttentionLogs: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_NEEDSATTENTION_LOGS);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching errors which needs attention:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    setLogResponse: async (id, responseButton) => {
+        try {
+            const data = {
+                ID: id,
+                UserResponse: responseButton
+            };
+            //console.log(data);
+            const json = JSON.stringify(data);
+            const response = await axios.post(API_BASE_URL + API_RESOLVE_LOGS, json, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            if (error.response) {
+                if (error.response.status === 400) {
+                    console.error('BadRequest:', error.response.data);
+                    throw new Error('Bad request: ' + (error.response.data.message || 'Invalid request.'));
+                } else {
+                    console.error('Error response:', error.response);
+                    throw new Error('An error occurred: ' + error.response.status);
+                }
+            } else if (error.request) {
+                console.error('No response received:', error.request);
+                throw new Error('No response received from the server.');
+            } else {
+                console.error('Error setting up the request:', error.message);
+                throw new Error('Error setting up the request: ' + error.message);
+            }
         }
     },
     setPulser: async (secInterval) => {

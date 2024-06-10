@@ -19,7 +19,7 @@ namespace SiPMTesterInterface.Interfaces
 
         public Task ReceiveIVAnalysationResult(CurrentSiPMModel cs, IVMeasurementHubUpdate res);
 
-        public Task ReceiveErrorMessage(string sender, string message);
+        public Task ReceiveLogMessage(LogMessageModel logMessage);
 
     }
 }

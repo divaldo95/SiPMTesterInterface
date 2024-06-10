@@ -1,5 +1,5 @@
 ﻿import { useMemo, useEffect, useState } from 'react';
-import { Modal, Button, Spinner } from 'react-bootstrap';
+import { Modal, Button, Spinner, Form, InputGroup, FloatingLabel } from 'react-bootstrap';
 import { Chart } from 'react-charts';
 import MeasurementStateService from '../services/MeasurementStateService';
 import CoolerSettingsComponent from './CoolerSettingsComponent';
@@ -18,6 +18,19 @@ function PulserModalComponent(props) {
         Temperatures: [],
         CoolerStates: []
     });
+
+    const [validated, setValidated] = useState(false);
+
+    const onSubmit = (event) => {
+        const form = event.currentTarget;
+        if (form.checkValidity() === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        } else {
+            handlePulserSubmit(event);
+        }
+        setValidated(true);
+    };
 
     const handlePulserChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -134,18 +147,28 @@ function PulserModalComponent(props) {
                 <Modal.Title>Pulser details</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                <form onSubmit={handlePulserSubmit} className="needs-validation">
-                    <div className="input-group mb-3">
-                        <input type="number" className="form-control" placeholder="Pulser readout interval in seconds (int)"
-                            aria-label="Readout interval" aria-describedby="pulser-submit-btn"
-                            value={pulserFormData.PulserReadingInterval} onChange={handlePulserChange}
-                            name="PulserReadingInterval"
-                            min="0"
-                            max="60"
-                        >
-                        </input>
-                        <button
-                            className={`btn ${isIntervalUpdateSuccess ? "btn-success" : isIntervalUpdateError ? "btn-danger" : "btn-primary"}`}
+                <Form noValidate validated={validated} onSubmit={onSubmit} className="needs-validation">
+                    <InputGroup className="mb-3">
+                        <FloatingLabel controlId="floatingPulserInput" label="Pulser readout interval in seconds (int)">
+                            <Form.Control
+                                type="number"
+                                placeholder="Pulser readout interval in seconds (int)"
+                                aria-label="Readout interval"
+                                aria-describedby="pulser-submit-btn"
+                                value={pulserFormData.PulserReadingInterval}
+                                onChange={handlePulserChange}
+                                name="PulserReadingInterval"
+                                min="0"
+                                max="60"
+                                required
+                                isInvalid={validated && (pulserFormData.PulserReadingInterval < 0 || pulserFormData.PulserReadingInterval > 60)}
+                            />
+                            <Form.Control.Feedback type="invalid">
+                                Please enter a value between 0 and 60.
+                            </Form.Control.Feedback>
+                        </FloatingLabel>
+                        <Button
+                            className={isIntervalUpdateSuccess ? "btn-success" : isIntervalUpdateError ? "btn-danger" : "btn-primary"}
                             type="submit"
                             id="pulser-submit-btn"
                             disabled={isIntervalWaitingUpdate || isIntervalUpdateSuccess || isIntervalUpdateError}
@@ -158,11 +181,11 @@ function PulserModalComponent(props) {
                                     </Spinner>
                                 </>
                             ) : (
-                                    isIntervalUpdateSuccess ? "Pulser applied" : isIntervalUpdateError ? "Error applying pulser" : "Apply pulser"
+                                isIntervalUpdateSuccess ? "Pulser applied" : isIntervalUpdateError ? "Error applying pulser" : "Apply pulser"
                             )}
-                        </button>
-                    </div>
-                </form>
+                        </Button>
+                    </InputGroup>
+                </Form>
 
                 <CoolerSettingsComponent></CoolerSettingsComponent>
 

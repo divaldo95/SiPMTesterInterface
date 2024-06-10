@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Accordion, Card, Button, Form, Container, Row, Col, Spinner } from 'react-bootstrap';
+import { Accordion, Card, Button, Form, Container, Row, Col, Spinner, FloatingLabel } from 'react-bootstrap';
 import MeasurementStateService from '../services/MeasurementStateService';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -75,8 +75,11 @@ function CoolerSettingsComponent() {
                                 <Form>
                                     <Row className="mb-3 justify-content-md-center">
                                         <Col>
-                                            <Form.Group controlId={`block-${blockIndex}-module-${moduleIndex}-targetTemperature`}>
-                                                <Form.Label>Target Temperature (°C)</Form.Label>
+                                            <FloatingLabel
+                                                controlId="floatingTextarea"
+                                                label="Target Temperature (°C)"
+                                                className="mb-3"
+                                            >
                                                 <Form.Control
                                                     type="number"
                                                     step="0.1"
@@ -85,11 +88,14 @@ function CoolerSettingsComponent() {
                                                     value={module.targetTemperature}
                                                     onChange={(e) => handleInputChange(blockIndex, moduleIndex, 'targetTemperature', parseFloat(e.target.value))}
                                                 />
-                                            </Form.Group>
+                                            </FloatingLabel>
                                         </Col>
                                         <Col>
-                                            <Form.Group controlId={`block-${blockIndex}-module-${moduleIndex}-fanSpeed`}>
-                                                <Form.Label>Fan Speed (%)</Form.Label>
+                                            <FloatingLabel
+                                                controlId="floatingTextarea"
+                                                label="Fan Speed (%)"
+                                                className="mb-3"
+                                            >
                                                 <Form.Control
                                                     type="number"
                                                     min="0"
@@ -97,7 +103,7 @@ function CoolerSettingsComponent() {
                                                     value={module.fanSpeed}
                                                     onChange={(e) => handleInputChange(blockIndex, moduleIndex, 'fanSpeed', parseInt(e.target.value))}
                                                 />
-                                            </Form.Group>
+                                            </FloatingLabel>
                                         </Col>
                                     </Row>
                                     <Row className="justify-content-center">

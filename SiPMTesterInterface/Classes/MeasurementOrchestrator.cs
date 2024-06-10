@@ -3,6 +3,7 @@ using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -17,6 +18,8 @@ namespace SiPMTesterInterface.Classes
         //Up to 8 SPS measurements simultenaously
         private int CurrentSPSMeasurementIndex = -1; //Same as IVMeasurementIndex
         public List<List<CurrentSiPMModel>> SPSMeasurementOrder { get; private set; } = new List<List<CurrentSiPMModel>>(); //don't forget to create the second list
+
+        protected readonly List<LogMessageModel> Logs = new List<LogMessageModel>();
 
         private readonly ILogger<MeasurementOrchestrator> _logger;
 
@@ -225,6 +228,22 @@ namespace SiPMTesterInterface.Classes
             //measurementData.MeasureDMMResistance = (globalState.CurrentRun.MeasureDMMResistance || measurementData.MeasureDMMResistance); //if globally or manually enabled
             
             return retVal;
+        }
+
+        protected void SetRetryFailedMeasurement(MeasurementType type)
+        {
+            if (type == MeasurementType.IVMeasurement && CurrentIVMeasurementIndex > 0)
+            {
+                CurrentIVMeasurementIndex--;
+            }
+            else if (type == MeasurementType.SPSMeasurement && CurrentSPSMeasurementIndex > 0)
+            {
+                CurrentSPSMeasurementIndex--;
+            }
+            else if (type == MeasurementType.DMMResistanceMeasurement)
+            {
+                MeasureDMMResistanceAtBegining = true;
+            }
         }
 
         //Private functions-----------------------------------------------------

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 using SiPMTesterInterface.Interfaces;
+using SiPMTesterInterface.Classes;
 
 namespace SiPMTesterInterface.Hubs
 {
@@ -27,8 +28,8 @@ namespace SiPMTesterInterface.Hubs
         public async Task SendIVAnalysationResult(CurrentSiPMModel cs, IVMeasurementHubUpdate res)
             => await Clients.All.ReceiveIVAnalysationResult(cs, res);
 
-        public async Task SendErrorMessage(string sender, string message)
-            => await Clients.All.ReceiveErrorMessage(sender, message);
+        public async Task SendLogMessage(LogMessageModel errorMessage)
+            => await Clients.All.ReceiveLogMessage(errorMessage);
     }
 }
 

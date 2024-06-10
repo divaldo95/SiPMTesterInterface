@@ -4,7 +4,8 @@ import SiPMArray from './SiPMArray';
 import SiPMModule from './SiPMModule';
 import SiPMBlock from './SiPMBlock';
 import { StatusEnum, MeasurementStateEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
-import {  MeasurementContext } from '../context/MeasurementContext';
+import { MeasurementContext } from '../context/MeasurementContext';
+import { LogContext } from '../context/LogContext';
 import ButtonsComponent from './ButtonsComponent';
 import FileSelectCard from './FileSelectCard';
 import OneButtonCard from './OneButtonCard';
@@ -13,10 +14,13 @@ import VoltageListComponent from './VoltageListComponent';
 import MeasurementStateService from '../services/MeasurementStateService';
 import { HubConnectionBuilder } from '@microsoft/signalr';
 import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
+import { LogMessageType } from '../enums/LogMessageTypeEnum';
 import StatesCard from './StatesCard';
 import SerialStateCard from './SerialStateCard';
+import LogModal from './LogModal';
+import ErrorMessageModal from './ErrorMessageModal';
 
-function Test() {
+function Measurement() {
     const [count, setCount] = useState(0);
     const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
         updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
@@ -28,6 +32,43 @@ function Test() {
         ivState: 0,
         spsState: 0
     });
+
+    const [showLogModal, setShowLogModal] = useState(false);
+    const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog } = useContext(LogContext);
+    const [showErrorsDialog, setShowErrorsDialog] = useState(false);
+    const [currentErrorIndex, setCurrentErrorIndex] = useState(0); //if there are multiple, show the first one, after it is resolved it will not appear here
+
+    const unresolvedLogCount = unresolvedLogs.length;
+    const currentError = unresolvedLogCount > 0 ? unresolvedLogs[currentErrorIndex] : null;
+
+    useEffect(() => {
+        console.log("Unresolved count changed to " + unresolvedLogCount);
+        if (unresolvedLogCount > 0) {
+            setShowErrorsDialog(true);
+        } else {
+            setShowErrorsDialog(false);
+        }
+    }, [unresolvedLogCount]);
+
+    const handleShowLogModal = () => setShowLogModal(true);
+    const handleCloseLogModal = () => setShowLogModal(false);
+
+    const handleErrorMessageBtnClick = async (errorId, buttonType) => {
+        try {
+            const response = MeasurementStateService.setLogResponse(errorId, buttonType)
+                .then((resp) => {
+                    console.log("Updated log message state on server");
+                    updateLogsResolved(errorId);
+            })
+            // Handle response as needed
+        } catch (error) {
+            console.error('Error sending data to backend:', error);
+        }
+    };
+
+    const handleErrorDialogClose = () => {
+        setShowErrorsDialog(false);
+    };
 
     const updateIvAnalysationResultState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, newData) => {
         updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVAnalysationResult", newData.ivAnalysationResult);
@@ -124,13 +165,6 @@ function Test() {
             const data = await MeasurementStateService.getMeasurementStates()
                 .then((resp) => {
                     updateInstrumentStates(resp);
-                    //updateIvConnectionState(resp.ivConnectionState);
-                    //updateIvState(resp.ivState);
-                    //updateSpsConnectionState(resp.spsConnectionState);
-                    //updateSpsState(resp.spsState);
-                    //updateIVMeasurementIsRunning(resp.ivState);
-                    //updateSPSMeasurementIsRunning(resp.spsState);
-                    //addToast(MessageTypeEnum.Debug, JSON.stringify(resp));
                     if (isAnyMeasurementRunning() === false) {
                         refreshMeasuredSiPMStates();
                     }
@@ -138,15 +172,6 @@ function Test() {
                         //console.log("sgfa");
                     }
             })
-            
-            /*
-            if (data.IVState === 1) {
-                updateIVMeasurementIsRunning(true);
-            }
-            else {
-                updateIVMeasurementIsRunning(false);
-            }
-            */
             
         } catch (error) {
             // Handle the error if needed
@@ -179,8 +204,26 @@ function Test() {
         }
     };
 
+    const transformErrorData = (data) => {
+        console.log(data);
+        return {
+            ID: data.id,
+            MeasurementType: data.measurementType,
+            Message: data.message,
+            MessageType: data.messageType,
+            NeedsInteraction: data.needsInteraction,
+            NextStep: data.nextStep,
+            Resolved: data.resolved,
+            Sender: data.sender,
+            Timestamp: data.timestamp,
+            UserResponse: data.userResponse,
+            ValidInteractionButtons: data.validInteractionButtons
+        };
+    };
 
     useEffect(() => {
+        fetchLogs();
+
         const connection = new HubConnectionBuilder()
             .withUrl('hub')
             .withAutomaticReconnect()
@@ -232,10 +275,14 @@ function Test() {
                     addToast(MessageTypeEnum.Debug, 'Received IV analysation data:', ivARes);
                 });
 
-                connection.on('ReceiveErrorMessage', (sender, message) => {
-                    console.log(sender);
-                    console.log(message);
-                    addToast(MessageTypeEnum.Error, sender, message);
+                connection.on('ReceiveLogMessage', (logData) => {
+                    
+                    const transformedData = transformErrorData(logData);
+                    console.log(transformedData);
+                    if (!transformedData.NeedsAttention && !(transformedData.MessageType === LogMessageType.Error || transformedData.MessageType === LogMessageType.Fatal)) {
+                        addToast(MessageTypeEnum.Info, logData.sender, logData.message);
+                    }
+                    appendLog(transformedData);
                 });
             })
 
@@ -256,8 +303,8 @@ function Test() {
             className: "bg-danger text-light"
         },
         {
-            text: "Refresh state",
-            onClick: refreshMeasurementState,
+            text: "Show all errors",
+            onClick: handleShowLogModal,
             disabled: false, // Set to true to disable the button
             className: "bg-primary text-light"
         },
@@ -291,6 +338,8 @@ function Test() {
     return (
         <>
             <ToastComponent></ToastComponent>
+            <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
+            <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
             <div className={`${count !== 0 ? 'd-none' : ''}`}>
                 <div className="row mb-4">
                     <div className="col">
@@ -332,16 +381,7 @@ function Test() {
             <ButtonsComponent className="mb-2" buttons={buttons}></ButtonsComponent>
             
         </>
-
-        //<SiPMModule block={0} module={0} arrayCount={4} sipmCount={16}>
-        //</SiPMModule >
-
-        //<SiPMArray block={0} module={0} array={0} sipmCount={16}>
-        //</SiPMArray>
-        
-        //<SiPMSensor block={0} module={0} array={0} sipm={0} backgroundColor={StatusEnum.MeasurementOK} onClickHandler={(block, module, array, sipm) => { alert("Clicked") }}>
-        //</SiPMSensor>
     );
 }
 
-export default Test;
+export default Measurement;
