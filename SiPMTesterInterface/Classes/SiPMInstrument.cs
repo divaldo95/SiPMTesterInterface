@@ -172,7 +172,9 @@ namespace SiPMTesterInterface.Classes
         private readonly string reqSocIP;
         private readonly string subSocIP;
 
-        protected bool Enabled { get; set; } = false;
+        public bool Enabled { get; protected set; } = false;
+        protected bool Initialized { get; set; } = false;
+        private TimeSpan Period { get; set; }
 
         /*
          * Replacing the test code with JSON structures
@@ -218,6 +220,7 @@ namespace SiPMTesterInterface.Classes
             _logger = logger;
 
             this.InstrumentName = InstrumentName;
+            Period = period;
 
             reqSocIP = "tcp://" + ip + ":" + controlPort.ToString();
             subSocIP = "tcp://" + ip + ":" + logPort.ToString();
@@ -225,11 +228,14 @@ namespace SiPMTesterInterface.Classes
             Console.WriteLine($"Listening SUB on {subSocIP}");
 
             logBuffer = new MessageBuffer();
-            logBuffer.OnMessageBufferIncosistency += OnLogBufferInconsistency;
+            logBuffer.OnMessageBufferIncosistency += OnLogBufferInconsistency;            
+        }
 
+        public void Init()
+        {
             try
             {
-                reqSocket = new ReqSocket(reqSocIP, period);
+                reqSocket = new ReqSocket(reqSocIP, Period);
                 reqSocket.OnMessageReceived += OnMessageReceivedCallback;
                 reqSocket.OnMessageReceiveFail += OnMessageReceiveFailCallback;
 
@@ -241,24 +247,42 @@ namespace SiPMTesterInterface.Classes
                 //automatically query these strings
                 reqSocket.AddQueryMessage("Ping:{\"Status:\": 1}"); //Add some placeholder json
                 reqSocket.AddQueryMessage("GetState:{\"Status:\": 1}");
+                Initialized = true;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error while initializing SiPMInstrument: {ex.Message}");
+                throw; //throw to upper level
             }
-            
         }
 
         public void Start()
         {
+            if (!Enabled)
+            {
+                throw new MethodAccessException("Device not enabled, can not start");
+            }
+            if (!Initialized)
+            {
+                throw new MethodAccessException("Device not intialized, can not start");
+            }
             reqSocket.Start();
             subSocket.Start();
         }
 
         public void Stop()
         {
+            if (!Enabled)
+            {
+                throw new MethodAccessException("Device not enabled, can not stop");
+            }
+            if (!Initialized)
+            {
+                throw new MethodAccessException("Device not intialized, can not stop");
+            }
             reqSocket.Stop();
             subSocket.Stop();
+            Initialized = false;
         }
 
         public void RunCommand(string command)

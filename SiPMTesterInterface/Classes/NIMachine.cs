@@ -145,13 +145,13 @@ namespace SiPMTesterInterface.Classes
 			base("NIMachine", ip, controlPort, logPort, period, logger)
 		{
             OnJSONResponseReceived += OnGenericResponseReceived;
-
-            //base.reqSocket.AddQueryMessage("GetCurrentSiPM");
-            if (enabled)
-            {
-                base.Start();
-            }
+            Enabled = enabled;
 		}
+
+        public new void Init()
+        {
+            base.Init();
+        }
 
         /*
          * NI machine related possible cases:

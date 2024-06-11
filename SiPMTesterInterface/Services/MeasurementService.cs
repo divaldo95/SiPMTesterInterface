@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using SiPMTesterInterface.AnalysisModels;
@@ -126,9 +127,9 @@ namespace SiPMTesterInterface.ClientApp.Services
         private bool disposed = false;
 
         //connected instruments
-        private readonly NIMachine niMachine;
-        private readonly PSoCCommunicator Pulser;
-        private readonly HVPSU hvPSU;
+        private NIMachine niMachine;
+        private PSoCCommunicator Pulser;
+        private HVPSU hvPSU;
 
         public MeasurementServiceSettings MeasurementServiceSettings { get; private set; }
         public IVMeasurementSettings ivMeasurementSettings { get; private set; }
@@ -408,6 +409,69 @@ namespace SiPMTesterInterface.ClientApp.Services
             niMachine.StopMeasurement();
         }
 
+        public void InitDevices()
+        {
+            try
+            {
+                MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
+                ivMeasurementSettings = new IVMeasurementSettings(Configuration);
+                dmmMeasurementSettings = new DMMMeasurementSettings(Configuration);
+            }
+            catch (Exception ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - Settings", ex.Message, LogMessageType.Error, false, ResponseButtons.OK, MeasurementType.Unknown);
+                _logger.LogError($"Measurement servicse is unavailable because of an error: {ex.Message}");
+            }
+
+            try
+            {
+                var niLogger = _loggerFactory.CreateLogger<NIMachine>();
+                niMachine = new NIMachine(Configuration, niLogger);
+                niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
+                niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
+
+                niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
+                niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
+
+                if (niMachine.Enabled)
+                {
+                    niMachine.Init();
+                    niMachine.Start();
+                }
+            }
+            catch (Exception ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - NI", ex.Message, LogMessageType.Error, true, ResponseButtons.OK, MeasurementType.Unknown);
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+            }
+
+            try
+            {
+                var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
+                
+
+                Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
+                Pulser.OnSerialStateChanged += Pulser_OnSerialStateChanged;
+                Pulser.OnDataReadout += Pulser_OnDataReadout;
+            }
+            catch (Exception ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - Pulser", ex.Message, LogMessageType.Error, true, ResponseButtons.OK, MeasurementType.Unknown);
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+            }
+
+            try
+            {
+                var hvpsuSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
+                hvPSU = new HVPSU(Configuration, hvpsuSerialLogger);
+            }
+            catch (Exception ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - HVPSU", ex.Message, LogMessageType.Error, true, ResponseButtons.OK, MeasurementType.Unknown);
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+            }
+        }
+
         public MeasurementService(ILoggerFactory loggerFactory, IHubContext<UpdatesHub, IStateContext> hubContext, IConfiguration configuration) : base(loggerFactory.CreateLogger<MeasurementOrchestrator>())
         {
             Configuration = configuration;
@@ -416,34 +480,6 @@ namespace SiPMTesterInterface.ClientApp.Services
             _hubContext = hubContext;
 
             coolerState = new CoolerStateHandler();
-
-            try
-            {
-                MeasurementServiceSettings = new MeasurementServiceSettings(Configuration);
-                ivMeasurementSettings = new IVMeasurementSettings(Configuration);
-                dmmMeasurementSettings = new DMMMeasurementSettings(Configuration);
-
-                var niLogger = _loggerFactory.CreateLogger<NIMachine>();
-                var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
-                var hvpsuSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
-
-                niMachine = new NIMachine(Configuration, niLogger);
-                niMachine.OnConnectionStateChanged += OnIVConnectionStateChangeCallback;
-                niMachine.OnMeasurementStateChanged += OnIVMeasurementStateChangeCallback;
-
-                niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
-                niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
-
-                Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
-                Pulser.OnSerialStateChanged += Pulser_OnSerialStateChanged;
-                Pulser.OnDataReadout += Pulser_OnDataReadout;
-                hvPSU = new HVPSU(Configuration, hvpsuSerialLogger);
-            }
-            catch (Exception ex)
-            {
-                CreateAndSendLogMessage("MeasurementService", ex.Message, LogMessageType.Error, false, ResponseButtons.OK, MeasurementType.Unknown);
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-            }
 
             MeasurementStartModel startModel = new MeasurementStartModel();
             startModel.MeasureDMMResistance = true;
