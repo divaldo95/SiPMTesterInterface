@@ -121,9 +121,21 @@ namespace SiPMTesterInterface.Classes
 
         public void StopMeasurement()
         {
+            if (!Initialized)
+            {
+                return;
+            }
             string msg = "\"StopMeasurement:{\\\"Status:\\\": 1}\"";
-            Console.WriteLine($"Sent command: {msg}");
-            base.reqSocket.RunCommand(msg);
+            if (this.ConnectionState != ConnectionState.Connected)
+            {
+                reqSocket.AddQueryMessage(msg);
+                _logger.LogError("NI Machine is unavailable, stop command queued");
+            }
+            else
+            {
+                base.reqSocket.RunCommand(msg);
+                Console.WriteLine($"Sent command: {msg}");
+            }
         }
 
         public new void Stop()

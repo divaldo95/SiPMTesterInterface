@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Container } from 'reactstrap';
+import { Container } from 'react-bootstrap';
 import { NavMenu } from './NavMenu';
 
 export class Layout extends Component {
@@ -9,7 +9,7 @@ export class Layout extends Component {
     return (
       <div>
         <NavMenu />
-        <Container tag="main">
+         <Container style={{marginTop: "55px"}} fluid tag="main">
           {this.props.children}
         </Container>
       </div>

@@ -6,7 +6,8 @@ namespace SiPMTesterInterface.Enums
 		Unknown = 0,
         Disabled = 1,
         Enabled = 2,
-        Initialized = 3
+        Initialized = 3,
+		Started = 4
 	}
 }
 

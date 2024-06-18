@@ -68,6 +68,7 @@ const LogModal = ({ show, handleClose }) => {
                 <Table striped bordered hover>
                     <thead>
                         <tr className="text-center">
+                            <th>Type</th>
                             <th>Sender</th>
                             <th>Message</th>
                             <th>User Response</th>
@@ -79,11 +80,12 @@ const LogModal = ({ show, handleClose }) => {
                     <tbody className="text-center">
                         {logs.map((log, index) => (
                             <tr key={index}>
-                                <td>{log.Sender} {renderLogType(log.MessageType)}</td>
+                                <td>{renderLogType(log.MessageType)}</td>
+                                <td>{log.Sender}</td>
                                 <td>{log.Message}</td>
                                 <td><Badge bg="primary">{getResponseButtonString(log.UserResponse)}</Badge></td>
                                 <td>{new Date(log.Timestamp * 1000).toTimeString().split(' ')[0]}</td>
-                                <td>{renderInteractionBadge(log.interactionNeeded)}</td>
+                                <td>{renderInteractionBadge(log.NeedsInteraction)}</td>
                                 <td>{renderResolvedBadge(log.Resolved)}</td>
                             </tr>
                         ))}

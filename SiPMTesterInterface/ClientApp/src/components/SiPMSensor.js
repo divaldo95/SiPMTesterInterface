@@ -21,7 +21,7 @@ function SiPMSensor(props) {
         setShowModal(false);
     };
 
-    const { measurementData, measurementStates, updateSiPM, isAnyMeasurementRunning, addToast } = useContext(MeasurementContext);
+    const { measurementData, measurementStates, updateSiPM, isAnyMeasurementRunning, addToast, measurementDataView } = useContext(MeasurementContext);
     //console.log(measurementData);
 
     // Function to handle click event
@@ -30,8 +30,8 @@ function SiPMSensor(props) {
     };
 
     const toggleSiPM = () => {
-        if (isAnyMeasurementRunning()) {
-            addToast(MessageTypeEnum.Debug, "SiPM pressed while a measurement is running");
+        if (measurementDataView) {
+            addToast(MessageTypeEnum.Debug, "SiPM pressed in measurement view");
             return;
         }
 
@@ -64,10 +64,6 @@ function SiPMSensor(props) {
         return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
     }
 
-    const isMeasurementRunning = () => {
-        return isAnyMeasurementRunning();
-    }
-
     const getAnalysationBackgroundClass = () => {
         let result = getSiPMMeasurementValue("IVAnalysationResult");
         if (result === null) {
@@ -90,7 +86,7 @@ function SiPMSensor(props) {
     }
 
     const backgroundClass = () => {
-        if (isAnyMeasurementRunning()) {
+        if (measurementDataView) {
             return getAnalysationBackgroundClass();
         }
         else {
@@ -99,7 +95,7 @@ function SiPMSensor(props) {
     }
 
     const borderClass = () => {
-        if (isAnyMeasurementRunning()) {
+        if (measurementDataView) {
             return GetStatusBorderColorClass(getSiPMMeasurementValue("IVMeasurementDone"), getSiPMMeasurementValue("SPSMeasurementDone"));
         }
         else {
@@ -156,10 +152,10 @@ function SiPMSensor(props) {
                     className={`btn btn-block btn-sm ${backgroundClass()}`}
                     onClick={() => openModal()}
                 >
-                    <i className={`bi ${isAnyMeasurementRunning() ? 'bi-caret-down' : 'bi-gear'}`}></i>
+                    <i className={`bi ${measurementDataView ? 'bi-caret-down' : 'bi-gear'}`}></i>
                 </button>
             </div>
-            {isAnyMeasurementRunning() ? (
+            {measurementDataView ? (
                 <SiPMMeasurementModal
                     showModal={showModal}
                     closeModal={closeModal}

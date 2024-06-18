@@ -21,6 +21,8 @@ namespace SiPMTesterInterface.Interfaces
 
         public Task ReceiveLogMessage(LogMessageModel logMessage);
 
+        public Task ReceiveCurrentTask(TaskTypes currentTask);
+
     }
 }
 

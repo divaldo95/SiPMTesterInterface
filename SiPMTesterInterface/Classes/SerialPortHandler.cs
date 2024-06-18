@@ -28,9 +28,16 @@ namespace SiPMTesterInterface.Classes
     public class SerialPortHandler
     {
         private SerialPort? _serialPort = null;
+        string _Port = "";
+        int _Baud = 115200;
+        int _Timeout = 10000;
+
+
+        bool _AutoDetect = false;
+        string _AutoDetectString = "";
+        string _AutoDetectExpectedAnswer = "";
         private static object _lockObject = new object();
         private AutoResetEvent _messageReceived;
-        private int _timeout = 10000;
         private SerialPortState _state = SerialPortState.Disabled;
         public SerialPortState State
         {
@@ -54,7 +61,10 @@ namespace SiPMTesterInterface.Classes
 
         private int TimeoutCounter { get; set; } = 0;
         protected readonly ILogger<SerialPortHandler> _logger;
-        private bool _error = false;
+
+        public bool Enabled { get; protected set; } = false;
+        public bool Initialized { get; protected set; } = false;
+
         public string LastLine { get; private set; } = "";
         public event EventHandler<SerialConnectionStateChangedEventArgs> OnSerialStateChanged;
 
@@ -68,13 +78,22 @@ namespace SiPMTesterInterface.Classes
 
         public SerialPortHandler(ILogger<SerialPortHandler> logger, string Port, int Baud, int Timeout = 10000, bool Enabled = false, bool autoDetect = false, string autoDetectString = "", string autoDetectExpectedAnswer = "")
         {
+            this.Enabled = Enabled;
             _logger = logger;
-            string _Port = Port;
-            if (autoDetect)
+            _Port = Port;
+            _AutoDetect = autoDetect;
+            _AutoDetectString = autoDetectString;
+            _AutoDetectExpectedAnswer = autoDetectExpectedAnswer;
+            _Timeout = Timeout;
+        }
+
+        public void Init()
+        {
+            if (_AutoDetect)
             {
                 try
                 {
-                    _Port = SerialPortHandler.GetAutoDetectedPort(_logger, Baud, 500, autoDetectString, autoDetectExpectedAnswer);
+                    _Port = SerialPortHandler.GetAutoDetectedPort(_logger, _Baud, 500, _AutoDetectString, _AutoDetectExpectedAnswer);
                 }
                 catch (Exception ex)
                 {
@@ -83,20 +102,16 @@ namespace SiPMTesterInterface.Classes
             }
 
             _messageReceived = new AutoResetEvent(false);
-            _timeout = Timeout;
             if (_serialPort == null)
             {
                 _serialPort = new SerialPort();
                 // Set the read/write timeouts
-                _serialPort.ReadTimeout = _timeout;
-                _serialPort.WriteTimeout = _timeout;
+                _serialPort.ReadTimeout = _Timeout;
+                _serialPort.WriteTimeout = _Timeout;
                 _serialPort.PortName = _Port;
-                _serialPort.BaudRate = Baud;
+                _serialPort.BaudRate = _Baud;
                 _logger.LogInformation($"Using {_Port}");
-                if (Enabled)
-                {
-                    Start();
-                }
+                Initialized = true;
             }
         }
 
@@ -136,6 +151,14 @@ namespace SiPMTesterInterface.Classes
 
         public void Start()
         {
+            if (!Enabled)
+            {
+                throw new MethodAccessException("Device not enabled, can not start");
+            }
+            if (!Initialized)
+            {
+                throw new MethodAccessException("Device not intialized, can not start");
+            }
             if (_serialPort != null && !_serialPort.IsOpen)
             {
                 _serialPort.Open();
@@ -149,6 +172,7 @@ namespace SiPMTesterInterface.Classes
             {
                 _serialPort.Close();
                 State = SerialPortState.Disconnected;
+                Initialized = false;
             }
         }
 
@@ -217,13 +241,11 @@ namespace SiPMTesterInterface.Classes
                     catch (Exception e)
                     {
                         //Trace.WriteLine("Serial port error: " + e.Message);
-                        _error = true;
                         throw;
                     }
                 }
                 if (retry_cnt >= retry_num)
                 {
-                    _error = true;
                     throw new TimeoutException("Serial port timeout");
                 }
             }

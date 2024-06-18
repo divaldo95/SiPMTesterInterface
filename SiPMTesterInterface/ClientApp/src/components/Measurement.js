@@ -19,27 +19,19 @@ import StatesCard from './StatesCard';
 import SerialStateCard from './SerialStateCard';
 import LogModal from './LogModal';
 import ErrorMessageModal from './ErrorMessageModal';
+import MeasurementSidebar from './MeasurementSidebar';
+import { Container, Row, Col } from 'react-bootstrap';
 
 function Measurement() {
     const [count, setCount] = useState(0);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
         updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
-        resetSiPMMeasurementStates, pulserState, setPulserState } = useContext(MeasurementContext);
-
-    const [status, setStatus] = useState({
-        ivConnectionState: 0,
-        spsConnectionState: 0,
-        ivState: 0,
-        spsState: 0
-    });
+        resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask, measurementDataView } = useContext(MeasurementContext);
 
     const [showLogModal, setShowLogModal] = useState(false);
-    const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog } = useContext(LogContext);
-    const [showErrorsDialog, setShowErrorsDialog] = useState(false);
-    const [currentErrorIndex, setCurrentErrorIndex] = useState(0); //if there are multiple, show the first one, after it is resolved it will not appear here
-
-    const unresolvedLogCount = unresolvedLogs.length;
-    const currentError = unresolvedLogCount > 0 ? unresolvedLogs[currentErrorIndex] : null;
+    const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
+    const [showErrorsDialog, setShowErrorsDialog] = useState(false);    
 
     useEffect(() => {
         console.log("Unresolved count changed to " + unresolvedLogCount);
@@ -58,7 +50,7 @@ function Measurement() {
             const response = MeasurementStateService.setLogResponse(errorId, buttonType)
                 .then((resp) => {
                     console.log("Updated log message state on server");
-                    updateLogsResolved(errorId);
+                    updateLogsResolved(errorId, buttonType);
             })
             // Handle response as needed
         } catch (error) {
@@ -128,6 +120,14 @@ function Measurement() {
         decrement();
     };
 
+    const stopMeasurement = () => {
+        try {
+            MeasurementStateService.stopMeasurement();
+        } catch (error) {
+            console.log("Failed to stop measurement: " + error);
+        }
+    }
+
     const handleButtonClick2 = () => {
         //increment();
         MeasurementStateService.startMeasurement(measurementData);
@@ -135,17 +135,6 @@ function Measurement() {
         //updateIVMeasurementIsRunning(true);
         
     };
-
-    const toggleMeasurementState = () => {
-        const isAnyRunning = isAnyMeasurementRunning();
-        if (isAnyRunning === true) {
-            updateIvState(0);
-        }
-        else {
-            updateIvState(1);
-        }
-        //updateIVMeasurementIsRunning(!currentState);
-    }
 
     const refreshMeasuredSiPMStates = async () => {
         try {
@@ -284,6 +273,10 @@ function Measurement() {
                     }
                     appendLog(transformedData);
                 });
+
+                connection.on('ReceiveCurrentTask', (currentTask) => {
+                    updateCurrentTask(currentTask);
+                });
             })
 
             .catch(e => {
@@ -293,7 +286,16 @@ function Measurement() {
         refreshMeasurementState();
         refreshPulserConnectionState();
     }, []); // Empty dependency array ensures the effect runs only once when the component mounts
-    
+
+    const toggleSidebarCollapsed = () => {
+        if (sidebarCollapsed) {
+            setSidebarCollapsed(false);
+        }
+        else {
+            setSidebarCollapsed(true);
+        }
+        //updateIVMeasurementIsRunning(!currentState);
+    }
 
     const buttons = [
         {
@@ -301,18 +303,6 @@ function Measurement() {
             onClick: handleButtonClick1,
             disabled: isFirstStep(), // Set to true to disable the button
             className: "bg-danger text-light"
-        },
-        {
-            text: "Show all errors",
-            onClick: handleShowLogModal,
-            disabled: false, // Set to true to disable the button
-            className: "bg-primary text-light"
-        },
-        {
-            text: "Toggle state",
-            onClick: toggleMeasurementState,
-            disabled: false, // Set to true to disable the button
-            className: "bg-primary text-light"
         },
         {
             text: "Get Times",
@@ -335,50 +325,64 @@ function Measurement() {
         //console.log(measurementData);
     };
 
+    const sidebarMargin = () => {
+        if(sidebarCollapsed) {
+            return '80px';
+        }
+        else {
+            return '80px';
+        }
+    }
+
     return (
         <>
-            <ToastComponent></ToastComponent>
-            <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
-            <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
-            <div className={`${count !== 0 ? 'd-none' : ''}`}>
-                <div className="row mb-4">
-                    <div className="col">
-                        <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
+            <div style={{ display: 'flex' }}>
+                <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar>
+                <div className="m-3" style={{ marginLeft: `${sidebarMargin()}`, paddingLeft: `${sidebarMargin()}`, width: '100%' }}>
+                    <ToastComponent></ToastComponent>
+                    <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
+                    <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
+                    <div className={`${count !== 0 ? 'd-none' : ''}`}>
+                        <div className="row mb-4">
+                            <div className="col">
+                                <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
+                            </div>
+                            <div className="col">
+                                <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"
+                                    clickFunction={stopMeasurement} tooltipMessage="Stop all running measurements" buttonIcon="bi-sign-stop">
+                                </OneButtonCard>
+                            </div>
+                            <div className="col">
+                                <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
+                                    clickFunction={() => { console.log("Clicked export button") }} tooltipMessage="Export current settings" buttonIcon="bi-download">
+                                </OneButtonCard>
+                            </div>
+                        </div>
+
+                        <div className="row mb-4">
+                            <div className="col">
+                                <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.ivConnectionState} MeasurementState={instrumentStatuses.ivState}></StatesCard>
+                            </div>
+                            <div className="col">
+                                <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.spsConnectionState} MeasurementState={instrumentStatuses.spsState}></StatesCard>
+                            </div>
+                            <div className="col">
+                                <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>
+                            </div>
+                        </div>
+
+                        <SiPMBlock BlockIndex={0} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
+                        </SiPMBlock>
                     </div>
-                    <div className="col">
-                        <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"
-                            clickFunction={() => { console.log("Stop button pressed") }} tooltipMessage="Stop all running measurements" buttonIcon="bi-sign-stop">
-                        </OneButtonCard>
+
+                    <div className={`${measurementDataView === true ? 'd-none' : ''}`}>
+                        <VoltageListComponent className="" MeasurementMode="IV" handleNewList={handleVoltageList}></VoltageListComponent>
                     </div>
-                    <div className="col">
-                        <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
-                            clickFunction={() => { console.log("Clicked export button") }} tooltipMessage="Export current settings" buttonIcon="bi-download">
-                        </OneButtonCard>
-                    </div>
+
+
+                    <ButtonsComponent className="mb-2" buttons={buttons}></ButtonsComponent>
                 </div>
-
-                <div className="row mb-4">
-                    <div className="col">
-                        <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.ivConnectionState} MeasurementState={instrumentStatuses.ivState}></StatesCard>
-                    </div>
-                    <div className="col">
-                        <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.spsConnectionState} MeasurementState={instrumentStatuses.spsState}></StatesCard>
-                    </div>
-                    <div className="col">
-                        <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>
-                    </div>
-                </div>
-                
-                <SiPMBlock BlockIndex={0} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
-                </SiPMBlock>
             </div>
-
-            <div className={`${isAnyMeasurementRunning() === true ? 'd-none' : ''}`}>
-                <VoltageListComponent className="" MeasurementMode="IV" handleNewList={handleVoltageList}></VoltageListComponent>
-            </div>
-
-            
-            <ButtonsComponent className="mb-2" buttons={buttons}></ButtonsComponent>
             
         </>
     );

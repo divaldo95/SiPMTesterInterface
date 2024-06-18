@@ -13,7 +13,7 @@ function SiPMSettingsModal(props) {
                 <Modal.Title>{`SiPM Settings (Block: ${BlockIndex} Module: ${ModuleIndex} Array: ${ArrayIndex} SiPM: ${SiPMIndex})`}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                <div class="text-center d-block d-inline-block">
+                <div className="text-center d-block d-inline-block">
                     <div className="row justify-content-center">
                         <div className="col mb-3">
                             <ModeSelectButtonGroup BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex}> </ModeSelectButtonGroup>

@@ -9,6 +9,7 @@ export const LogProvider = ({ children }) => {
     const [logs, setLogs] = useState([]);
     const [unresolvedLogsFetched, setUnresolvedLogsFetched] = useState([]);
     const [attentionNeededLogsFetched, setAttentionNeededLogsFetched] = useState([]);
+    const [currentErrorIndex, setCurrentErrorIndex] = useState(0); //if there are multiple, show the first one, after it is resolved it will not appear here
 
     const fetchLogs = async () => {
         try {
@@ -50,10 +51,10 @@ export const LogProvider = ({ children }) => {
 
     const getAttentionNeededLogs = logs.filter(log => log.NeedsAttention);
 
-    const updateLogsResolved = (id) => {
+    const updateLogsResolved = (id, userResponse) => {
         setLogs((prevLogs) =>
             prevLogs.map((log) =>
-                log.ID === id ? { ...log, Resolved: true } : log
+                log.ID === id ? { ...log, Resolved: true, UserResponse: userResponse, NeedsInteraction: false } : log
             )
         );
         console.log(logs);
@@ -69,11 +70,14 @@ export const LogProvider = ({ children }) => {
         });
     };
 
+    const unresolvedLogCount = unresolvedLogs.length;
+    const currentError = unresolvedLogCount > 0 ? unresolvedLogs[currentErrorIndex] : null;
+
     return (
         <LogContext.Provider value={{
             logs, unresolvedLogs, attentionNeededLogsFetched, fetchLogs,
             fetchNeedsAttentiondLogs, updateLogsResolved,
-            getAttentionNeededLogs, unresolvedLogs, appendLog
+            getAttentionNeededLogs, unresolvedLogs, appendLog, unresolvedLogCount, currentError
         }}>
             {children}
         </LogContext.Provider>

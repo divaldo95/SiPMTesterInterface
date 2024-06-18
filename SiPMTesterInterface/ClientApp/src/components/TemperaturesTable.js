@@ -14,7 +14,7 @@ function TemperaturesTable(props) {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h2>Temperatures Data</h2>
                 <Button variant="link" onClick={toggleTableVisibility}>
-                    {isTableVisible ? <i class="bi bi-caret-down"></i> : <i class="bi bi-caret-up"></i>}
+                    {isTableVisible ? <i className="bi bi-caret-down"></i> : <i className="bi bi-caret-up"></i>}
                 </Button>
             </div>
             <Collapse in={isTableVisible}>

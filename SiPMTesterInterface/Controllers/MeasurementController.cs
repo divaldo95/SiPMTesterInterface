@@ -51,10 +51,11 @@ namespace SiPMTesterInterface.Controllers
         {
             var measurementStates = new
             {
-                IVConnectionState = _measurementService.IVConnectionState,
-                SPSConnectionState = _measurementService.SPSConnectionState,
-                IVState = _measurementService.GlobalIVState,
-                SPSState = _measurementService.GLobalSPSState //only for testing
+                currentTask = _measurementService.CurrentTask,
+                ivConnectionState = _measurementService.IVConnectionState,
+                spsConnectionState = _measurementService.SPSConnectionState,
+                ivState = _measurementService.GlobalIVState,
+                spsState = _measurementService.GLobalSPSState //only for testing
             };
             return Ok(measurementStates);
         }
@@ -193,8 +194,16 @@ namespace SiPMTesterInterface.Controllers
         [HttpPost("stop")]
         public IActionResult StopMeasurement()
         {
-            _measurementService.StopMeasurement();
-            return Ok(_measurementService.MeasurementData);
+            try
+            {
+                _measurementService.StopMeasurement();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+            
+            return Ok();
         }
 
         [HttpPost("start")]
@@ -211,8 +220,14 @@ namespace SiPMTesterInterface.Controllers
             }
 
             _logger.LogInformation($"MeasurementStart information received: {JsonConvert.SerializeObject(measurementStart)}");
-
-            _measurementService.StartMeasurement(measurementStart);
+            try
+            {
+                _measurementService.StartMeasurement(measurementStart);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
 
             // Return a success response
             return Ok("Measurement start requested successfully");

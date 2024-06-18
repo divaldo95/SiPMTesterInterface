@@ -173,7 +173,7 @@ namespace SiPMTesterInterface.Classes
         private readonly string subSocIP;
 
         public bool Enabled { get; protected set; } = false;
-        protected bool Initialized { get; set; } = false;
+        public bool Initialized { get; protected set; } = false;
         private TimeSpan Period { get; set; }
 
         /*

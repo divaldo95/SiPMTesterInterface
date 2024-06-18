@@ -30,6 +30,9 @@ namespace SiPMTesterInterface.Hubs
 
         public async Task SendLogMessage(LogMessageModel errorMessage)
             => await Clients.All.ReceiveLogMessage(errorMessage);
+
+        public async Task SendCurrentTask(TaskTypes currentTask)
+            => await Clients.All.ReceiveCurrentTask(currentTask);
     }
 }
 

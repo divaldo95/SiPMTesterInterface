@@ -23,6 +23,14 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
 
     const renderContinueButton = () => {
         return <Button onClick={() => handleButtonClick(error.ID, ResponseButtons.Continue)} key="Continue" variant="success">Continue</Button>;
+    }
+
+    const renderYesButton = () => {
+        return <Button onClick={() => handleButtonClick(error.ID, ResponseButtons.Yes)} key="Yes" variant="success">Yes</Button>;
+    }
+
+    const renderNoButton = () => {
+        return <Button onClick={() => handleButtonClick(error.ID, ResponseButtons.No)} key="No" variant="danger">No</Button>;
     } 
 
     const renderButtons = (validInteractionButtons) => {
@@ -35,6 +43,17 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
                         </Col>
                         <Col>
                             {renderOKButton()}
+                        </Col>
+                    </Row>
+                );
+            case ResponseButtons.YesNo:
+                return (
+                    <Row>
+                        <Col>
+                            {renderNoButton()}
+                        </Col>
+                        <Col>
+                            {renderYesButton()}
                         </Col>
                     </Row>
                 );
@@ -89,6 +108,22 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
                     <Row>
                         <Col>
                             {renderContinueButton()}
+                        </Col>
+                    </Row>
+                );
+            case ResponseButtons.Yes:
+                return (
+                    <Row>
+                        <Col>
+                            {renderYesButton()}
+                        </Col>
+                    </Row>
+                );
+            case ResponseButtons.No:
+                return (
+                    <Row>
+                        <Col>
+                            {renderNoButton()}
                         </Col>
                     </Row>
                 );

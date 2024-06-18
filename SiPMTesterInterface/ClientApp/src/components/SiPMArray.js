@@ -7,7 +7,7 @@ import {MeasurementContext} from '../context/MeasurementContext';
 
 function SiPMArray(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMCount, Editable, className } = props;
-    const { measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning } = useContext(MeasurementContext);
+    const { measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView } = useContext(MeasurementContext);
 
     // Function to handle click event
     const handleClick = (property) => {
@@ -18,10 +18,6 @@ function SiPMArray(props) {
         //console.log(e.target.value);
         updateBarcode(BlockIndex, ModuleIndex, ArrayIndex, e.target.value);
     };
-
-    const isMeasurementRunning = () => {
-        return isAnyMeasurementRunning();
-    }
 
     return (
         <>
@@ -50,7 +46,7 @@ function SiPMArray(props) {
                                 onChange={(e) => handleBarcodeChange(e)}
                                 required // HTML5 form validation
                                 pattern="\S+" // Ensures non-whitespace characters are entered
-                                disabled={isMeasurementRunning()} // Disable input if no SiPM is selected in the array
+                                disabled={measurementDataView} // Disable input if no SiPM is selected in the array
                             />
                         </div>
 

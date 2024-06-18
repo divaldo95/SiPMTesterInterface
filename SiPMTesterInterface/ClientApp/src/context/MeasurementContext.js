@@ -1,4 +1,5 @@
 ﻿import React, { useContext, createContext, useState } from 'react';
+import { TaskTypes } from '../enums/TaskTypes';
 
 
 export const MeasurementContext = createContext();
@@ -60,6 +61,7 @@ const initialMeasurementState = {
 };
 
 const initialInstrumentStates = {
+    currentTask: TaskTypes.Idle,
     ivConnectionState: 0,
     spsConnectionState: 0,
     ivState: 0,
@@ -74,6 +76,7 @@ export const MeasurementProvider = ({ children }) => {
     const [measurementStates, setMeasurementStates] = useState(initialMeasurementState);
     const [isIVMeasurementRunning, setIsIVMeasurementRunning] = useState(true);
     const [isSPSMeasurementRunning, setIsSPSMeasurementRunning] = useState(false);
+    const [measurementDataView, setMeasurementDataView] = useState(false);
 
     const [pulserState, setPulserState] = useState(true);
 
@@ -155,8 +158,25 @@ export const MeasurementProvider = ({ children }) => {
         //console.log(states);
     };
 
+    const updateMeasurementDataView = (prevState, currState) => {
+        if (prevState === TaskTypes.Idle && currState !== TaskTypes.Idle) {
+            setMeasurementDataView(true);
+        }
+    };
+
     const updateInstrumentStates = (states) => {
+        updateMeasurementDataView(instrumentStatuses.currentTask, states.currentTask);
         setInstrumentStatuses(states);
+        //console.log(states);
+    };
+
+    const updateCurrentTask = (currentTask) => {
+        updateMeasurementDataView(instrumentStatuses.currentTask, currentTask);
+        setInstrumentStatuses(prevStatuses => {
+            const updatedStatuses = prevStatuses;
+            updatedStatuses["currentTask"] = currentTask;
+            return updatedStatuses;
+        });
         //console.log(states);
     };
 
@@ -327,9 +347,28 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const isAnyMeasurementRunning = () => {
-        return ((instrumentStatuses.ivState === 0) || (instrumentStatuses.ivState === 6) || (instrumentStatuses.ivState === 7)) ? false : true;
-        //return (instrumentStatuses.ivState === 1) || (instrumentStatuses.spsState === 1);
-        //return isIVMeasurementRunning || isSPSMeasurementRunning; //add variables and related stuff
+        if (instrumentStatuses.currentTask == TaskTypes.Finished || instrumentStatuses.currentTask == TaskTypes.Idle) {
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
+    const canToggleMeasurementView = () => {
+        if (instrumentStatuses.currentTask == TaskTypes.Finished) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    const toggleMeasurementView = () => {
+        let prevValue = measurementDataView;
+        if (instrumentStatuses.currentTask == TaskTypes.Finished) {
+            setMeasurementDataView(!prevValue);
+        }
     }
 
     return (
@@ -339,7 +378,8 @@ export const MeasurementProvider = ({ children }) => {
                 isAnyMeasurementRunning, toasts, addToast, dismissToast, updateVoltages,
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
                 instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates,
-                resetSiPMMeasurementStates, pulserState, setPulserState
+                resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask, canToggleMeasurementView,
+                toggleMeasurementView, measurementDataView
             }}>
             {children}
         </MeasurementContext.Provider>

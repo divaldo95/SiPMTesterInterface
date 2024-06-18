@@ -4,6 +4,7 @@ const API_BASE_URL = 'measurement/';
 const API_TIMES_URL = 'times/'
 const API_STATES_URL = 'states/'
 const API_START_URL = 'start/'
+const API_STOP_URL = 'stop/'
 const API_DATA_URL = 'getsipmdata/'
 const API_SIPM_MEAS_STATUS_URL = 'measurementstates/'
 
@@ -37,7 +38,16 @@ const MeasurementStateService = {
             });
             return response.data;
         } catch (error) {
-            console.error('Error fetching measurement states:', error);
+            console.error('Error starting measurement:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    stopMeasurement: async () => {
+        try {
+            const response = await axios.post(API_BASE_URL + API_STOP_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error stopping measurement:', error);
             throw error; // You can handle the error as needed in your application
         }
     },
