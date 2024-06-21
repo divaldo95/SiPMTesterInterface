@@ -63,35 +63,35 @@ function Measurement() {
     };
 
     const updateIvAnalysationResultState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, newData) => {
-        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVAnalysationResult", newData.ivAnalysationResult);
-        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVTimes", newData.ivTimes);
+        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVAnalysationResult", newData.IVAnalysationResult);
+        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVTimes", newData.IVTimes);
     };
 
     const updateIvConnectionState = (newValue) => {
         updateInstrumentStates(prevStatus => ({
             ...prevStatus,
-            ivConnectionState: newValue
+            IVConnectionState: newValue
         }));
     };
 
     const updateSpsConnectionState = (newValue) => {
         updateInstrumentStates(prevStatus => ({
             ...prevStatus,
-            spsConnectionState: newValue
+            SPSConnectionState: newValue
         }));
     };
 
     const updateIvState = (newValue) => {
         updateInstrumentStates(prevStatus => ({
             ...prevStatus,
-            ivState: newValue
+            IVState: newValue
         }));
     };
 
     const updateSpsState = (newValue) => {
         updateInstrumentStates(prevStatus => ({
             ...prevStatus,
-            spsState: newValue
+            SPSState: newValue
         }));
     };
 
@@ -193,23 +193,6 @@ function Measurement() {
         }
     };
 
-    const transformErrorData = (data) => {
-        console.log(data);
-        return {
-            ID: data.id,
-            MeasurementType: data.measurementType,
-            Message: data.message,
-            MessageType: data.messageType,
-            NeedsInteraction: data.needsInteraction,
-            NextStep: data.nextStep,
-            Resolved: data.resolved,
-            Sender: data.sender,
-            Timestamp: data.timestamp,
-            UserResponse: data.userResponse,
-            ValidInteractionButtons: data.validInteractionButtons
-        };
-    };
-
     useEffect(() => {
         fetchLogs();
 
@@ -241,12 +224,11 @@ function Measurement() {
                     updateSpsState(spsModel);
                 });
 
-                connection.on('ReceiveSiPMIVMeasurementDataUpdate', (currentSiPMModel, data) => {
+                connection.on('ReceiveSiPMIVMeasurementDataUpdate', (currentSiPMModel) => {
                     // Handle received SPS measurement state change
-                    console.log('Received SiPM IV measurement:', currentSiPMModel, data);
-                    updateSiPMMeasurementStates(currentSiPMModel.block, currentSiPMModel.module, currentSiPMModel.array, currentSiPMModel.siPM, "IVMeasurementDone", true);
-                    updateIvAnalysationResultState(currentSiPMModel.block, currentSiPMModel.module, currentSiPMModel.array, currentSiPMModel.siPM, data);
-                    addToast(MessageTypeEnum.Information,`SiPM(${currentSiPMModel.block}, ${currentSiPMModel.module}, ${currentSiPMModel.array}, ${currentSiPMModel.siPM}) IV data received`);
+                    console.log('Received SiPM IV measurement:', currentSiPMModel);
+                    updateSiPMMeasurementStates(currentSiPMModel.Block, currentSiPMModel.Module, currentSiPMModel.Array, currentSiPMModel.SiPM, "IVMeasurementDone", true);
+                    addToast(MessageTypeEnum.Information,`SiPM(${currentSiPMModel.Block}, ${currentSiPMModel.Module}, ${currentSiPMModel.Array}, ${currentSiPMModel.SiPM}) IV data received`);
                 });
                 
 
@@ -258,20 +240,18 @@ function Measurement() {
                 });
 
                 connection.on('ReceiveIVAnalysationResult', (currentSiPM, ivARes) => {
+                    console.log("Reveived IV analysation result:");
                     console.log(currentSiPM);
                     console.log(ivARes);
-                    updateIvAnalysationResultState(currentSiPM.block, currentSiPM.module, currentSiPM.array, currentSiPM.siPM, ivARes);
-                    addToast(MessageTypeEnum.Debug, 'Received IV analysation data:', ivARes);
+                    updateIvAnalysationResultState(currentSiPM.Block, currentSiPM.Module, currentSiPM.Array, currentSiPM.SiPM, ivARes);
+                    addToast(MessageTypeEnum.Debug, 'Received IV analysation data: ' + JSON.stringify(ivARes.IVAnalysationResult));
                 });
 
                 connection.on('ReceiveLogMessage', (logData) => {
-                    
-                    const transformedData = transformErrorData(logData);
-                    console.log(transformedData);
-                    if (!transformedData.NeedsAttention && !(transformedData.MessageType === LogMessageType.Error || transformedData.MessageType === LogMessageType.Fatal)) {
-                        addToast(MessageTypeEnum.Info, logData.sender, logData.message);
+                    if (!logData.NeedsAttention && !(logData.MessageType === LogMessageType.Error || logData.MessageType === LogMessageType.Fatal)) {
+                        addToast(MessageTypeEnum.Info, logData.Message);
                     }
-                    appendLog(transformedData);
+                    appendLog(logData);
                 });
 
                 connection.on('ReceiveCurrentTask', (currentTask) => {
@@ -361,10 +341,10 @@ function Measurement() {
 
                         <div className="row mb-4">
                             <div className="col">
-                                <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.ivConnectionState} MeasurementState={instrumentStatuses.ivState}></StatesCard>
+                                <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.IVConnectionState} MeasurementState={instrumentStatuses.IVState}></StatesCard>
                             </div>
                             <div className="col">
-                                <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.spsConnectionState} MeasurementState={instrumentStatuses.spsState}></StatesCard>
+                                <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.SPSConnectionState} MeasurementState={instrumentStatuses.SPSState}></StatesCard>
                             </div>
                             <div className="col">
                                 <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>

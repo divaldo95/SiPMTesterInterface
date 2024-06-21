@@ -3,8 +3,8 @@ namespace SiPMTesterInterface.Models
 {
     public class IVTimes
     {
-        public long startTimestamp { get; set; } = 0;
-        public long endTimestamp { get; set; } = 0;
+        public long StartTimestamp { get; set; } = 0;
+        public long EndTimestamp { get; set; } = 0;
 
         public IVTimes()
         {
@@ -12,8 +12,8 @@ namespace SiPMTesterInterface.Models
 
         public IVTimes(long start, long end)
         {
-            startTimestamp = start;
-            endTimestamp = end;
+            StartTimestamp = start;
+            EndTimestamp = end;
         }
     }
 

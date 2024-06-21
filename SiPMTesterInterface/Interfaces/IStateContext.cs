@@ -12,7 +12,7 @@ namespace SiPMTesterInterface.Interfaces
         public Task ReceiveGlobalIVMeasurementStateChange(MeasurementState g);
         public Task ReceiveSPSMeasurementStateChange(MeasurementState s);
         public Task ReceiveIVConnectionStateChange(ConnectionState cs);
-        public Task ReceiveSiPMIVMeasurementDataUpdate(CurrentSiPMModel c, IVMeasurementHubUpdate d);
+        public Task ReceiveSiPMIVMeasurementDataUpdate(CurrentSiPMModel c);
 
         public Task ReceivePulserStateChange(SerialConnectionStateChangedEventArgs s);
         public Task ReceivePulserTempCoolerData(PSoCCommuicatorDataReadEventArgs d);

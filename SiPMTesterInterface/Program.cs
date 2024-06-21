@@ -1,11 +1,32 @@
-﻿using SiPMTesterInterface.ClientApp.Services;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddSignalR();
-builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR()
+    .AddNewtonsoftJsonProtocol(options =>
+    {
+        options.PayloadSerializerSettings.ContractResolver = new DefaultContractResolver
+        {
+            NamingStrategy = new DefaultNamingStrategy() // This ensures PascalCase
+        };
+    });
+
+builder.Services.AddControllersWithViews()
+    .AddNewtonsoftJson(options =>
+    {
+        options.SerializerSettings.ContractResolver = new DefaultContractResolver
+        {
+            NamingStrategy = new DefaultNamingStrategy()
+        };
+        options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+        options.SerializerSettings.Formatting = Formatting.Indented;
+    });
+
 
 builder.Services.AddSingleton<MeasurementService>();
 

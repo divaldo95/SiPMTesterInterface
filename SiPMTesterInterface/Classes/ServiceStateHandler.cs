@@ -55,16 +55,16 @@ namespace SiPMTesterInterface.Classes
             // Project each group into the desired JSON structure
             var result = new
             {
-                Blocks = Enumerable.Range(0, 2).Select(blockIndex =>
+                Blocks = Enumerable.Range(0, BlockNum).Select(blockIndex =>
                 new
                 {
-                    Modules = Enumerable.Range(0, 2).Select(moduleIndex =>
+                    Modules = Enumerable.Range(0, ModuleNum).Select(moduleIndex =>
                         new
                         {
-                            Arrays = Enumerable.Range(0, 4).Select(arrayIndex =>
+                            Arrays = Enumerable.Range(0, ArrayNum).Select(arrayIndex =>
                                 new
                                 {
-                                    SiPMs = Enumerable.Range(0, 16).Select(sipmIndex =>
+                                    SiPMs = Enumerable.Range(0, SiPMNum).Select(sipmIndex =>
                                         new
                                         {
                                             IVMeasurementDone = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IsIVDone ?? false,
@@ -72,8 +72,8 @@ namespace SiPMTesterInterface.Classes
                                             //Analyse and update these values
                                             IVTimes = new
                                             {
-                                                startTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.StartTimestamp,
-                                                endTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.EndTimestamp
+                                                StartTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.StartTimestamp,
+                                                EndTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.EndTimestamp
                                             },
                                             IVAnalysationResult = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex].IVResult.AnalysationResult,
                                             SPSResult = new
@@ -124,7 +124,7 @@ namespace SiPMTesterInterface.Classes
             {
                 throw new ArgumentOutOfRangeException("Measurement not started or index out of bounds");
             }
-            return AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
+            return AllSiPMsData[arrayIndex];
         }
 
         public bool GetSiPMIVMeasurementData(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)

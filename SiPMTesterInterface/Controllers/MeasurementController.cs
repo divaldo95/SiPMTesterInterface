@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using NetMQ;
@@ -36,7 +37,6 @@ namespace SiPMTesterInterface.Controllers
         public MeasurementController(ILogger<MeasurementController> logger, MeasurementService measurementService)
         {
             _logger = logger;
-            //reqSocket.Connect("tcp://192.168.0.45:5556");
             _measurementService = measurementService;
         }
 
@@ -47,17 +47,17 @@ namespace SiPMTesterInterface.Controllers
         }
 
         [HttpGet("states")]
-        public IActionResult GetMeasurementStates()
+        public IActionResult GetInstrumentStates()
         {
-            var measurementStates = new
+            var instrumentStates = new
             {
-                currentTask = _measurementService.CurrentTask,
-                ivConnectionState = _measurementService.IVConnectionState,
-                spsConnectionState = _measurementService.SPSConnectionState,
-                ivState = _measurementService.GlobalIVState,
-                spsState = _measurementService.GLobalSPSState //only for testing
+                CurrentTask = _measurementService.CurrentTask,
+                IVConnectionState = _measurementService.IVConnectionState,
+                SPSConnectionState = _measurementService.SPSConnectionState,
+                IVState = _measurementService.GlobalIVState,
+                SPSState = _measurementService.GLobalSPSState //only for testing
             };
-            return Ok(measurementStates);
+            return Ok(instrumentStates);
         }
 
         
@@ -132,42 +132,32 @@ namespace SiPMTesterInterface.Controllers
         [HttpGet("logs/all")]
         public IActionResult GetAllLogs()
         {
-            string errors = JsonConvert.SerializeObject(_measurementService.GetAllLogs());
+            var errors = _measurementService.GetAllLogs();
             return Ok(errors);
         }
 
         [HttpGet("logs/needsattention")]
         public IActionResult GetNeedsAttentionLogs()
         {
-            string errors = JsonConvert.SerializeObject(_measurementService.GetAttentionNeededLogs());
+            var errors = _measurementService.GetAttentionNeededLogs();
             return Ok(errors);
         }
 
         [HttpGet("logs/unresolved")]
         public IActionResult GetUnresolvedLogs()
         {
-            string errors = JsonConvert.SerializeObject(_measurementService.GetUnresolvedLogs());
+            var errors = _measurementService.GetUnresolvedLogs();
             return Ok(errors);
         }
 
         [HttpPost("logs/resolve")]
-        public IActionResult ResolveLogMessage([FromBody] JsonElement data)
+        public IActionResult ResolveLogMessage([FromBody] ErrorResolveModel data)
         {
             try
             {
                 Console.WriteLine($"Received data: {data}");
-                // Extract properties from the JSON object
-                if (!data.TryGetProperty("ID", out JsonElement idElement) || !data.TryGetProperty("UserResponse", out JsonElement userResponseElement))
-                {
-                    throw new InvalidDataException("Invalid error data received");
-                }
 
-                var errorMessageModel = new LogMessageModel
-                {
-                    ID = idElement.GetString(),
-                    UserResponse = (ResponseButtons)userResponseElement.GetInt32()
-                };
-                _measurementService.TryResolveLog(errorMessageModel);
+                _measurementService.TryResolveLog(data);
                 return Ok();
             }
             catch (Exception ex)
@@ -253,6 +243,21 @@ namespace SiPMTesterInterface.Controllers
             {
                 return BadRequest(ResponseMessages.Error(ex.Message));
             }            
+        }
+
+        [HttpGet]
+        [Route("cooler/{blockId}/{mooduleId}")]
+        public IActionResult GetCooler(int blockId, int moduleId)
+        {
+            try
+            {
+                var coolerData = _measurementService.GetCooler(blockId, moduleId);
+                return Ok(coolerData);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
         }
 
         [HttpPost("pulser")]

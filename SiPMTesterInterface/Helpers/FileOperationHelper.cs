@@ -46,6 +46,7 @@ namespace SiPMTesterInterface.Helpers
         {
             List<DMMResistanceMeasurementResponseModel>? dataList;
             string outFile = Path.Combine(basePath, fileName);
+            Directory.CreateDirectory(basePath);
 
             // Deserialize existing data from the file, or create a new list if the file doesn't exist
             if (File.Exists(outFile))

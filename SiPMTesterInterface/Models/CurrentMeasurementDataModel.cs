@@ -1,4 +1,5 @@
 ﻿using System;
+using Newtonsoft.Json;
 using SiPMTesterInterface.Classes;
 
 namespace SiPMTesterInterface.Models
@@ -11,7 +12,7 @@ namespace SiPMTesterInterface.Models
 		public SiPM SiPMMeasurementDetails { get; set; }
 		public MeasurementIdentifier IVMeasurementID { get; set; } = new MeasurementIdentifier();
 		public MeasurementIdentifier SPSMeasurementID { get; set; } = new MeasurementIdentifier();
-		public IVMeasurementResponseModel IVResult { get; set; } = new IVMeasurementResponseModel();
+        public IVMeasurementResponseModel IVResult { get; set; } = new IVMeasurementResponseModel();
         //placeholder for SPS response
 	}
 }

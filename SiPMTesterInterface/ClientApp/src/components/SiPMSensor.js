@@ -66,16 +66,17 @@ function SiPMSensor(props) {
 
     const getAnalysationBackgroundClass = () => {
         let result = getSiPMMeasurementValue("IVAnalysationResult");
+        //console.log(result);
         if (result === null) {
             //console.log("null bg");
-            return "bg-light";
+            return "bg-secondary";
         }
         //console.log(result);
         if (!result.Analysed) {
             //console.log("not analysed bg");
-            return "bg-secondary text-white";
+            return "bg-light";
         }
-        if (result.ChiSquare < 0.15) {
+        if (result.IsOK) {
             //console.log("ok bg");
             return "bg-success";
         }

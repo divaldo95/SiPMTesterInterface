@@ -19,7 +19,7 @@ const MeasurementSidebar = ({ isOpen, toggleSidebar, openErrorsModal, collapsed,
         >
             <Menu className="text-center">
                 <MenuItem icon={<Badge bg={`${unresolvedLogCount > 0 ? "danger" : "success"}`}>{unresolvedLogCount}</Badge>} onClick={openErrorsModal}>Errors</MenuItem>
-                <MenuItem icon={<Badge bg="primary">{TaskTypesString(instrumentStatuses.currentTask)}</Badge>}>Current task</MenuItem>
+                <MenuItem icon={<Badge bg="primary">{TaskTypesString(instrumentStatuses.CurrentTask)}</Badge>}>Current task</MenuItem>
                 <hr></hr>
                 <SubMenu label="Measurements" icon={<Badge bg="primary">1</Badge>}>
                     <MenuItem><Badge bg="primary">IV: 0, 0, 4, 2</Badge></MenuItem>

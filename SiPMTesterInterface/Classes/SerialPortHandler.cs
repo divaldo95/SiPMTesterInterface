@@ -81,6 +81,7 @@ namespace SiPMTesterInterface.Classes
             this.Enabled = Enabled;
             _logger = logger;
             _Port = Port;
+            _Baud = Baud;
             _AutoDetect = autoDetect;
             _AutoDetectString = autoDetectString;
             _AutoDetectExpectedAnswer = autoDetectExpectedAnswer;
@@ -89,18 +90,6 @@ namespace SiPMTesterInterface.Classes
 
         public void Init()
         {
-            if (_AutoDetect)
-            {
-                try
-                {
-                    _Port = SerialPortHandler.GetAutoDetectedPort(_logger, _Baud, 500, _AutoDetectString, _AutoDetectExpectedAnswer);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError($"{ex.Message}");
-                }
-            }
-
             _messageReceived = new AutoResetEvent(false);
             if (_serialPort == null)
             {
@@ -127,13 +116,24 @@ namespace SiPMTesterInterface.Classes
             {
                 try
                 {
-                    var serial = new SerialPortHandler(logger, port, Baud, Timeout, true, false);
-                    serial.WriteCommand(""); //if the buffer is not empty, this will clear it
+                    string received = "";
+                    var serial = new SerialPortHandler(logger, port, Baud, Timeout, true, false, autoDetectString, autoDetectExpectedAnswer);
+                    serial.Init();
+                    serial.Start();
+                    //serial.WriteCommand("empty"); //if the buffer is not empty, this will clear it
                     serial.WriteCommand(autoDetectString);
+                    received = serial.LastLine;
                     serial.Stop();
-                    if (serial.LastLine.ToLower().Contains(autoDetectExpectedAnswer.ToLower())) //in case of non visible characters, case insesitive
+                    serial.Close();
+
+                    if (received.Contains(autoDetectExpectedAnswer, StringComparison.CurrentCultureIgnoreCase)) //in case of non visible characters, case insesitive
                     {
                         return port;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Device ({port}) not detected {Environment.NewLine}Expected:{autoDetectExpectedAnswer} {Environment.NewLine}Received: {received}. {Environment.NewLine}Try to find the appropriate port manually");
+                        Console.WriteLine($"AutoDetectString: {autoDetectString}");
                     }
                 }
                 catch (Exception ex)
@@ -173,6 +173,14 @@ namespace SiPMTesterInterface.Classes
                 _serialPort.Close();
                 State = SerialPortState.Disconnected;
                 Initialized = false;
+            }
+        }
+
+        public void Close()
+        {
+            if (_serialPort != null)
+            {
+                _serialPort.Dispose();
             }
         }
 

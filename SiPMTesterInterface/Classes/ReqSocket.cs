@@ -189,6 +189,12 @@ namespace SiPMTesterInterface.Classes
                         try
                         {
                             AskServer(item);
+
+                            //if stop measurement is queued, send it once
+                            if (item.Contains("StopMeasurement"))
+                            {
+                                RemoveQueryMessage(item);
+                            }
                         }
                         catch (Exception ex)
                         {

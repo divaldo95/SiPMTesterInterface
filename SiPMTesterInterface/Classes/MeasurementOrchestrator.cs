@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
@@ -249,30 +250,44 @@ namespace SiPMTesterInterface.Classes
         //Private functions-----------------------------------------------------
         private void ShuffleIVList(List<CurrentSiPMModel> list, int maxIterations = 20)
         {
-            bool isValid = false;
-            int iterationCounter = 0;
-            while (!isValid && iterationCounter < maxIterations)
-            {
-                list.Shuffle();
+            // Group by ArrayIndex
+            CurrentSiPMModel[] arr = new CurrentSiPMModel[list.Count];
+            list.CopyTo(arr);
+            list.Clear();
+            var groupedByIndexes = arr.GroupBy(item => new { item.Block, item.Module, item.Array });
+            //var groupedByArrayIndex = arr.GroupBy(item => item.Array);
 
-                isValid = true;
-                for (int i = 1; i < list.Count; i++)
-                {
-                    if (Math.Abs(list[i].SiPM - list[i - 1].SiPM) == 1
-                            && list[i].Block == list[i - 1].Block
-                            && list[i].Module == list[i - 1].Module
-                            && list[i].Array == list[i - 1].Array)
-                    {
-                        isValid = false;
-                        break;
-                    }
-                }
-                iterationCounter++;
-            }
-            if (iterationCounter >= maxIterations && !isValid)
+            //list.Clear();
+
+            foreach (var group in groupedByIndexes)
             {
-                _logger.LogWarning($"Max iteration reached without meeting the neighboring criteria");
-            }
+                bool isValid = false;
+                int iterationCounter = 0;
+                var newList = group.ToList();
+                while (!isValid && iterationCounter < maxIterations)
+                {
+                    newList.Shuffle();
+
+                    isValid = true;
+                    for (int i = 1; i < list.Count; i++)
+                    {
+                        if (Math.Abs(list[i].SiPM - list[i - 1].SiPM) == 1
+                                && list[i].Block == list[i - 1].Block
+                                && list[i].Module == list[i - 1].Module
+                                && list[i].Array == list[i - 1].Array)
+                        {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                    iterationCounter++;
+                }
+                if (iterationCounter >= maxIterations && !isValid)
+                {
+                    _logger.LogWarning($"Max iteration reached without meeting the neighboring criteria for Array {newList.First().Array}");
+                }
+                list.AddRange(newList);
+            }            
         }
     }
 }

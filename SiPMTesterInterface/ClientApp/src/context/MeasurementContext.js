@@ -40,19 +40,19 @@ const initialMeasurementState = {
                     SPSMeasurementDone: false,
                     IVAnalysationResult: {
                         Analysed: false,
-                        isOK: false,
+                        IsOK: false,
                         BreakdownVoltage: 0.0,
                         ChiSquare: 0.0,
                         CompensatedBreakdownVoltage: 0.0,
                         RootFileLocation: ""
                     },
                     SPSResult: {
-                        isOK: false,
+                        IsOK: false,
                         Gain: 0.0
                     },
                     IVTimes: {
-                        startTimestamp: 0,
-                        endTimestamp: 0
+                        StartTimestamp: 0,
+                        EndTimestamp: 0
                     }
                 })),
             }))
@@ -61,11 +61,11 @@ const initialMeasurementState = {
 };
 
 const initialInstrumentStates = {
-    currentTask: TaskTypes.Idle,
-    ivConnectionState: 0,
-    spsConnectionState: 0,
-    ivState: 0,
-    spsState: 0
+    CurrentTask: TaskTypes.Idle,
+    IVConnectionState: 0,
+    SPSConnectionState: 0,
+    IVState: 0,
+    SPSState: 0
 };
 
 const initialToasts = [
@@ -126,7 +126,11 @@ export const MeasurementProvider = ({ children }) => {
 
             // Update individual sipm's data
             if (blockIndex !== undefined && moduleIndex !== undefined && arrayIndex !== undefined && sipmIndex !== undefined) {
+                console.log("Before:");
+                console.log(updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property]);
                 updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property] = newData;
+                console.log("After:");
+                console.log(updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property]);
                 return updatedData;
             } else {
                 return newData; //update the whole structure with the complete new one
@@ -165,16 +169,16 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const updateInstrumentStates = (states) => {
-        updateMeasurementDataView(instrumentStatuses.currentTask, states.currentTask);
+        updateMeasurementDataView(instrumentStatuses.CurrentTask, states.CurrentTask);
         setInstrumentStatuses(states);
         //console.log(states);
     };
 
     const updateCurrentTask = (currentTask) => {
-        updateMeasurementDataView(instrumentStatuses.currentTask, currentTask);
+        updateMeasurementDataView(instrumentStatuses.CurrentTask, currentTask);
         setInstrumentStatuses(prevStatuses => {
             const updatedStatuses = prevStatuses;
-            updatedStatuses["currentTask"] = currentTask;
+            updatedStatuses["CurrentTask"] = currentTask;
             return updatedStatuses;
         });
         //console.log(states);
@@ -347,7 +351,7 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const isAnyMeasurementRunning = () => {
-        if (instrumentStatuses.currentTask == TaskTypes.Finished || instrumentStatuses.currentTask == TaskTypes.Idle) {
+        if (instrumentStatuses.CurrentTask == TaskTypes.Finished || instrumentStatuses.CurrentTask == TaskTypes.Idle) {
             return false;
         }
         else {
@@ -356,7 +360,7 @@ export const MeasurementProvider = ({ children }) => {
     }
 
     const canToggleMeasurementView = () => {
-        if (instrumentStatuses.currentTask == TaskTypes.Finished) {
+        if (instrumentStatuses.CurrentTask == TaskTypes.Finished) {
             return true;
         }
         else {
@@ -366,7 +370,7 @@ export const MeasurementProvider = ({ children }) => {
 
     const toggleMeasurementView = () => {
         let prevValue = measurementDataView;
-        if (instrumentStatuses.currentTask == TaskTypes.Finished) {
+        if (instrumentStatuses.CurrentTask == TaskTypes.Finished) {
             setMeasurementDataView(!prevValue);
         }
     }

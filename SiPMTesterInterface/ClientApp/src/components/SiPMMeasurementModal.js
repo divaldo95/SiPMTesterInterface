@@ -20,8 +20,8 @@ function SiPMMeasurementModal(props) {
         try {
             const data = await MeasurementStateService.getSiPMMeasurementData(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex);
             console.log(data);
-            setX(data.ivResult.dmmVoltage);
-            setY(data.ivResult.smuCurrent);
+            setX(data.IVResult.DMMVoltage);
+            setY(data.IVResult.SMUCurrent);
             console.log(x);
             console.log(y);
         } catch (error) {

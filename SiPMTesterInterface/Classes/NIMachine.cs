@@ -125,7 +125,7 @@ namespace SiPMTesterInterface.Classes
             {
                 return;
             }
-            string msg = "\"StopMeasurement:{\\\"Status:\\\": 1}\"";
+            string msg = "StopMeasurement:{\"Status:\": 1}";
             if (this.ConnectionState != ConnectionState.Connected)
             {
                 reqSocket.AddQueryMessage(msg);
@@ -230,6 +230,12 @@ namespace SiPMTesterInterface.Classes
                 {
                     OnMeasurementStartFail?.Invoke(this, new MeasurementStartEventArgs(respModel));
                 }
+                return;
+            }
+
+            else if (e.Response.Sender == "StopMeasurement")
+            {
+                _logger.LogInformation("Stop measurement command ack from NI Machine");
                 return;
             }
         }

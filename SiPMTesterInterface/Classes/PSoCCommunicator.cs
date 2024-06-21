@@ -7,6 +7,9 @@ using static SiPMTesterInterface.Classes.MeasurementMode;
 using SiPMTesterInterface.Models;
 using System.Net.WebSockets;
 using static SiPMTesterInterface.Classes.Cooler;
+using SiPMTesterInterface.Enums;
+using System.Text;
+using System.Globalization;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -186,15 +189,21 @@ namespace SiPMTesterInterface.Classes
             WriteCommand(command);
         }
 
+        private string ExtractDataFromResponse()
+        {
+            string lastline = LastLine;
+            lastline = lastline.Remove(0, lastline.IndexOf('*') + 1); //remove everything until first *
+            lastline = lastline.Remove(lastline.IndexOf('*'), 1); //remove last *
+            return lastline;
+        }
+
         public TemperaturesArray ReadTemperatures(int block)
         {
             string command = "get_temp," + block.ToString();
             string[] temps;
             double[] tempd;
             WriteCommand(command);
-            string lastline = LastLine;
-            lastline = lastline.Remove(0, lastline.IndexOf('*') + 1); //remove everything until first *
-            lastline = lastline.Remove(lastline.IndexOf('*'), 1); //remove last *
+            string lastline = ExtractDataFromResponse();
             temps = lastline.Split(',');
             tempd = new double[temps.Length];
             for (int i = 0; i < temps.Length; i++)
@@ -249,6 +258,83 @@ namespace SiPMTesterInterface.Classes
                 throw new Exception("Fan speed must be between 0 and 100");
             }
             command += fan_speed.ToString();
+            WriteCommand(command);
+        }
+
+        public void EnablePSU(int block, PSUs psu, out double voltage, out double current)
+        {
+            string psuStr;
+            switch (psu)
+            {
+                case PSUs.PSU_A:
+                    psuStr = "A";
+                    break;
+                case PSUs.PSU_D:
+                    psuStr = "D";
+                    break;
+                default:
+                    throw new ArgumentException("Unknown PSU");
+            }
+            string command = $"enable_{psuStr}_psu,{block.ToString()}";
+            WriteCommand(command);
+            //TODO: add custom exceptions
+            if (LastLine.ToLower().Contains("overcurrent".ToLower()))
+            {
+                throw new Exception("Overcurrent detected");
+            }
+            else if (LastLine.ToLower().Contains("overvoltage".ToLower()))
+            {
+                throw new Exception("Overvoltage detected");
+            }
+            else if (LastLine.ToLower().Contains("undervoltage".ToLower()))
+            {
+                throw new Exception("Undervoltage detected");
+            }
+            else if (LastLine.ToLower().Contains("powergood L".ToLower()))
+            {
+                throw new Exception("Power failure detected");
+            }
+            else if (LastLine.ToLower().Contains("enable io exp read error".ToLower()))
+            {
+                throw new Exception("IO expander write error");
+            }
+            else if (LastLine.ToLower().Contains("PG io exp read error".ToLower()))
+            {
+                throw new Exception("IO expander power failure detected");
+            }
+            else if (LastLine.ToLower().Contains("INA226 read error".ToLower()))
+            {
+                throw new Exception("Unable to read INA226");
+            }
+            else if (LastLine.ToLower().Contains("unknown error".ToLower()))
+            {
+                throw new Exception("Unknown error detected");
+            }
+            string lastline = ExtractDataFromResponse();
+            string[] strArray = lastline.Split(',');
+            if (strArray.Length != 2)
+            {
+                throw new ArgumentException($"Invalid response: {lastline}");
+            }
+            voltage = double.Parse(strArray[0], CultureInfo.InvariantCulture);
+            current = double.Parse(strArray[1], CultureInfo.InvariantCulture);
+        }
+
+        public void DisablePSU(int block, PSUs psu)
+        {
+            string psuStr;
+            switch (psu)
+            {
+                case PSUs.PSU_A:
+                    psuStr = "A";
+                    break;
+                case PSUs.PSU_D:
+                    psuStr = "D";
+                    break;
+                default:
+                    throw new ArgumentException("Unknown PSU");
+            }
+            string command = $"disable_{psuStr}_psu,{block.ToString()}";
             WriteCommand(command);
         }
 

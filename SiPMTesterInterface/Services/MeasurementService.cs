@@ -147,6 +147,8 @@ namespace SiPMTesterInterface.ClientApp.Services
         private List<CurrentSiPMModel> ivSiPMs;
         private List<CurrentSiPMModel> spsSiPMs;
 
+        private bool _PSUAEnabled = false;
+
         private readonly IConfiguration Configuration;
 
         private readonly IHubContext<UpdatesHub, IStateContext> _hubContext;
@@ -264,6 +266,24 @@ namespace SiPMTesterInterface.ClientApp.Services
                 return;
             }
 
+            if (Pulser.Enabled && !_PSUAEnabled)
+            {
+                try
+                {
+                    double voltage = 0.0;
+                    double current = 0.0;
+                    Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
+                    _PSUAEnabled = true;
+                    CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, false, ResponseButtons.OK, MeasurementType.Unknown);
+                }
+                catch (Exception ex)
+                {
+                    CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                    _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                }
+                
+            }
+
             var logList = GetAttentionNeededLogs();
 
             if (logList.Count > 0)
@@ -284,6 +304,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     try
                     {
                         Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
+                        Thread.Sleep(200);
                     }
                     catch (Exception ex)
                     {
@@ -320,6 +341,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     {
                         Pulser?.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV,
                             new[] { pulserLEDValues[0], pulserLEDValues[1], pulserLEDValues[2], pulserLEDValues[3] });
+                        Thread.Sleep(200);
                     }
                     catch (Exception ex)
                     {
@@ -400,9 +422,24 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
             else //end of measurement
             {
-                CurrentTask = TaskTypes.Finished;
-                Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
-                EndTimestamp = TimestampHelper.GetUTCTimestamp();
+                try
+                {
+                    if (Pulser.Enabled && _PSUAEnabled)
+                    {
+                        Pulser?.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
+                        Pulser?.DisablePSU(0, PSUs.PSU_A);
+                        _PSUAEnabled = false;
+                        CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A disabled.", LogMessageType.Info, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    }
+                    CurrentTask = TaskTypes.Finished;
+                    EndTimestamp = TimestampHelper.GetUTCTimestamp();
+                }
+                catch (Exception ex)
+                {
+                    CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                    _logger.LogError($"Measurement service error: {ex.Message}");
+                }
+                
             }
         }
 
@@ -435,7 +472,25 @@ namespace SiPMTesterInterface.ClientApp.Services
                 try
                 {
                     _logger.LogInformation("Starting analysis task...");
-                    RootIVAnalyser.Analyse(data);
+                    bool hasEnoughCurrent = false; 
+                    for (int i = 0; i < data.IVResult.SMUCurrent.Count; i++)
+                    {
+                        if (data.IVResult.SMUCurrent[i] > 10E-6)
+                        {
+                            hasEnoughCurrent = true;
+                        }
+                    }
+                    if (hasEnoughCurrent)
+                    {
+                        //RootIVAnalyser.Analyse(data);
+                        data.IVResult.AnalysationResult.Analysed = true;
+                        data.IVResult.AnalysationResult.IsOK = true;
+                    }
+                    else
+                    {
+                        data.IVResult.AnalysationResult.Analysed = true;
+                        data.IVResult.AnalysationResult.IsOK = false;
+                    }
                     //_hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, data.IVResult.AnalysationResult);
                     _hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
                     _logger.LogInformation("Analysis task done");
@@ -503,9 +558,20 @@ namespace SiPMTesterInterface.ClientApp.Services
             try
             {
                 var psocSerialLogger = _loggerFactory.CreateLogger<SerialPortHandler>();
-                if (Pulser == null) Pulser = new PSoCCommunicator(Configuration, psocSerialLogger);
+                SerialSettings pulserSettings = new SerialSettings(Configuration, "Pulser");
+
+                if (pulserSettings.Enabled && pulserSettings.AutoDetect)
+                {
+                    string port = SerialPortHandler.GetAutoDetectedPort(psocSerialLogger, pulserSettings.BaudRate, pulserSettings.Timeout, pulserSettings.AutoDetectString, pulserSettings.AutoDetectExpectedAnswer);
+                    pulserSettings.SerialPort = port;
+                }
+
+                if (Pulser == null) Pulser = new PSoCCommunicator(pulserSettings, psocSerialLogger);
                 Pulser.OnSerialStateChanged += Pulser_OnSerialStateChanged;
                 Pulser.OnDataReadout += Pulser_OnDataReadout;
+
+                double voltage = 0.0;
+                double current = 0.0;
 
                 if (Pulser.Enabled)
                 {
@@ -513,6 +579,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                     Pulser.Init();
                     DeviceStates.SetInitState(Devices.Pulser, true);
                     Pulser.Start();
+                    Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
+                    CreateAndSendLogMessage("Measurement Service - Init - Pulser", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    _PSUAEnabled = true;
                     DeviceStates.SetStartedState(Devices.Pulser, true);
                 }
                 else
@@ -675,12 +744,19 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private void OnDMMMeasurementDataReceived(object? sender, DMMMeasurementDataReceivedEventArgs e)
         {
+            _logger.LogInformation("DMMMeasurementReceived");
+            CheckAndRunNext();
             //save data here
             serviceState.AppendDMMResistanceMeasurement(e.Data);
-
-            _logger.LogInformation("DMMMeasurementReceived");
-
-            CheckAndRunNext();
+            try
+            {
+                string path = Path.Combine(FilePathHelper.GetCurrentDirectory(), "DMMResult");
+                FileOperationHelper.CreateOrAppendToFileDMMMeasurement(path, "DMMResistance.json", e.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error while adding DMM resistance data to file ({ex.Message})");
+            }
         }
 
         private void OnIVMeasurementDataReceived(object? sender, IVMeasurementDataReceivedEventArgs e)
@@ -692,6 +768,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (serviceState.GetSiPMIVMeasurementData(e.Data.Identifier, out c))
             {
                 c.IVResult = e.Data;
+                c.IVResult.AnalysationResult = new IVAnalysationResult();
                 c.IsIVDone = true;
             }
             c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp).ToList();
@@ -699,6 +776,8 @@ namespace SiPMTesterInterface.ClientApp.Services
             FileOperationHelper.SaveIVResult(c, utcDate.ToString("yyyyMMddHHmmss"));
 
             RunAnalysis(c); //async call
+
+            _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation);
 
             CheckAndRunNext();
         }
@@ -764,7 +843,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             return retVal;
         }
 
-        public void TryResolveLog(LogMessageModel message)
+        public void TryResolveLog(ErrorResolveModel message)
         {
             if (Logs == null)
             {
@@ -821,6 +900,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                             else if (log.Sender.ToLower().Contains("DAQ".ToLower()))
                             {
                                 log.NextStep = ErrorNextStep.ReInitDAQ;
+                            }
+                            else if (log.Sender.ToLower().Contains("APSU".ToLower()))
+                            {
+                                log.NextStep = ErrorNextStep.Continue; //it will call enable psu until it is done, then proceed with measurement
                             }
                         }
                         break;
@@ -1022,7 +1105,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public void SetCooler(CoolerSettingsModel s)
         {
-            if (Pulser != null)
+            if (Pulser != null && Pulser.Enabled)
             {
                 Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
                 coolerState.SetCoolerSettings(s);

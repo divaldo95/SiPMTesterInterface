@@ -153,7 +153,6 @@ namespace SiPMTesterInterface.Libraries
 
             iv.GetResult(out vbr, out cvbr, out cs);
 
-            c.IVResult.AnalysationResult = new IVAnalysationResult();
             c.IVResult.AnalysationResult.BreakdownVoltage = vbr;
             c.IVResult.AnalysationResult.CompensatedBreakdownVoltage = cvbr;
             c.IVResult.AnalysationResult.ChiSquare = cs;
@@ -161,7 +160,7 @@ namespace SiPMTesterInterface.Libraries
             Console.WriteLine($"Vbr: {vbr}, cVbr: {cvbr}, ChiSquare: {cs}");
             c.IVResult.AnalysationResult.Analysed = true;
 
-            if (cs < 0.08) //fine tune this value
+            if (cs < 0.2) //fine tune this value
             {
                 c.IVResult.AnalysationResult.IsOK = true;
             }
