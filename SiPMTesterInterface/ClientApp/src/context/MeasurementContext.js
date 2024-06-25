@@ -40,6 +40,7 @@ const initialMeasurementState = {
                     SPSMeasurementDone: false,
                     IVAnalysationResult: {
                         Analysed: false,
+                        IsCurrentCheckOK: false,
                         IsOK: false,
                         BreakdownVoltage: 0.0,
                         ChiSquare: 0.0,
@@ -60,6 +61,33 @@ const initialMeasurementState = {
     }))
 };
 
+const generateCoolerData = (blockNum, moduleNum) => {
+    const coolerSettings = [];
+    for (let block = 0; block < blockNum; block++) {
+        for (let module = 0; module < moduleNum; module++) {
+            coolerSettings.push({
+                Block: block,
+                Module: module,
+                Enabled: false,
+                TargetTemperature: 0.0,
+                FanSpeed: 0,
+                State: {
+                    Block: block,
+                    Module: module,
+                    State: 0,
+                    IsTemperatureStable: false,
+                    CoolerTemperature: 0.0,
+                    PeltierVoltage: 0.0,
+                    PeltierCurrent: 0.0,
+                    Timestamp: Date.now(),
+                },
+                Temperature: Array(8).fill(0.0)
+            });
+        }
+    }
+    return coolerSettings;
+};
+
 const initialInstrumentStates = {
     CurrentTask: TaskTypes.Idle,
     IVConnectionState: 0,
@@ -78,28 +106,38 @@ export const MeasurementProvider = ({ children }) => {
     const [isSPSMeasurementRunning, setIsSPSMeasurementRunning] = useState(false);
     const [measurementDataView, setMeasurementDataView] = useState(false);
 
+    const [showLogModal, setShowLogModal] = useState(false);
+    const [showPulserLEDModal, setShowPulserLEDModal] = useState(false);
+
     const [pulserState, setPulserState] = useState(true);
-
-    //const [IVMeasurementState, setIsIVMeasurementState] = useState(true);
-    //const [SPSMeasurementState, setIsSPSMeasurementState] = useState(false);
-
-    //const [messages, setMessages] = useState(initialToasts);
     const [toasts, setToasts] = useState(initialToasts);
 
     const [instrumentStatuses, setInstrumentStatuses] = useState(initialInstrumentStates);
 
-    // Function to set the "Dismissed" property of a message based on its index
-    /*
-    const setDismissed = (index, dismissed) => {
-        setMessages(prevMessages => {
-            const updatedMessages = [...prevMessages];
-            if (index >= 0 && index < updatedMessages.length) {
-                updatedMessages[index].Dismissed = dismissed;
-            }
-            return updatedMessages;
-        });
+    const initialCoolerData = {
+        BlockNum: 2,
+        ModuleNum: 2,
+        CoolerSettings: generateCoolerData(2, 2),
     };
-    */
+
+    const [coolerStateHandler, setCoolerStateHandler] = useState(initialCoolerData);
+
+    const updateCoolerStateHandler = (newState) => {
+        setCoolerStateHandler(newState);
+    };
+
+    const updateCoolerData = (newData) => {
+        setCoolerStateHandler((prevState) => ({
+            ...prevState,
+            coolerSettings: newData,
+        }));
+    };
+
+    const handleShowLogModal = () => setShowLogModal(true);
+    const handleCloseLogModal = () => setShowLogModal(false);
+
+    const handleShowPulserLEDModal = () => setShowPulserLEDModal(true);
+    const handleClosePulserLEDModal = () => setShowPulserLEDModal(false);
 
     const addToast = (messageType, message) => {
         const newToast = {
@@ -222,7 +260,17 @@ export const MeasurementProvider = ({ children }) => {
                     updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex].SPSVoltages = newList.slice();
                     updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex].SPSVoltagesIsOffsets = isOffset;
                 }
-            } else {
+            }
+            else if (blockIndex !== undefined && moduleIndex !== undefined && arrayIndex !== undefined) {
+                if (property === 'IV') {
+                    updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs =
+                        updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs.map(sipm => ({
+                            ...sipm,
+                            IVVoltages: newList.slice()
+                        }));
+                }
+            }
+            else {
                 // If any index is undefined, update the parent IVVoltages/SPSVoltages
                 if (property === 'IV') {
                     updatedData.IVVoltages = newList.slice();
@@ -383,7 +431,9 @@ export const MeasurementProvider = ({ children }) => {
                 updateMeasurementStates, measurementStates, updateSiPMMeasurementState,
                 instrumentStatuses, updateInstrumentStates, updateSiPMMeasurementStates,
                 resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask, canToggleMeasurementView,
-                toggleMeasurementView, measurementDataView
+                toggleMeasurementView, measurementDataView, handleShowLogModal, handleCloseLogModal, showLogModal,
+                coolerStateHandler, updateCoolerStateHandler, updateCoolerData,
+                handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal
             }}>
             {children}
         </MeasurementContext.Provider>

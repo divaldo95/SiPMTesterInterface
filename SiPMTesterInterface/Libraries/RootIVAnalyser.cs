@@ -93,7 +93,7 @@ namespace SiPMTesterInterface.Libraries
             GC.SuppressFinalize(this);
         }
 
-        public static void Analyse(CurrentMeasurementDataModel c, double DMMResistance = 0.0)
+        public static void Analyse(CurrentMeasurementDataModel c, string outputPath, double DMMResistance = 0.0)
         {
             //Calculate DMM currents
 
@@ -141,12 +141,13 @@ namespace SiPMTesterInterface.Libraries
                 timestamp = (ulong)c.IVResult.StartTimestamp
             };
 
-            string outPath = Path.Combine(FilePathHelper.GetCurrentDirectory(), "results");
-            Directory.CreateDirectory(outPath);
+            Directory.CreateDirectory(outputPath);
 
             string outFilePrefix = $"{c.SiPMLocation.Block}_{c.SiPMLocation.Module}_{c.SiPMLocation.Array}_{c.SiPMLocation.SiPM}";
 
-            iv.AnalyseIV(data, AnalysisTypes.RelativeDerivativeMethod, true, outPath, outFilePrefix);
+            iv.AnalyseIV(data, AnalysisTypes.RelativeDerivativeMethod, true, outputPath, outFilePrefix);
+
+            c.IVResult.AnalysationResult.RootFileLocation = Path.Combine(outputPath, outFilePrefix + ".root");
 
             voltagesHandle.Free();
             currentsHandle.Free();

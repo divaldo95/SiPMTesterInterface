@@ -5,36 +5,64 @@ namespace SiPMTesterInterface.Classes
 {
 	public class CoolerStateHandler
 	{
-        public CoolerSettingsModel[] coolerSettings = new CoolerSettingsModel[2 * 2];
+        public int BlockNum { get; set; } = 0;
+        public int ModuleNum { get; set; } = 0;
+        public CoolerSettingsModel[] CoolerSettings { get; set; }
 
-        public CoolerStateHandler()
+        public CoolerStateHandler(int blocks, int modules)
 		{
-            for (int i = 0; i < coolerSettings.Count(); i++)
+            BlockNum = blocks;
+            ModuleNum = modules;
+            CoolerSettings = new CoolerSettingsModel[blocks * modules];
+            for (int i = 0; i < CoolerSettings.Count(); i++)
             {
-                coolerSettings[i] = new CoolerSettingsModel();
-                coolerSettings[i].Block = i / 2;
-                coolerSettings[i].Module = i % 2;
+                CoolerSettings[i] = new CoolerSettingsModel();
+                CoolerSettings[i].Block = i / modules;
+                CoolerSettings[i].Module = i % modules;
             }
+        }
+
+        public int GetIndex(int block, int module)
+        {
+            if (block >= BlockNum || block < 0 || module >= ModuleNum || module < 0)
+            {
+                throw new ArgumentException($"Invalid block or module number. Actual block: {block}, Max: {BlockNum}, Actual module: {module}, Max: {ModuleNum}");
+            }
+            return block * ModuleNum + module;
         }
 
         public CoolerSettingsModel GetCoolerSettings(int block, int module)
         {
-            if (block > 1 || block < 0 || module > 1 || module < 0)
-            {
-                throw new ArgumentException("Invalid block or module number");
-            }
-            int index = block * 2 + module;
-            return coolerSettings[index];
+            int index = GetIndex(block, module);
+            return CoolerSettings[index];
         }
 
         public void SetCoolerSettings(CoolerSettingsModel settings)
         {
-            if (settings.Block > 1 || settings.Block < 0 || settings.Module > 1 || settings.Module < 0)
-            {
-                throw new ArgumentException("Invalid block or module number");
-            }
-            int index = settings.Block * 2 + settings.Module;
-            coolerSettings[index] = settings;
+            int index = GetIndex(settings.Block, settings.Module);
+            CoolerSettings[index].Enabled = settings.Enabled;
+            CoolerSettings[index].TargetTemperature = settings.TargetTemperature;
+            CoolerSettings[index].FanSpeed = settings.FanSpeed;
+        }
+
+        public void SetModuleCoolerState(int block, int module, ModuleCoolerState state)
+        {
+            int index = GetIndex(block, module);
+            CoolerSettings[index].State = state;
+        }
+
+        public void SetModuleCoolerState(ModuleCoolerState state)
+        {
+            int index = GetIndex(state.Block, state.Module);
+            CoolerSettings[index].State = state;
+        }
+
+        public void SetModuleTemperatures(TemperaturesArray temps)
+        {
+            int index = GetIndex(temps.Block, 0);
+            CoolerSettings[index].Temperatures = temps.Module1;
+            index = GetIndex(temps.Block, 1);
+            CoolerSettings[index].Temperatures = temps.Module2;
         }
     }
 }

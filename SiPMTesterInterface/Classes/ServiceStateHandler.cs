@@ -1,7 +1,4 @@
-﻿using System;
-using SiPMTesterInterface.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using static SiPMTesterInterface.Classes.Cooler;
+﻿using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {

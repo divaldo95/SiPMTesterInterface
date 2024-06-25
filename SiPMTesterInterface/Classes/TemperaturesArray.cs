@@ -5,6 +5,7 @@ namespace SiPMTesterInterface.Classes
 {
     public class TemperaturesArray
     {
+        public int Block { get; set; }
         public double[] Module1 { get; set; } = new double[8];
         public double[] Module2 { get; set; } = new double[8];
         public double Pulser { get; set; }
@@ -16,8 +17,9 @@ namespace SiPMTesterInterface.Classes
 
         }
 
-        public TemperaturesArray(double[] psocRespArr)
+        public TemperaturesArray(int block, double[] psocRespArr)
         {
+            Block = block;
             if (psocRespArr.Length != (2*8 + 2))
             {
                 throw new Exception("PSoCArray has invalid length");

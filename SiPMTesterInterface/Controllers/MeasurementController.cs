@@ -60,7 +60,69 @@ namespace SiPMTesterInterface.Controllers
             return Ok(instrumentStates);
         }
 
-        
+        [HttpGet("pulsers")]
+        public IActionResult GetPulserValues()
+        {
+            return Ok(_measurementService.PulserValues);
+        }
+
+        [HttpPost("pulsers")]
+        public IActionResult SetPulserValue([FromBody] SiPMPulserValue pulserValue)
+        {
+            if (_measurementService.CurrentTask != TaskTypes.Finished && _measurementService.CurrentTask != TaskTypes.Idle)
+            {
+                return BadRequest(ResponseMessages.Error("Measurements already running"));
+            }
+            // Validate the received data
+            if (pulserValue == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty pulser value data"));
+            }
+
+            _logger.LogInformation($"Pulser value information received: {JsonConvert.SerializeObject(pulserValue)}");
+            try
+            {
+                //LEDValueHelper.UpdatePulserValueForSiPM(pulserValue.SiPM, pulserValue.PulserValue, _measurementService.PulserValues);
+                _measurementService.PulserValues.SetPulserValue(pulserValue.SiPM, pulserValue.PulserValue);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+
+            // Return a success response
+            return Ok("Pulser value updated successfully");
+        }
+
+        [HttpPost("pulsers/offset")]
+        public IActionResult SetPulserArrayOffset([FromBody] SiPMPulserValue pulserValue)
+        {
+            if (_measurementService.CurrentTask != TaskTypes.Finished && _measurementService.CurrentTask != TaskTypes.Idle)
+            {
+                return BadRequest(ResponseMessages.Error("Measurements already running"));
+            }
+            // Validate the received data
+            if (pulserValue == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty pulser value data"));
+            }
+
+            _logger.LogInformation($"Pulser offset information received: {JsonConvert.SerializeObject(pulserValue)}");
+            try
+            {
+                //LEDValueHelper.UpdatePulserValueForSiPM(pulserValue.SiPM, pulserValue.PulserValue, _measurementService.PulserValues);
+                _measurementService.PulserValues.SetArrayOffset(pulserValue.SiPM, pulserValue.PulserValue);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+
+            // Return a success response
+            return Ok("Pulser offset updated successfully");
+        }
+
+
         [HttpGet]
         [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/")]
         public IActionResult GetSIPMData(int blockId, int moduleId, int arrayId, int sipmId)
@@ -81,8 +143,8 @@ namespace SiPMTesterInterface.Controllers
         }
 
         [HttpGet]
-        [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/RootFile")]
-        public IActionResult GetSIPMRootFile(int blockId, int moduleId, int arrayId, int sipmId)
+        [Route("getsipmdata/{blockId}/{moduleId}/{arrayId}/{sipmId}/RootFile/IV")]
+        public IActionResult GetSIPMIVRootFile(int blockId, int moduleId, int arrayId, int sipmId)
         {
             try
             {
@@ -99,6 +161,33 @@ namespace SiPMTesterInterface.Controllers
                 // Return the file as a physical file result
                 string filename = Path.GetFileName(data.IVResult.AnalysationResult.RootFileLocation);
                 return PhysicalFile(data.IVResult.AnalysationResult.RootFileLocation, "application/octet-stream", filename);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return NotFound(ResponseMessages.Error(ex.Message));
+            }
+            catch (NullReferenceException ex)
+            {
+                return NotFound(ResponseMessages.Error("Measurement not started yet"));
+            }
+        }
+
+        [HttpGet]
+        [Route("getsipmdata/TestRootFile")]
+        public IActionResult GetStaticTestSIPMIVRootFile()
+        {
+            try
+            {
+                // Return the file as a physical file result
+                string rootFilePath = "test.root";
+                if (!System.IO.File.Exists(rootFilePath))
+                {
+                    return NotFound(ResponseMessages.Error("Root file is not available"));
+                }
+
+                
+                string filename = Path.GetFileName(rootFilePath);
+                return PhysicalFile(rootFilePath, "application/octet-stream", filename);
             }
             catch (ArgumentOutOfRangeException ex)
             {
@@ -243,6 +332,20 @@ namespace SiPMTesterInterface.Controllers
             {
                 return BadRequest(ResponseMessages.Error(ex.Message));
             }            
+        }
+
+        [HttpGet("cooler/all")]
+        public IActionResult GetAllCooler()
+        {
+            try
+            {
+                var coolerData = _measurementService.GetAllCooler();
+                return Ok(coolerData);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
         }
 
         [HttpGet]

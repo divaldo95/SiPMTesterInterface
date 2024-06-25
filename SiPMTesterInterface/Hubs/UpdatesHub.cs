@@ -33,6 +33,17 @@ namespace SiPMTesterInterface.Hubs
 
         public async Task SendCurrentTask(TaskTypes currentTask)
             => await Clients.All.ReceiveCurrentTask(currentTask);
+
+        public async Task SendNewModuleCoolerData(ModuleCoolerState coolerData)
+            => await Clients.All.ReceiveModuleCoolerData(coolerData);
+
+        public async Task SendNewTemperatureData(TemperaturesArray temp)
+            => await Clients.All.ReceiveTemperatureData(temp);
+
+        public async Task SendPulserReadoutIntervalChange(int interval)
+            => await Clients.All.ReceivePulserReadoutIntervalChange(interval);
+
+        
     }
 }
 

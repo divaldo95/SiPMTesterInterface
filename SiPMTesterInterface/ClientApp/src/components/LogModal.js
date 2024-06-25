@@ -23,7 +23,7 @@ const LogModal = ({ show, handleClose }) => {
                 delay={{ show: 250, hide: 400 }}
                 overlay={<Tooltip id="button-tooltip">{properties.Tooltip}</Tooltip>}
             >
-                <i className={`bi ${properties.Mark} ${properties.Color}`}></i >
+                <i className={`bi ${properties.Mark} ${properties.Color}`}></i>
             </OverlayTrigger>
             
         );
@@ -84,7 +84,7 @@ const LogModal = ({ show, handleClose }) => {
                                 <td>{log.Sender}</td>
                                 <td>{log.Message}</td>
                                 <td><Badge bg="primary">{getResponseButtonString(log.UserResponse)}</Badge></td>
-                                <td>{new Date(log.Timestamp * 1000).toTimeString().split(' ')[0]}</td>
+                                <td>{new Date(log.Timestamp * 1000).toLocaleDateString()} {new Date(log.Timestamp * 1000).toTimeString().split(' ')[0]}</td>
                                 <td>{renderInteractionBadge(log.NeedsInteraction)}</td>
                                 <td>{renderResolvedBadge(log.Resolved)}</td>
                             </tr>

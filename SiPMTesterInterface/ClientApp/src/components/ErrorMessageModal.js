@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
-import { Modal, Button, Row, Col, Alert } from 'react-bootstrap';
+import { Modal, Button, Row, Col, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { ResponseButtons } from '../enums/ResponseButtons';
+import { getLogMessageTypeMarkDetails } from '../enums/LogMessageTypeEnum'
 
 const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
     if (!error) return null;
@@ -31,7 +32,7 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
 
     const renderNoButton = () => {
         return <Button onClick={() => handleButtonClick(error.ID, ResponseButtons.No)} key="No" variant="danger">No</Button>;
-    } 
+    }
 
     const renderButtons = (validInteractionButtons) => {
         switch (validInteractionButtons) {
@@ -132,17 +133,37 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
         }
     };
 
+    const renderLogType = (logType) => {
+        let properties = getLogMessageTypeMarkDetails(logType);
+
+        return (
+            <OverlayTrigger
+                placement="right"
+                delay={{ show: 250, hide: 400 }}
+                overlay={<Tooltip id="button-tooltip">{properties.Tooltip}</Tooltip>}
+            >
+                <i className={`bi ${properties.Mark} ${properties.Color}`}></i>
+            </OverlayTrigger>
+
+        );
+    };
+
     return (
         <Modal show={show} onHide={handleClose} backdrop="static" centered size="lg">
             <Modal.Header closeButton>
-                <Modal.Title>
-                    {error.Sender}
+                <Modal.Title className="w-100">
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="me-2">
+                            {renderLogType(error.MessageType)}
+                        </div>
+                        <div className="flex-grow-1 text-truncate">
+                            {error.Sender}
+                        </div>
+                    </div>
                 </Modal.Title>
             </Modal.Header>
             <Modal.Body className="text-center">
-                <Alert key="danger" variant="danger">
-                    {error.Message}
-                </Alert>
+                {error.Message}
             </Modal.Body>
             <Modal.Footer>
                 {renderButtons(error.ValidInteractionButtons)}

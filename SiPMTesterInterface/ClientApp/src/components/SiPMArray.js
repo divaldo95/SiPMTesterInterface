@@ -1,13 +1,24 @@
-﻿import {useContext} from 'react';
+﻿import {useContext, useState} from 'react';
 import SiPMSensor from './SiPMSensor';
 import { StatusEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
 import ArrayLocation from './ArrayLocation';
 import ModeSelectButtonGroup from './ModeSelectButtonGroup';
-import {MeasurementContext} from '../context/MeasurementContext';
+import { MeasurementContext } from '../context/MeasurementContext';
+import SiPMSettingsModal from './SiPMSettingsModal';
+import { Button } from 'react-bootstrap';
 
 function SiPMArray(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMCount, Editable, className } = props;
     const { measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView } = useContext(MeasurementContext);
+    const [showModal, setShowModal] = useState(false);
+
+    const openModal = () => {
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+    };
 
     // Function to handle click event
     const handleClick = (property) => {
@@ -21,6 +32,7 @@ function SiPMArray(props) {
 
     return (
         <>
+            <SiPMSettingsModal showModal={showModal}  closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} />
             <div className={`card ${className}`}>
                 <h5 className="card-header">
                     <div className="row align-items-center justify-content-center">
@@ -28,11 +40,6 @@ function SiPMArray(props) {
                             <ArrayLocation arrayLocation={ArrayIndex} />
                         </div>
 
-                        <div className="col-auto">
-                            <span className="" >Array {ArrayIndex}:</span>
-                        </div>
-
-                    
                         <div className="w-100 d-md-none mb-2"></div>
 
                         {/* Text Input */}
@@ -58,8 +65,14 @@ function SiPMArray(props) {
                             <div className="btn-group" role="group" aria-label="sensor block with settings">
                                 <ModeSelectButtonGroup BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex}> </ModeSelectButtonGroup>
                             </div>
+                        </div>
 
-                        
+                        <div className="col-auto">
+                            <Button disabled={measurementDataView} onClick={openModal} variant="secondary"><i className="bi bi-gear"></i></Button>
+                        </div>
+
+                        <div className="col-auto float-end">
+                            
                         </div>
                     </div>
                 </h5>

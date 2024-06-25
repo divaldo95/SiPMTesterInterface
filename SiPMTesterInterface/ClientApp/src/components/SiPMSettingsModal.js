@@ -7,10 +7,19 @@ import VoltageListComponent from './VoltageListComponent';
 function SiPMSettingsModal(props) {
     const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex } = props;
 
+    const renderSiPMNum = () => {
+        if (SiPMIndex) {
+            return ` SiPM: ${SiPMIndex})`;
+        }
+        else {
+            return ")";
+        }
+    }
+
     return (
         <Modal show={showModal} onHide={closeModal} centered size="lg" fullscreen={false}>
             <Modal.Header closeButton>
-                <Modal.Title>{`SiPM Settings (Block: ${BlockIndex} Module: ${ModuleIndex} Array: ${ArrayIndex} SiPM: ${SiPMIndex})`}</Modal.Title>
+                <Modal.Title>{`SiPM Settings (Block: ${BlockIndex} Module: ${ModuleIndex} Array: ${ArrayIndex}${renderSiPMNum()}`}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <div className="text-center d-block d-inline-block">

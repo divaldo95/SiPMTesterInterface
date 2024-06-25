@@ -1,16 +1,82 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import * as JSROOT from 'jsroot';
+import MeasurementStateService from '../services/MeasurementStateService';
+import { Form, Spinner, Button, Tabs, Tab, Alert } from 'react-bootstrap';
 
 const RootTGraph = (props) => {
-    const { x, y, render } = props;
+    const { x, y, render, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex } = props;
     const rootContainerRef = useRef(null);
     const [graph, setGraph] = useState(null);
 
-    const updateGraph = () => {
+    const [objects, setObjects] = useState([]);
+    const [selectedObject, setSelectedObject] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const containerRef = useRef(null);
 
-    }
+    const handleObjectChange = async (e) => {
+        setSelectedObject(e.target.value);
+        setLoading(true);
+
+        try {
+            const data = await MeasurementStateService.getIVRootFile(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex);
+
+            // Convert the response to a Blob
+            const rootUrl = URL.createObjectURL(data);
+
+            // Open and display the selected object from the ROOT file using JSROOT
+            const file = await JSROOT.openFile(rootUrl);
+            const obj = await file.readObject(e.target.value);
+
+            if (containerRef.current) {
+                JSROOT.draw(containerRef.current, obj, 'colz');
+            }
+
+            URL.revokeObjectURL(rootUrl); // Clean up URL object
+            setLoading(false);
+        } catch (err) {
+            setLoading(false);
+            setError(err.message);
+            console.log(err);
+        }
+    };
 
     useEffect(() => {
+        const fetchRootFile = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const data = await MeasurementStateService.getIVRootFile(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex);
+
+                // Convert the response to a Blob
+                const rootUrl = URL.createObjectURL(data);
+
+                // Open the ROOT file using JSROOT and get the list of objects
+                const file = await JSROOT.openFile(rootUrl);
+                const tfileObject = await file.readKeys();
+                console.log(tfileObject);
+                const objectsList = tfileObject.fKeys.map(key => key.fName + ';' + key.fCycle);
+
+                console.log('Objects in ROOT file:', objectsList); // Debug: log objects
+
+                setObjects(objectsList);
+                if (objectsList.length > 0) {
+                    setSelectedObject(objectsList[0]);
+                }
+
+                URL.revokeObjectURL(rootUrl); // Clean up URL object
+                setLoading(false);
+
+            } catch (err) {
+                setLoading(false);
+                setError(err.message);
+                console.log(err);
+            }
+        };
+
+        fetchRootFile();
+
         let len = 0;
         if (x && y) {
             len = Math.min(x.length, y.length);
@@ -33,7 +99,42 @@ const RootTGraph = (props) => {
         };
     }, [render]);
 
+    useEffect(() => {
+        const displaySelectedObject = async () => {
+            if (!selectedObject) return;
 
+            setLoading(true);
+
+            try {
+                const data = await MeasurementStateService.getIVRootFile(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex);
+
+                // Convert the response to a Blob
+                const rootUrl = URL.createObjectURL(data);
+
+                // Open and display the selected object from the ROOT file using JSROOT
+                const file = await JSROOT.openFile(rootUrl);
+                console.log(selectedObject);
+                const obj = await file.readObject(selectedObject);
+
+                console.log('Displaying object:', selectedObject); // Debug: log selected object
+
+                // Clear the drawing area
+                if (containerRef.current) {
+                    JSROOT.cleanup(containerRef.current);
+                    JSROOT.draw(containerRef.current, obj, 'colz');
+                }
+
+                URL.revokeObjectURL(rootUrl); // Clean up URL object
+                setLoading(false);
+            } catch (err) {
+                setLoading(false);
+                setError(err.message);
+                console.log(err);
+            }
+        };
+
+        displaySelectedObject();
+    }, [selectedObject]);
 
     if (!render) {
         return null;
@@ -41,7 +142,38 @@ const RootTGraph = (props) => {
 
     console.log(x);
     console.log(y);
-    return <div ref={rootContainerRef} style={{ width: '100%', height: '400px' }} />;
+    return (
+        <Tabs defaultActiveKey="rawData" id="root-viewer-tabs">
+            <Tab eventKey="rawData" title="RAW Data">
+                <div ref={rootContainerRef} style={{ width: '100%', height: '400px' }} />
+            </Tab>
+            <Tab eventKey="analysedData" title="Analysation result">
+                {!loading && !error && (
+                    <Form.Group>
+                        <Form.Label>Select Object to Display</Form.Label>
+                        <Form.Control
+                            as="select"
+                            value={selectedObject}
+                            onChange={handleObjectChange}
+                        >
+                            {objects.map((objectName, index) => (
+                                <option key={index} value={objectName}>
+                                    {objectName}
+                                </option>
+                            ))}
+                        </Form.Control>
+                    </Form.Group>
+                )}
+                {!loading && error && (
+                    <Alert key="rootFileError" variant="danger">
+                        {error}
+                    </Alert>
+                )}
+                <div ref={containerRef} style={{ width: '100%', height: '400px' }} />
+            </Tab>
+        </Tabs>
+    );
+    
 };
 
 export default RootTGraph;

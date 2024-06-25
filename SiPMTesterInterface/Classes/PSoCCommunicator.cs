@@ -6,7 +6,7 @@ using System.IO.Ports;
 using static SiPMTesterInterface.Classes.MeasurementMode;
 using SiPMTesterInterface.Models;
 using System.Net.WebSockets;
-using static SiPMTesterInterface.Classes.Cooler;
+using static SiPMTesterInterface.Classes.CoolerResponse;
 using SiPMTesterInterface.Enums;
 using System.Text;
 using System.Globalization;
@@ -27,14 +27,47 @@ namespace SiPMTesterInterface.Classes
         public PSoCCommunicatorDataModel Data { get; set; }
     }
 
+    public class CoolerDataReceivedEventArgs : EventArgs
+    {
+        public CoolerDataReceivedEventArgs() : base()
+        {
+            Data = new CoolerResponse();
+        }
+
+        public CoolerDataReceivedEventArgs(CoolerResponse c) : base()
+        {
+            Data = c;
+        }
+        public CoolerResponse Data { get; set; }
+    }
+
+    public class TemperatureDataReceivedEventArgs : EventArgs
+    {
+        public TemperatureDataReceivedEventArgs() : base()
+        {
+            Data = new TemperaturesArray();
+        }
+
+        public TemperatureDataReceivedEventArgs(TemperaturesArray t) : base()
+        {
+            Data = t;
+        }
+        public TemperaturesArray Data { get; set; }
+    }
+
     public class PSoCCommunicator : SerialPortHandler
 	{
         public Queue<TemperaturesArray> Temperatures { get; private set; }
-        public Queue<Cooler> CoolerStates { get; private set; }
+        public Queue<CoolerResponse> CoolerStates { get; private set; }
         private int bufferSize = 5000; //store n number of temperatureArrays
         public TimeSpan UpdatePeriod { get; private set; } = TimeSpan.FromSeconds(0);
         private Timer _timer;
         public event EventHandler<PSoCCommuicatorDataReadEventArgs> OnDataReadout;
+
+        private int activeBlock = 0;
+
+        public event EventHandler<CoolerDataReceivedEventArgs> OnCoolerDataReceived;
+        public event EventHandler<TemperatureDataReceivedEventArgs> OnTemperatureDataReceived;
 
         public PSoCCommunicator(IConfiguration config, ILogger<SerialPortHandler> logger) : this(new SerialSettings(config, "Pulser"), logger)
         {
@@ -49,7 +82,7 @@ namespace SiPMTesterInterface.Classes
             base(logger,Port, Baud, Timeout, Enabled, autoDetect, autoDetectString, autoDetectExpectedAnswer)
 		{
             Temperatures = new Queue<TemperaturesArray>(bufferSize);
-            CoolerStates = new Queue<Cooler>(bufferSize);
+            CoolerStates = new Queue<CoolerResponse>(bufferSize);
             _timer = new Timer(TimerCallback, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
         }
 
@@ -65,7 +98,7 @@ namespace SiPMTesterInterface.Classes
             Temperatures.Enqueue(temperatureArray);
         }
 
-        public void AddCoolerArray(Cooler coolerState)
+        public void AddCoolerArray(CoolerResponse coolerState)
         {
             // If buffer is full, dequeue the oldest element
             if (CoolerStates.Count == bufferSize)
@@ -77,16 +110,18 @@ namespace SiPMTesterInterface.Classes
             CoolerStates.Enqueue(coolerState);
         }
 
-        public void RefreshData()
+        public void RefreshData(int block = 0)
         {
             //TODO: Handle blocks properly here
             bool timeoutHappened;
             try
             {
-                TemperaturesArray t = ReadTemperatures(0);
-                Cooler c = GetCoolerState(0);
+                TemperaturesArray t = ReadTemperatures(block);
+                CoolerResponse c = GetCoolerState(block);
                 AddTemperatureArray(t);
+                OnTemperatureDataReceived?.Invoke(this, new TemperatureDataReceivedEventArgs(t));
                 AddCoolerArray(c);
+                OnCoolerDataReceived?.Invoke(this, new CoolerDataReceivedEventArgs(c));
                 timeoutHappened = false;
                 OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
             }
@@ -94,6 +129,12 @@ namespace SiPMTesterInterface.Classes
             {
                 timeoutHappened = true;
                 _logger.LogWarning($"PSoC reading timeout: {ex.Message}");
+            }
+            catch(Exception ex)
+            {
+                timeoutHappened = false;
+                _logger.LogDebug(ex.StackTrace);
+                _logger.LogDebug(ex.Message);
             }
 
             try
@@ -114,7 +155,7 @@ namespace SiPMTesterInterface.Classes
             {
                 return;
             }
-            RefreshData();
+            RefreshData(activeBlock);
         }
 
         public void ChangeTimerInterval(TimeSpan period)
@@ -143,7 +184,7 @@ namespace SiPMTesterInterface.Classes
 
         public void StopTimer()
         {
-            ChangeTimerInterval(Timeout.Infinite);
+            ChangeTimerInterval(0);
         }
 
         //Block - a dupla egység
@@ -185,7 +226,11 @@ namespace SiPMTesterInterface.Classes
                 command += b.ToString() + ",";
             }
             command = command.Remove(command.Length - 1);
-
+            if (mode != MeasurementModes.DMMResistanceMeasurement && mode != MeasurementModes.Off)
+            {
+                activeBlock = block;
+                // can start timer here
+            }
             WriteCommand(command);
         }
 
@@ -210,14 +255,14 @@ namespace SiPMTesterInterface.Classes
             {
                 tempd[i] = double.Parse(temps[i].Replace(',', '.'));
             }
-            return new TemperaturesArray(tempd);
+            return new TemperaturesArray(block, tempd);
         }
 
-        public Cooler GetCoolerState(int block)
+        public CoolerResponse GetCoolerState(int block)
         {
             string command = "get_cooler_state," + block.ToString();
             WriteCommand(command);
-            Cooler cooler = new Cooler(LastLine);
+            CoolerResponse cooler = new CoolerResponse(block, LastLine);
             //Trace.WriteLine(cooler.ToString());
             return cooler;
         }
@@ -276,40 +321,47 @@ namespace SiPMTesterInterface.Classes
                     throw new ArgumentException("Unknown PSU");
             }
             string command = $"enable_{psuStr}_psu,{block.ToString()}";
-            WriteCommand(command);
+            try
+            {
+                WriteCommand(command);
+            }
+            catch (Exception)
+            {
+                if (LastLine.Contains("overcurrent", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Overcurrent detected");
+                }
+                else if (LastLine.Contains("overvoltage", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Overvoltage detected");
+                }
+                else if (LastLine.Contains("undervoltage", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Undervoltage detected");
+                }
+                else if (LastLine.Contains("powergood L", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Power failure detected");
+                }
+                else if (LastLine.Contains("enable io exp read error", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("IO expander write error");
+                }
+                else if (LastLine.Contains("PG io exp read error", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("IO expander power failure detected");
+                }
+                else if (LastLine.Contains("INA226 read error", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Unable to read INA226");
+                }
+                else if (LastLine.Contains("unknown error", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    throw new ErrorMessageReceivedException("Unknown error detected");
+                }
+            }
+            
             //TODO: add custom exceptions
-            if (LastLine.ToLower().Contains("overcurrent".ToLower()))
-            {
-                throw new Exception("Overcurrent detected");
-            }
-            else if (LastLine.ToLower().Contains("overvoltage".ToLower()))
-            {
-                throw new Exception("Overvoltage detected");
-            }
-            else if (LastLine.ToLower().Contains("undervoltage".ToLower()))
-            {
-                throw new Exception("Undervoltage detected");
-            }
-            else if (LastLine.ToLower().Contains("powergood L".ToLower()))
-            {
-                throw new Exception("Power failure detected");
-            }
-            else if (LastLine.ToLower().Contains("enable io exp read error".ToLower()))
-            {
-                throw new Exception("IO expander write error");
-            }
-            else if (LastLine.ToLower().Contains("PG io exp read error".ToLower()))
-            {
-                throw new Exception("IO expander power failure detected");
-            }
-            else if (LastLine.ToLower().Contains("INA226 read error".ToLower()))
-            {
-                throw new Exception("Unable to read INA226");
-            }
-            else if (LastLine.ToLower().Contains("unknown error".ToLower()))
-            {
-                throw new Exception("Unknown error detected");
-            }
             string lastline = ExtractDataFromResponse();
             string[] strArray = lastline.Split(',');
             if (strArray.Length != 2)
@@ -335,22 +387,13 @@ namespace SiPMTesterInterface.Classes
                     throw new ArgumentException("Unknown PSU");
             }
             string command = $"disable_{psuStr}_psu,{block.ToString()}";
+            StopTimer();
             WriteCommand(command);
         }
 
-        public bool IsPulserOpened()
+        public void ParseAndThrowError(string response)
         {
-            string command = "get_instrument_name";
-            WriteCommand(command);
-            Console.WriteLine($"Received string: {LastLine}");
-            if (LastLine.Contains("Pulser") && LastLine.Contains("OK"))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+
         }
     }
 }

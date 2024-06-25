@@ -11,7 +11,10 @@ function VoltageListComponent(props) {
     const { measurementData, updateVoltages, addToast } = useContext(MeasurementContext);
 
     const getCurrentListValue = () => {
+        if (typeof measurementData.Blocks[BlockIndex] !== 'undefined')
+            console.log(measurementData.Blocks[BlockIndex].Modules);
         if (BlockIndex !== undefined && ModuleIndex !== undefined && ArrayIndex !== undefined && SiPMIndex !== undefined) {
+            console.log("Updating sipm in array");
             if (MeasurementMode === 'IV') {
                 return measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex].IVVoltages;
             }
@@ -19,7 +22,15 @@ function VoltageListComponent(props) {
                 return measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex].SPSVoltages;
             }
         }
+        else if (BlockIndex !== undefined && ModuleIndex !== undefined && ArrayIndex !== undefined) {
+            console.log("Updating all sipm in array");
+            const firstIVVoltages = measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[0].IVVoltages;
+            if (measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.every(sipm => sipm.IVVoltages.length === firstIVVoltages.length && sipm.IVVoltages.every((voltage, index) => voltage === firstIVVoltages[index]))) {
+                return firstIVVoltages;
+            }
+        }
         else {
+            console.log("Updating all SiPMs data");
             if (MeasurementMode === 'IV') {
                 return measurementData.IVVoltages;
             }

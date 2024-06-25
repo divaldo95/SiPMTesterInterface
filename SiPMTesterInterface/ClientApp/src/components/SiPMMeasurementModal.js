@@ -26,7 +26,7 @@ function SiPMMeasurementModal(props) {
             console.log(y);
         } catch (error) {
             // Handle the error if needed
-            setError(error);
+            //setError(error);
             //console.log(error);
         }
         setIsLoading(false);
@@ -47,7 +47,7 @@ function SiPMMeasurementModal(props) {
     }
 
     return (
-        <Modal show={showModal} onHide={closeModal} onShow={() => handleModalOpen(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)} centered size="lg" fullscreen={false}>
+        <Modal scrollable show={showModal} onHide={closeModal} onShow={() => handleModalOpen(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)} centered size="lg" fullscreen={false}>
             <Modal.Header closeButton>
                 <Modal.Title>{`SiPM Measurement (Block: ${BlockIndex} Module: ${ModuleIndex} Array: ${ArrayIndex} SiPM: ${SiPMIndex})`}</Modal.Title>
             </Modal.Header>
@@ -69,7 +69,7 @@ function SiPMMeasurementModal(props) {
                                             </div>
                                         ) : (
                                             <>
-                                                <RootTGraphComponent render={renderGraph} x={x} y={y}>
+                                                <RootTGraphComponent render={renderGraph} x={x} y={y} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex}>
                                                 </RootTGraphComponent>
                                                 <Table bordered>
                                                     <thead>

@@ -21,15 +21,18 @@ import LogModal from './LogModal';
 import ErrorMessageModal from './ErrorMessageModal';
 import MeasurementSidebar from './MeasurementSidebar';
 import { Container, Row, Col } from 'react-bootstrap';
+import PulserValuesModal from './PulserValuesModal';
 
 function Measurement() {
     const [count, setCount] = useState(0);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
         updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
-        resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask, measurementDataView } = useContext(MeasurementContext);
+        resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask,
+        measurementDataView, showLogModal, handleCloseLogModal,
+        handleClosePulserLEDModal, showPulserLEDModal } = useContext(MeasurementContext);
 
-    const [showLogModal, setShowLogModal] = useState(false);
+    
     const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
     const [showErrorsDialog, setShowErrorsDialog] = useState(false);    
 
@@ -41,9 +44,6 @@ function Measurement() {
             setShowErrorsDialog(false);
         }
     }, [unresolvedLogCount]);
-
-    const handleShowLogModal = () => setShowLogModal(true);
-    const handleCloseLogModal = () => setShowLogModal(false);
 
     const handleErrorMessageBtnClick = async (errorId, buttonType) => {
         try {
@@ -306,6 +306,7 @@ function Measurement() {
     };
 
     const sidebarMargin = () => {
+        return '0px';
         if(sidebarCollapsed) {
             return '80px';
         }
@@ -317,11 +318,12 @@ function Measurement() {
     return (
         <>
             <div style={{ display: 'flex' }}>
-                <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar>
+                { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
                 <div className="m-3" style={{ marginLeft: `${sidebarMargin()}`, paddingLeft: `${sidebarMargin()}`, width: '100%' }}>
                     <ToastComponent></ToastComponent>
                     <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
                     <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
+                    <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
                     <div className={`${count !== 0 ? 'd-none' : ''}`}>
                         <div className="row mb-4">
                             <div className="col">

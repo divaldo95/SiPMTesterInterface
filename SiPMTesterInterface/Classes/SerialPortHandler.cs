@@ -9,6 +9,51 @@ using SiPMTesterInterface.Models;
 
 namespace SiPMTesterInterface.Classes
 {
+    public class SerialTimeoutLimitReachedException : Exception
+    {
+        public SerialTimeoutLimitReachedException()
+        {
+        }
+
+        public SerialTimeoutLimitReachedException(string message)
+            : base(message)
+        {
+        }
+
+        public SerialTimeoutLimitReachedException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
+
+    public class ErrorMessageReceivedException : Exception
+    {
+        public ErrorMessageReceivedException()
+        {
+        }
+
+        public ErrorMessageReceivedException(string message)
+            : base(message)
+        {
+        }
+
+        public ErrorMessageReceivedException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
+    }
+
+    public class SerialErrorMessageReceivedEventArgs : EventArgs
+    {
+        //It can be error or invalid
+        public SerialErrorMessageReceivedEventArgs(string message, bool isError) : base()
+        {
+            IsError = isError;
+            ReceivedMessage = message;
+        }
+        public bool IsError { get; set; }
+        public string ReceivedMessage { get; set; }
+    }
 
     public class SerialConnectionStateChangedEventArgs : EventArgs
     {
@@ -31,7 +76,6 @@ namespace SiPMTesterInterface.Classes
         string _Port = "";
         int _Baud = 115200;
         int _Timeout = 10000;
-
 
         bool _AutoDetect = false;
         string _AutoDetectString = "";
@@ -60,6 +104,7 @@ namespace SiPMTesterInterface.Classes
         }
 
         private int TimeoutCounter { get; set; } = 0;
+        public int MaxTimeoutCount { get; set; } = 5;
         protected readonly ILogger<SerialPortHandler> _logger;
 
         public bool Enabled { get; protected set; } = false;
@@ -67,6 +112,7 @@ namespace SiPMTesterInterface.Classes
 
         public string LastLine { get; private set; } = "";
         public event EventHandler<SerialConnectionStateChangedEventArgs> OnSerialStateChanged;
+        public event EventHandler<SerialErrorMessageReceivedEventArgs> OnSerialErrorMessageReceived;
 
         public SerialPortHandler(IConfiguration config, ILogger<SerialPortHandler> logger, string obj) : this(new SerialSettings(config, obj), logger)
         {
@@ -90,6 +136,7 @@ namespace SiPMTesterInterface.Classes
 
         public void Init()
         {
+            TimeoutCounter = 0;
             _messageReceived = new AutoResetEvent(false);
             if (_serialPort == null)
             {
@@ -184,6 +231,14 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
+        public void Restart()
+        {
+            Stop();
+            Close();
+            Init();
+            Start();
+        }
+
         protected void TimeoutHandler(bool timeoutHappened = false)
         {
             if (timeoutHappened)
@@ -196,12 +251,10 @@ namespace SiPMTesterInterface.Classes
             }
 
             //Try to restart serial communication
-            if (TimeoutCounter >= 3)
+            if (TimeoutCounter >= MaxTimeoutCount)
             {
-                Stop();
-                Start();
+                throw new SerialTimeoutLimitReachedException($"Timeout limit reached {TimeoutCounter}/{MaxTimeoutCount}");
             }
-            
         }
 
         protected void WriteCommand(string command)
@@ -216,6 +269,7 @@ namespace SiPMTesterInterface.Classes
                 {
                     return;
                 }
+                string errorMessage = "";
                 int retry_cnt = 0;
                 int retry_num = 3;
                 while (retry_cnt < retry_num)
@@ -226,23 +280,43 @@ namespace SiPMTesterInterface.Classes
                         _logger.LogDebug("Command sent to serial pulser: " + command);
                         _serialPort.DiscardInBuffer();
                         _serialPort.Write(command + System.Convert.ToChar(System.Convert.ToUInt32("0x0D", 16)));
-                        LastLine = _serialPort.ReadLine();
+                        LastLine = _serialPort.ReadLine(); //Try with read
                         _logger.LogDebug("Received: " + LastLine);
 
-                        if (LastLine.ToLower().Contains("ERROR".ToLower()) || LastLine.ToLower().Contains("invalid".ToLower())) //if returned with error, increase counter and try again
+                        if (LastLine.Contains("ERROR", StringComparison.CurrentCultureIgnoreCase) || LastLine.Contains("invalid", StringComparison.CurrentCultureIgnoreCase)) //if returned with error, increase counter and try again
                         {
+                            string lowerCaseResp = LastLine.ToLower();
+                            int indexError = lowerCaseResp.IndexOf("error");
+                            int indexInvalid = lowerCaseResp.IndexOf("invalid");
+                            if (indexError < 0 && indexInvalid < 0)
+                            {
+                                _logger.LogDebug("Could not extract data from responses");
+                                errorMessage = LastLine;
+                            }
+                            else
+                            {
+                                int usedIndex = (indexError != -1 ? indexError : indexInvalid);
+                                errorMessage = LastLine.Substring(usedIndex);
+                            }
                             _logger.LogDebug("Serial port returned with error. Trying again... (" + retry_cnt + "/" + retry_num + ")");
                             retry_cnt++;
+                            if (retry_cnt >= retry_num)
+                            {
+                                // OnSerialErrorMessageReceived.Invoke(this, new SerialErrorMessageReceivedEventArgs(errorMessage, indexError >= 0));
+                                throw new ErrorMessageReceivedException(errorMessage);
+                            }
                             Thread.Sleep(2000);
                         }
                         else //if returned without error then exit from while loop
                         {
+                            TimeoutHandler(false);
                             break;
                         }
                     }
                     catch (TimeoutException exp)
                     {
                         retry_cnt++;
+                        TimeoutHandler(true);
                         Thread.Sleep(2000);
                         continue;
                     }
@@ -251,10 +325,6 @@ namespace SiPMTesterInterface.Classes
                         //Trace.WriteLine("Serial port error: " + e.Message);
                         throw;
                     }
-                }
-                if (retry_cnt >= retry_num)
-                {
-                    throw new TimeoutException("Serial port timeout");
                 }
             }
 

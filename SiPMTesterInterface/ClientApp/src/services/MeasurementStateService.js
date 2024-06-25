@@ -8,9 +8,15 @@ const API_STOP_URL = 'stop/'
 const API_DATA_URL = 'getsipmdata/'
 const API_SIPM_MEAS_STATUS_URL = 'measurementstates/'
 
+const API_DATA_TEST_ROOT_FILE = API_DATA_URL + 'TestRootFile/'
+
 const API_PULSER_STATE_URL = 'pulser/'
 const API_PULSER_DETAIL_URL = API_PULSER_STATE_URL + 'details/'
 const API_COOLER_URL = 'cooler/'
+const API_COOLER_ALL_URL = 'cooler/all'
+
+const API_PULSER_LED_VALUES = 'pulsers/'
+const API_PULSER_ARRAY_OFFSETS = API_PULSER_LED_VALUES + 'offset/'
 
 const API_ALL_LOGS = 'logs/all/'
 const API_UNRESOLVED_LOGS = 'logs/unresolved/'
@@ -183,6 +189,15 @@ const MeasurementStateService = {
             throw error; // You can handle the error as needed in your application
         }
     },
+    getAllCooler: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_COOLER_ALL_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching all cooler state:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
     setCooler: async (block, module, enabled, targetTemperature, fanSpeed) => {
         try {
             const data = {
@@ -205,14 +220,82 @@ const MeasurementStateService = {
             throw error; // You can handle the error as needed in your application
         }
     },
-    getRootFile: async (blockIndex, moduleIndex, arrayIndex, sipmIndex) => {
+    getIVRootFile: async (blockIndex, moduleIndex, arrayIndex, sipmIndex) => {
         try {
-            const response = await axios.get(API_BASE_URL + API_DATA_URL + blockIndex + "/" + moduleIndex + "/" + arrayIndex + "/" + sipmIndex + "/RootFile", {
+            const response = await axios.get(API_BASE_URL + API_DATA_URL + blockIndex + "/" + moduleIndex + "/" + arrayIndex + "/" + sipmIndex + "/RootFile/IV/", {
                 responseType: 'blob'
             });
             return response.data;
         } catch (error) {
             console.error('Error fetching sipm measurement data file:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getTestRootFile: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_DATA_TEST_ROOT_FILE, {
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching test sipm measurement root file:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getPulserLEDValues: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_PULSER_LED_VALUES);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching pulser LED values:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    setPulserLEDValue: async (block, module, array, sipm, led) => {
+        try {
+            const data = {
+                "SiPM": {
+                    "Block": block,
+                    "Module": module,
+                    "Array": array,
+                    "SiPM": sipm
+                },
+                "PulserValue": led
+            };
+            const json = JSON.stringify(data);
+            const response = await axios.post(API_BASE_URL + API_PULSER_LED_VALUES, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error setting pulser LED value:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    setArrayLEDOffset: async (block, module, array, led) => {
+        try {
+            const data = {
+                "SiPM": {
+                    "Block": block,
+                    "Module": module,
+                    "Array": array,
+                    "SiPM": 0
+                },
+                "PulserValue": led
+            };
+            const json = JSON.stringify(data);
+            const response = await axios.post(API_BASE_URL + API_PULSER_ARRAY_OFFSETS, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error setting pulser LED value:', error);
             throw error; // You can handle the error as needed in your application
         }
     },

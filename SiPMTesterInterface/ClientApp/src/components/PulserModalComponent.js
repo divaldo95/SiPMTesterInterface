@@ -1,9 +1,12 @@
-﻿import { useMemo, useEffect, useState } from 'react';
+﻿import { useMemo, useEffect, useState, useContext } from 'react';
 import { Modal, Button, Spinner, Form, InputGroup, FloatingLabel } from 'react-bootstrap';
 import { Chart } from 'react-charts';
 import MeasurementStateService from '../services/MeasurementStateService';
 import CoolerSettingsComponent from './CoolerSettingsComponent';
 import TemperaturesTable from './TemperaturesTable';
+import CoolerTable from './CoolerTable';
+import { MeasurementContext } from '../context/MeasurementContext';
+
 
 function PulserModalComponent(props) {
     const { showModal, closeModal } = props;
@@ -13,11 +16,13 @@ function PulserModalComponent(props) {
     const [isIntervalUpdateError, setIsIntervalUpdateError] = useState(false);
 
     const [pulserFormData, setPulserFormData] = useState({
-        PulserConnected: false,
-        PulserReadingInterval: 0,
+        PulserState: false,
+        TotalSeconds: 0,
         Temperatures: [],
         CoolerStates: []
     });
+
+    const { coolerStateHandler, updateCoolerData, updateCoolerStateHandler } = useContext(MeasurementContext);
 
     const [validated, setValidated] = useState(false);
 
@@ -44,7 +49,7 @@ function PulserModalComponent(props) {
         e.preventDefault();
         setIsIntervalWaitingUpdate(true);
 
-        MeasurementStateService.setPulser(pulserFormData.PulserReadingInterval)
+        MeasurementStateService.setPulser(pulserFormData.TotalSeconds)
             .then((resp) => {
                 setIsIntervalUpdateSuccess(true);
                 setIsIntervalUpdateError(false);
@@ -72,8 +77,13 @@ function PulserModalComponent(props) {
     };
 
     useEffect(() => {
-        refreshPulserState();
+        refreshAll();
     }, []); // Empty dependency array ensures the effect runs only once when the component mounts
+
+    const refreshAll = () => {
+        refreshPulserState();
+        refreshCoolerStates();
+    }
 
     const refreshPulserState = async () => {
         setIsLoading(true);
@@ -84,8 +94,8 @@ function PulserModalComponent(props) {
                     console.log(resp);
                     setPulserFormData(prevFormData => ({
                         ...prevFormData,
-                        PulserConnected: resp.PulserConnected,
-                        PulserReadingInterval: resp.PulserReadingInterval,
+                        PulserState: resp.PulserState,
+                        TotalSeconds: resp.TotalSeconds,
                         Temperatures: resp.Temperatures,
                         CoolerStates: resp.CoolerStates
                     }));
@@ -93,6 +103,19 @@ function PulserModalComponent(props) {
 
         } catch (error) {
             setIsLoading(false);
+        }
+    };
+
+    const refreshCoolerStates = async () => {
+        try {
+            const data = await MeasurementStateService.getAllCooler()
+                .then((resp) => {
+                    console.log(resp);
+                    updateCoolerStateHandler(resp);
+                })
+
+        } catch (error) {
+            console.log(error);
         }
     };
 
@@ -152,16 +175,16 @@ function PulserModalComponent(props) {
                         <FloatingLabel controlId="floatingPulserInput" label="Pulser readout interval in seconds (int)">
                             <Form.Control
                                 type="number"
-                                placeholder="Pulser readout interval in seconds (int)"
+                                placeholder="Pulser readout interval in seconds"
                                 aria-label="Readout interval"
                                 aria-describedby="pulser-submit-btn"
-                                value={pulserFormData.PulserReadingInterval}
+                                value={pulserFormData.TotalSeconds}
                                 onChange={handlePulserChange}
-                                name="PulserReadingInterval"
+                                name="TotalSeconds"
                                 min="0"
                                 max="60"
                                 required
-                                isInvalid={validated && (pulserFormData.PulserReadingInterval < 0 || pulserFormData.PulserReadingInterval > 60)}
+                                isInvalid={validated && (pulserFormData.TotalSeconds < 0 || pulserFormData.TotalSeconds > 60)}
                             />
                             <Form.Control.Feedback type="invalid">
                                 Please enter a value between 0 and 60.
@@ -187,12 +210,18 @@ function PulserModalComponent(props) {
                     </InputGroup>
                 </Form>
 
-                <CoolerSettingsComponent></CoolerSettingsComponent>
+                <CoolerSettingsComponent coolerData={coolerStateHandler} updateCoolerData={updateCoolerData}></CoolerSettingsComponent>
 
                 <TemperaturesTable temperaturesArray={pulserFormData.Temperatures}>
                 </TemperaturesTable>
+
+                <CoolerTable coolerArray={pulserFormData.CoolerStates}>
+                </CoolerTable>
             </Modal.Body>
             <Modal.Footer>
+                <Button variant="primary" onClick={refreshAll}>
+                    Refresh data
+                </Button>
                 <Button variant="secondary" onClick={closeModal}>
                     Close
                 </Button>

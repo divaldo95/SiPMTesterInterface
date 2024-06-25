@@ -6,13 +6,13 @@ namespace SiPMTesterInterface.Models
     public class PSoCCommunicatorDataModel
     {
         public TemperaturesArray? Temperature { get; set; }
-        public Cooler? CoolerState { get; set; }
+        public CoolerResponse? CoolerState { get; set; }
 
         public PSoCCommunicatorDataModel()
         {
         }
 
-        public PSoCCommunicatorDataModel(TemperaturesArray t, Cooler c)
+        public PSoCCommunicatorDataModel(TemperaturesArray t, CoolerResponse c)
         {
             Temperature = t;
             CoolerState = c;

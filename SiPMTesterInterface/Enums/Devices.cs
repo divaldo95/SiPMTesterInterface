@@ -6,7 +6,9 @@ namespace SiPMTesterInterface.Enums
 		NIMachine,
 		Pulser,
 		HVPSU,
-		DAQ
+		DAQ,
+		Unknown,
+		APSU
 	}
 }
 

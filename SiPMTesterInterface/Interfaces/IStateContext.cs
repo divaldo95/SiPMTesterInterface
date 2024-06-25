@@ -23,6 +23,11 @@ namespace SiPMTesterInterface.Interfaces
 
         public Task ReceiveCurrentTask(TaskTypes currentTask);
 
+        public Task ReceiveModuleCoolerData(ModuleCoolerState moduleCoolerState);
+        public Task ReceiveTemperatureData(TemperaturesArray temp);
+
+        public Task ReceivePulserReadoutIntervalChange(int interval);
+
     }
 }
 
