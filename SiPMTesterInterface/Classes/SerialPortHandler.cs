@@ -163,6 +163,11 @@ namespace SiPMTesterInterface.Classes
             {
                 try
                 {
+                    // Pulser and HVPSU always gets ttyUSB serial port names
+                    if (!port.Contains("ttyUSB", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        continue;
+                    }
                     string received = "";
                     var serial = new SerialPortHandler(logger, port, Baud, Timeout, true, false, autoDetectString, autoDetectExpectedAnswer);
                     serial.Init();

@@ -60,11 +60,13 @@ namespace SiPMTesterInterface.Classes
         public Queue<TemperaturesArray> Temperatures { get; private set; }
         public Queue<CoolerResponse> CoolerStates { get; private set; }
         private int bufferSize = 5000; //store n number of temperatureArrays
-        public TimeSpan UpdatePeriod { get; private set; } = TimeSpan.FromSeconds(0);
+        public TimeSpan UpdatePeriod { get; private set; } = TimeSpan.FromSeconds(5);
+
+        private bool timerIsRunning = false;
         private Timer _timer;
         public event EventHandler<PSoCCommuicatorDataReadEventArgs> OnDataReadout;
 
-        private int activeBlock = 0;
+        public List<int> ActiveBlocks { get; private set; } = new List<int>();
 
         public event EventHandler<CoolerDataReceivedEventArgs> OnCoolerDataReceived;
         public event EventHandler<TemperatureDataReceivedEventArgs> OnTemperatureDataReceived;
@@ -84,6 +86,10 @@ namespace SiPMTesterInterface.Classes
             Temperatures = new Queue<TemperaturesArray>(bufferSize);
             CoolerStates = new Queue<CoolerResponse>(bufferSize);
             _timer = new Timer(TimerCallback, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+            if (UpdatePeriod.Seconds > 0)
+            {
+                StartTimer();
+            }
         }
 
         public void AddTemperatureArray(TemperaturesArray temperatureArray)
@@ -110,20 +116,23 @@ namespace SiPMTesterInterface.Classes
             CoolerStates.Enqueue(coolerState);
         }
 
-        public void RefreshData(int block = 0)
+        public void RefreshData()
         {
             //TODO: Handle blocks properly here
             bool timeoutHappened;
             try
             {
-                TemperaturesArray t = ReadTemperatures(block);
-                CoolerResponse c = GetCoolerState(block);
-                AddTemperatureArray(t);
-                OnTemperatureDataReceived?.Invoke(this, new TemperatureDataReceivedEventArgs(t));
-                AddCoolerArray(c);
-                OnCoolerDataReceived?.Invoke(this, new CoolerDataReceivedEventArgs(c));
+                foreach (var block in ActiveBlocks)
+                {
+                    TemperaturesArray t = ReadTemperatures(block);
+                    CoolerResponse c = GetCoolerState(block);
+                    AddTemperatureArray(t);
+                    OnTemperatureDataReceived?.Invoke(this, new TemperatureDataReceivedEventArgs(t));
+                    AddCoolerArray(c);
+                    OnCoolerDataReceived?.Invoke(this, new CoolerDataReceivedEventArgs(c));
+                    OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
+                }
                 timeoutHappened = false;
-                OnDataReadout?.Invoke(this, new PSoCCommuicatorDataReadEventArgs(new PSoCCommunicatorDataModel(t, c)));
             }
             catch (TimeoutException ex)
             {
@@ -155,7 +164,15 @@ namespace SiPMTesterInterface.Classes
             {
                 return;
             }
-            RefreshData(activeBlock);
+            try
+            {
+                RefreshData();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Refresh error: {ex.Message}");
+            }
+            
         }
 
         public void ChangeTimerInterval(TimeSpan period)
@@ -179,12 +196,21 @@ namespace SiPMTesterInterface.Classes
 
         public void StartTimer()
         {
-            ChangeTimerInterval(UpdatePeriod);
+            if (!timerIsRunning)
+            {
+                ChangeTimerInterval(UpdatePeriod);
+                timerIsRunning = true;
+            }
+            
         }
 
         public void StopTimer()
         {
-            ChangeTimerInterval(0);
+            if (timerIsRunning)
+            {
+                ChangeTimerInterval(0);
+                timerIsRunning = false;
+            }
         }
 
         //Block - a dupla egység
@@ -226,11 +252,6 @@ namespace SiPMTesterInterface.Classes
                 command += b.ToString() + ",";
             }
             command = command.Remove(command.Length - 1);
-            if (mode != MeasurementModes.DMMResistanceMeasurement && mode != MeasurementModes.Off)
-            {
-                activeBlock = block;
-                // can start timer here
-            }
             WriteCommand(command);
         }
 
@@ -324,6 +345,22 @@ namespace SiPMTesterInterface.Classes
             try
             {
                 WriteCommand(command);
+                bool timerState = timerIsRunning;
+                TimeSpan interval = UpdatePeriod;
+                if (timerIsRunning)
+                {
+                    StopTimer();
+                }
+                if (!ActiveBlocks.Contains(block))
+                {
+                    ActiveBlocks.Add(block);
+                }
+                WriteCommand(command);
+                if (timerState)
+                {
+                    UpdatePeriod = interval;
+                    StartTimer();
+                }
             }
             catch (Exception)
             {
@@ -387,13 +424,22 @@ namespace SiPMTesterInterface.Classes
                     throw new ArgumentException("Unknown PSU");
             }
             string command = $"disable_{psuStr}_psu,{block.ToString()}";
-            StopTimer();
+            bool timerState = timerIsRunning;
+            TimeSpan interval = UpdatePeriod;
+            if (timerIsRunning)
+            {
+                StopTimer();
+            }
+            if (ActiveBlocks.Contains(block))
+            {
+                ActiveBlocks.Remove(block);
+            }
             WriteCommand(command);
-        }
-
-        public void ParseAndThrowError(string response)
-        {
-
+            if (timerState)
+            {
+                UpdatePeriod = interval;
+                StartTimer();
+            }
         }
     }
 }

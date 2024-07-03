@@ -5,7 +5,8 @@
     SPSDMM: 3,
     Waiting: 4,
     Finished: 5,
-    Idle: 6
+    Idle: 6,
+    TemperatureStabilisation: 7
 }
 
 export function TaskTypesString(type) {
@@ -24,6 +25,8 @@ export function TaskTypesString(type) {
             return "Finished";
         case TaskTypes.Idle:
             return "Idle";
+        case TaskTypes.TemperatureStabilisation:
+            return "Waiting for Temperature";
         default:
             return "";
     }

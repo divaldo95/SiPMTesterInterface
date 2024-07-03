@@ -6,6 +6,7 @@ import { Form, Spinner, Button, Tabs, Tab, Alert } from 'react-bootstrap';
 const RootTGraph = (props) => {
     const { x, y, render, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex } = props;
     const rootContainerRef = useRef(null);
+    const ivFitContainerRef = useRef(null);
     const [graph, setGraph] = useState(null);
 
     const [objects, setObjects] = useState([]);
@@ -28,8 +29,16 @@ const RootTGraph = (props) => {
             const file = await JSROOT.openFile(rootUrl);
             const obj = await file.readObject(e.target.value);
 
+            
+
             if (containerRef.current) {
                 JSROOT.draw(containerRef.current, obj, 'colz');
+            }
+
+            const ivFitObj = await file.readObject("fitted_data;1");
+
+            if (ivFitContainerRef.current) {
+                JSROOT.draw(ivFitContainerRef.current, ivFitObj, 'colz');
             }
 
             URL.revokeObjectURL(rootUrl); // Clean up URL object
@@ -143,11 +152,12 @@ const RootTGraph = (props) => {
     console.log(x);
     console.log(y);
     return (
-        <Tabs defaultActiveKey="rawData" id="root-viewer-tabs">
+        <Tabs defaultActiveKey="analysedData" id="root-viewer-tabs">
             <Tab eventKey="rawData" title="RAW Data">
                 <div ref={rootContainerRef} style={{ width: '100%', height: '400px' }} />
             </Tab>
             <Tab eventKey="analysedData" title="Analysation result">
+                <div ref={ivFitContainerRef} style={{ width: '100%', height: '400px' }} />
                 {!loading && !error && (
                     <Form.Group>
                         <Form.Label>Select Object to Display</Form.Label>
@@ -169,6 +179,7 @@ const RootTGraph = (props) => {
                         {error}
                     </Alert>
                 )}
+                
                 <div ref={containerRef} style={{ width: '100%', height: '400px' }} />
             </Tab>
         </Tabs>

@@ -9,7 +9,8 @@ namespace SiPMTesterInterface.Enums
         SPSDMM = 3,
         Waiting = 4,
         Finished = 5,
-        Idle = 6
+        Idle = 6,
+        TemperatureStabilisation = 7
     }
 }
 

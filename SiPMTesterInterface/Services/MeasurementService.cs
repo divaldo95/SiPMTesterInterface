@@ -159,7 +159,10 @@ namespace SiPMTesterInterface.ClientApp.Services
         private List<CurrentSiPMModel> ivSiPMs;
         private List<CurrentSiPMModel> spsSiPMs;
 
-        private bool _PSUAEnabled = false;
+        private int actualBlock = -1;
+        private int actualModule = -1;
+        private bool waitForTemperatureStabilisation = false;
+        private bool currentlyWaitingForTemperatureStabilisation = false;
 
         private readonly IConfiguration Configuration;
 
@@ -264,6 +267,18 @@ namespace SiPMTesterInterface.ClientApp.Services
             });
         }
 
+        public void CheckBlockStatus(int previousBlock, int nextBlock)
+        {
+            //if (actualBlock != sipms[0].Block && actualBlock > -1 && coolerState.GetAPSUState(actualBlock))
+            if (previousBlock != nextBlock && previousBlock > -1)
+            {
+                double voltage;
+                double current;
+                SetPSU(previousBlock, PSUs.PSU_A, false);
+                SetPSU(nextBlock, PSUs.PSU_A, true);
+            }
+        }
+
         public void CheckAndRunNext()
         {
             MeasurementType Type;
@@ -287,31 +302,84 @@ namespace SiPMTesterInterface.ClientApp.Services
                 _logger.LogWarning($"{logList.Count} logs waiting for user response");
                 return;
             }
-
-            if (Pulser.Enabled && !_PSUAEnabled)
+            int nextBlock;
+            int nextModule;
+            MeasurementType nextMeasurementType;
+            try
             {
-                try
+                if (IsBlockOrModuleChanging(out nextBlock, out nextModule, out nextMeasurementType))
                 {
-                    double voltage = 0.0;
-                    double current = 0.0;
-                    Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
-                    _PSUAEnabled = true;
-                    CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    _logger.LogDebug($"Next measurement type is {nextMeasurementType}");
+                    if (!coolerState.GetCoolerSettings(nextBlock, nextModule).Enabled)
+                    {
+                        // enable next
+                        CoolerSettingsModel s = new CoolerSettingsModel();
+                        s.Block = nextBlock;
+                        s.Module = nextModule;
+                        s.Enabled = true;
+                        s.TargetTemperature = 24.0;
+                        s.FanSpeed = 10;
+                        SetCooler(s);
+
+                        // disable previous
+                        if (actualBlock > -1 && actualModule > -1)
+                        {
+                            s.Block = actualBlock;
+                            s.Module = actualModule;
+                            s.Enabled = false;
+                            s.TargetTemperature = 24.0;
+                            s.FanSpeed = 10;
+                            SetCooler(s);
+                        }
+                    }
+                    actualBlock = nextBlock;
+                    actualModule = nextModule;
                 }
-                catch (SerialTimeoutLimitReachedException ex)
+
+                if (nextMeasurementType == MeasurementType.IVMeasurement)
                 {
-                    CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                    _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                    return;
+                    _logger.LogDebug($"Let's wait for temperature stabilisation");
+                    waitForTemperatureStabilisation = true;
                 }
-                catch (Exception ex)
+                else
                 {
-                    CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.APSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                    _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                    return;
+                    _logger.LogDebug($"Do not wait for temperature stabilisation");
+                    waitForTemperatureStabilisation = false;
                 }
-                
             }
+            catch (SerialTimeoutLimitReachedException ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.APSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                return;
+            }
+
+
+            //wait for temperature stabilisation
+            
+            if (nextMeasurementType == MeasurementType.IVMeasurement)
+            {
+                _logger.LogDebug($"WaitForTemperatureStabilisation={waitForTemperatureStabilisation}, Block={actualBlock}, Module={actualModule}, TempStable={coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable}");
+                if (waitForTemperatureStabilisation && !coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable)
+                {
+                    currentlyWaitingForTemperatureStabilisation = true;
+                    _logger.LogDebug($"Waiting for temperature stabilisation...");
+                    CurrentTask = TaskTypes.TemperatureStabilisation;
+                    return;
+                }
+                else
+                {
+                    _logger.LogDebug($"Temperature stabilised");
+                    currentlyWaitingForTemperatureStabilisation = false;
+                }
+            }
+            
 
             Console.WriteLine("Checking new iteration...");
             if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
@@ -346,6 +414,36 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     CurrentTask = TaskTypes.IV;
                     ivSiPMs = sipms;
+
+                    //if next measurement is using another block
+                    
+
+                    if (Pulser.Enabled && !coolerState.GetAPSUState(actualBlock)) //if not enabled
+                    {
+                        try
+                        {
+                            double voltage = 0.0;
+                            double current = 0.0;
+                            Pulser.EnablePSU(actualBlock, PSUs.PSU_A, out voltage, out current);
+                            CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {actualBlock} enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
+                        }
+                        catch (SerialTimeoutLimitReachedException ex)
+                        {
+                            CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                            _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.APSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                            _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                            return;
+                        }
+                    }
+
+                    actualBlock = sipms[0].Block;
+                    actualModule = sipms[0].Module;
+
                     NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel; //some settings duplicated here and in ServiceState
                     if (sipms.Count != 1)
                     {
@@ -456,13 +554,27 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             try
             {
-                if (Pulser != null && Pulser.Enabled && _PSUAEnabled)
+                if (Pulser != null && Pulser.Enabled)
                 {
-                    Pulser?.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
-                    Pulser?.DisablePSU(0, PSUs.PSU_A);
-                    _PSUAEnabled = false;
-                    CreateAndSendLogMessage("Measurement Service - TryEndMeasurement", $"PSU A disabled.", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    foreach (var activeBlock in Pulser.ActiveBlocks)
+                    {
+                        for (int i = 0; i < 2; i++)
+                        {
+                            CoolerSettingsModel s = coolerState.GetCopyOfCoolerSettings(activeBlock, i);
+                            if (s.Enabled)
+                            {
+                                s.Enabled = false;
+                                SetCooler(s);
+                            }
+                        }
+
+                        SetPSU(activeBlock, PSUs.PSU_A, false);
+                        //CreateAndSendLogMessage("Measurement Service - TryEndMeasurement", $"PSU A disabled for block {activeBlock}.", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    }
+                    
                 }
+                actualBlock = -1;
+                actualModule = -1;
                 CurrentTask = TaskTypes.Finished;
                 EndTimestamp = TimestampHelper.GetUTCTimestamp();
             }
@@ -551,7 +663,9 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public void StopMeasurement()
         {
+
             MeasurementStopped = true;
+            CheckAndRunNext();
             niMachine?.StopMeasurement();
             Pulser?.DisablePSU(0, PSUs.PSU_A);
         }
@@ -604,7 +718,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                 if (pulserSettings.Enabled && pulserSettings.AutoDetect)
                 {
-                    string port = SerialPortHandler.GetAutoDetectedPort(psocSerialLogger, pulserSettings.BaudRate, pulserSettings.Timeout, pulserSettings.AutoDetectString, pulserSettings.AutoDetectExpectedAnswer);
+                    string port = SerialPortHandler.GetAutoDetectedPort(psocSerialLogger, pulserSettings.BaudRate, 500, pulserSettings.AutoDetectString, pulserSettings.AutoDetectExpectedAnswer);
                     pulserSettings.SerialPort = port;
                 }
 
@@ -622,9 +736,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                     Pulser.Init();
                     DeviceStates.SetInitState(Devices.Pulser, true);
                     Pulser.Start();
-                    Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
-                    CreateAndSendLogMessage("Measurement Service - Init - Pulser", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
-                    _PSUAEnabled = true;
+                    //Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
+                    //CreateAndSendLogMessage("Measurement Service - Init - Pulser", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
                     DeviceStates.SetStartedState(Devices.Pulser, true);
                 }
                 else
@@ -658,7 +771,6 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     SetRetryFailedMeasurement(MeasurementType.IVMeasurement);
                 }
-                _PSUAEnabled = false;
                 CheckAndRunNextAsync();
             }
 
@@ -760,6 +872,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             DeviceStates = new DeviceStatesModel();
 
             coolerState = new CoolerStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount);
+            coolerState.OnCoolerTemperatureStabilizationChanged += CoolerState_OnCoolerTemperatureStabilizationChanged;
 
             MeasurementStartModel startModel = new MeasurementStartModel();
             startModel.MeasureDMMResistance = true;
@@ -806,6 +919,16 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
 
             Console.WriteLine($"TestQuery: {JsonConvert.SerializeObject(startModel)}");
+        }
+
+        private void CoolerState_OnCoolerTemperatureStabilizationChanged(object? sender, CoolerTemperatureStabilizationChangedEventArgs e)
+        {
+            _logger.LogDebug($"Temperature state changed for Block {e.Block}, Module {e.Module} to {e.CurrentState} from {e.PreviousState}");
+            if (e.Block == actualBlock && e.Module == actualModule && e.CurrentState && currentlyWaitingForTemperatureStabilisation)
+            {
+                _logger.LogDebug("Checking temperature continue conditions");
+                CheckAndRunNextAsync();
+            }
         }
 
         //Events--------------------------------------------------------------------
@@ -1214,16 +1337,101 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
-        public void SetCooler(CoolerSettingsModel s)
+        public void SetPSU(int block, PSUs psu, bool Enabled, bool askedByUser = false)
         {
-            if (Pulser != null && Pulser.Enabled)
+            if (Pulser == null)
             {
+                _logger.LogDebug($"Can not turn on PSU on block {block} because Pulser is null");
+                return;
+            }
+            else if (!Pulser.Enabled)
+            {
+                _logger.LogDebug($"Can not turn on PSU on block {block} because Pulser is disabled");
+                return;
+            }
+            if (!Enabled && coolerState.GetAPSUState(block))
+            {
+                bool userOverride = coolerState.GetAPSUStateIsOverridden(block);
+                bool module0Enabled = coolerState.GetCoolerSettings(block, 0).Enabled;
+                bool module1Enabled = coolerState.GetCoolerSettings(block, 1).Enabled;
+                // if both modules disabled and not overridden by user
+                if (!userOverride)
+                {
+                    if (!module0Enabled && !module1Enabled)
+                    {
+                        Pulser.DisablePSU(block, PSUs.PSU_A);
+                        coolerState.SetAPSUState(block, false);
+                        CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {block} disable.", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
+                    }
+                }
+                else if (userOverride && askedByUser)
+                {
+                    Pulser.DisablePSU(block, PSUs.PSU_A);
+                    coolerState.SetAPSUState(block, false);
+                    coolerState.SetAPSUStateOverride(block, false);
+                    CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {block} disable.", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
+                }
+                else
+                {
+                    _logger.LogDebug($"Can not disable PSU on block {block}. Asked by user: {askedByUser}, User override: {userOverride}, Cooler 0 enabled: {module0Enabled}, Cooler 1 enabled: {module1Enabled}");
+                }
+                
+            }
+
+            if (!coolerState.GetAPSUState(block) && Enabled)
+            {
+                double voltage;
+                double current;
+                Pulser.EnablePSU(block, psu, out voltage, out current);
+                coolerState.SetAPSUState(block, true);
+                coolerState.SetAPSUStateOverride(block, askedByUser);
+                CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {block} enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
+            }
+        }
+
+        public void SetCooler(CoolerSettingsModel s, bool askedByUser = false)
+        {
+            if (Pulser == null)
+            {
+                _logger.LogDebug($"Can not turn on Cooler on block {s.Block} because Pulser is null");
+                return;
+            }
+            else if (!Pulser.Enabled)
+            {
+                _logger.LogDebug($"Can not turn on Cooler on block {s.Block} because Pulser is disabled");
+                return;
+            }
+            if (s.Enabled)
+            {
+                SetPSU(s.Block, PSUs.PSU_A, true, askedByUser); //it will check if it needs to be enabled
                 Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
                 coolerState.SetCoolerSettings(s);
+                /*
+                if (!coolerState.GetCoolerSettings(s.Block, s.Module).Enabled)
+                {
+                    
+                }
+                */
             }
             else
             {
-                throw new NullReferenceException("Cooler may be disabled or not available");
+                int otherModule = s.Module == 0 ? 1 : 0; //get other module number
+                if (coolerState.GetCoolerSettings(s.Block, s.Module).Enabled && coolerState.GetCoolerSettings(s.Block, s.Module).EnabledByUser && askedByUser)
+                {
+                    Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
+                    coolerState.SetCoolerSettings(s);
+                }
+                else if (coolerState.GetCoolerSettings(s.Block, s.Module).Enabled && !coolerState.GetCoolerSettings(s.Block, s.Module).EnabledByUser)
+                {
+                    Pulser.SetCooler(s.Block, s.Module, s.Enabled, s.TargetTemperature, s.FanSpeed);
+                    coolerState.SetCoolerSettings(s);
+                }
+
+                // check if both modules disabled and psu enabled
+                if (!coolerState.GetCoolerSettings(s.Block, s.Module).Enabled && !coolerState.GetCoolerSettings(s.Block, otherModule).Enabled)
+                {
+                    SetPSU(s.Block, PSUs.PSU_A, false, askedByUser); //it will check if it needs to be enabled
+                }
             }
         }
 

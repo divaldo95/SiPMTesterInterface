@@ -204,6 +204,7 @@ const MeasurementStateService = {
                 Block: block,
                 Module: module,
                 Enabled: enabled,
+                EnabledByUser: true,
                 TargetTemperature: targetTemperature,
                 FanSpeed: fanSpeed,
             };

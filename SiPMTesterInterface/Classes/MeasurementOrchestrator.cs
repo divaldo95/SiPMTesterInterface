@@ -71,7 +71,8 @@ namespace SiPMTesterInterface.Classes
                                 ModuleIndex = moduleIdx,
                                 ArrayIndex = arrayIdx,
                                 SiPMIndex = sipmIdx,
-                                SiPM = sipm
+                                SiPM = sipm,
+                                Vs = sipm.IVVoltages
                             })
                         )
                     )
@@ -83,8 +84,15 @@ namespace SiPMTesterInterface.Classes
             IVMeasurementOrder.Clear(); //empty list if everything went fine until this point
             foreach (var item in iv)
             {
-                IVMeasurementOrder.Add(new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex));
-                Console.WriteLine($"BlockIndex: {item.BlockIndex}, ModuleIndex: {item.ModuleIndex}, ArrayIndex: {item.ArrayIndex}, SiPMIndex: {item.SiPMIndex}, DMMResistance: {item.SiPM.DMMResistance}, IV: {item.SiPM.IV}, SPS: {item.SiPM.SPS}");
+                if (item.Vs.Count == 0 && measurementStart.IVVoltages.Count == 0)
+                {
+                    _logger.LogWarning($"SiPM ({item.BlockIndex},{item.ModuleIndex},{item.ArrayIndex},{item.SiPMIndex}) is excluded, because its voltage lists are empty");
+                }
+                else
+                {
+                    IVMeasurementOrder.Add(new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex));
+                    Console.WriteLine($"BlockIndex: {item.BlockIndex}, ModuleIndex: {item.ModuleIndex}, ArrayIndex: {item.ArrayIndex}, SiPMIndex: {item.SiPMIndex}, DMMResistance: {item.SiPM.DMMResistance}, IV: {item.SiPM.IV}, SPS: {item.SiPM.SPS}");
+                }
             }
 
             if (IVMeasurementOrder.Count > 0)
@@ -163,6 +171,39 @@ namespace SiPMTesterInterface.Classes
         public bool IsIterationAvailable()
         {
             return (IsIVIterationAvailable() || IsSPSterationAvailable());
+        }
+
+        public bool IsBlockOrModuleChanging(out int nextBlock, out int nextModule, out MeasurementType measurementType)
+        {
+            bool retVal = false;
+            nextBlock = -1;
+            nextModule = -1;
+            measurementType = MeasurementType.Unknown;
+            if (MeasureDMMResistanceAtBegining)
+            {
+                nextBlock = 0;
+                nextModule = 0;
+                measurementType = MeasurementType.DMMResistanceMeasurement;
+                retVal = true;
+            }
+            // first measurement
+            else if (CurrentIVMeasurementIndex == 0)
+            {
+                nextBlock = IVMeasurementOrder[0].Block;
+                nextModule = IVMeasurementOrder[0].Module;
+                measurementType = MeasurementType.IVMeasurement;
+                retVal = true;
+            }
+            // Check if there is at least one measurement left and whether it's block is matching with the current one, of not, change
+            else if (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && (IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Block != IVMeasurementOrder[CurrentIVMeasurementIndex].Block || IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Module != IVMeasurementOrder[CurrentIVMeasurementIndex].Module))
+            {
+                nextBlock = IVMeasurementOrder[CurrentIVMeasurementIndex].Block;
+                nextModule = IVMeasurementOrder[CurrentIVMeasurementIndex].Module;
+                measurementType = MeasurementType.IVMeasurement;
+                retVal = true;
+            }
+            // sps things here
+            return retVal;
         }
 
         /*

@@ -325,7 +325,7 @@ namespace SiPMTesterInterface.Controllers
 
             try
             {
-                _measurementService.SetCooler(coolerSettings);
+                _measurementService.SetCooler(coolerSettings, true);
                 return Ok("Cooler set successfully");
             }
             catch (Exception ex)

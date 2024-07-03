@@ -181,13 +181,13 @@ function PulserModalComponent(props) {
                                 value={pulserFormData.TotalSeconds}
                                 onChange={handlePulserChange}
                                 name="TotalSeconds"
-                                min="0"
+                                min="20"
                                 max="60"
                                 required
                                 isInvalid={validated && (pulserFormData.TotalSeconds < 0 || pulserFormData.TotalSeconds > 60)}
                             />
                             <Form.Control.Feedback type="invalid">
-                                Please enter a value between 0 and 60.
+                                Please enter a value between 20 and 60.
                             </Form.Control.Feedback>
                         </FloatingLabel>
                         <Button
