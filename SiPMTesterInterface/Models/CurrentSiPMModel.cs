@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Security.Principal;
 using System.Text;
 
 namespace SiPMTesterInterface.Models
 {
-	public class CurrentSiPMModel
+	public class CurrentSiPMModel : IEquatable<CurrentSiPMModel>
     {
         public int Block { get; set; }
         public int Module { get; set; }
@@ -52,6 +53,26 @@ namespace SiPMTesterInterface.Models
             sb.Append($"Array: {Array}\t|\t");
             sb.Append($"SiPM: {SiPM}");
             return sb.ToString();
+        }
+
+        public bool Equals(CurrentSiPMModel? other)
+        {
+            if (other == null)
+                return false;
+            if (this.Block == other.Block && this.Module == other.Module && this.Array == other.Array && this.SiPM == other.SiPM)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public override bool Equals(object? other)
+        {
+            //This casts the object to null if it is not a Account and calls the other Equals implementation.
+            return this.Equals(other as CurrentSiPMModel);
         }
     }
 }

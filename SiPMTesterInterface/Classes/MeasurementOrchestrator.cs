@@ -302,12 +302,32 @@ namespace SiPMTesterInterface.Classes
 
             foreach (var group in groupedByIndexes)
             {
-                bool isValid = false;
-                int iterationCounter = 0;
+                //bool isValid = false;
+                //int iterationCounter = 0;
                 var newList = group.ToList();
+                List<CurrentSiPMModel> newOrderedList = new List<CurrentSiPMModel>();
+                if (newList.Count <= 0)
+                {
+                    break;
+                }
+                CurrentSiPMModel curr = new CurrentSiPMModel(newList[0].Block, newList[0].Module, newList[0].Array, 0);
+                for (int i = 0; i < 4; i++)
+                {
+                    for (int j = 0; j < 4; j++)
+                    {
+                        curr.SiPM = j * 4 + i;
+                        int index = newList.IndexOf(curr);
+                        if (index > -1)
+                        {
+                            newOrderedList.Add(newList[index]);
+                        }
+                    }
+                }
+
+                /*
                 while (!isValid && iterationCounter < maxIterations)
                 {
-                    newList.Shuffle();
+                    //newList.Shuffle();
 
                     isValid = true;
                     for (int i = 1; i < list.Count; i++)
@@ -317,17 +337,20 @@ namespace SiPMTesterInterface.Classes
                                 && list[i].Module == list[i - 1].Module
                                 && list[i].Array == list[i - 1].Array)
                         {
-                            isValid = false;
+                            //isValid = false;
                             break;
                         }
                     }
                     iterationCounter++;
                 }
+                */
+                /*
                 if (iterationCounter >= maxIterations && !isValid)
                 {
                     _logger.LogWarning($"Max iteration reached without meeting the neighboring criteria for Array {newList.First().Array}");
                 }
-                list.AddRange(newList);
+                */
+                list.AddRange(newOrderedList);
             }            
         }
     }

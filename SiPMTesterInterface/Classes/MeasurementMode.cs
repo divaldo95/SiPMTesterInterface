@@ -11,6 +11,9 @@ namespace SiPMTesterInterface.Classes
             QuadSPS,
             SPSVoltageMeasurement,
             DMMResistanceMeasurement,
+            DarkCurrent,
+            LeakageCurrent,
+            ForwardResistance,
             Off
         }
 
@@ -36,6 +39,15 @@ namespace SiPMTesterInterface.Classes
                     break;
                 case MeasurementModes.DMMResistanceMeasurement:
                     ret = 'r';
+                    break;
+                case MeasurementModes.DarkCurrent:
+                    ret = 'D';
+                    break;
+                case MeasurementModes.LeakageCurrent:
+                    ret = 'l';
+                    break;
+                case MeasurementModes.ForwardResistance:
+                    ret = 'f';
                     break;
                 case MeasurementModes.Off:
                     ret = 'o';

@@ -29,21 +29,8 @@ namespace SiPMTesterInterface.Libraries
                                                          out double compVbr,
                                                          out double cs);
 
-        /*
-        public static void MyMethod()
-        {
-            try
-            {
-                TestRootFunction();
-            }
-            catch (DllNotFoundException ex)
-            {
-                // Handle the case where the library is not found
-                Console.WriteLine("The required library is not available.");
-                // Log or take any other appropriate action
-            }
-        }
-        */
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void RIVA_Class_SetProperties(IntPtr ivAnalyser, AnalysisProperties properties);
 
         private IntPtr ivAnalyser;
         private bool disposedValue;
@@ -61,6 +48,11 @@ namespace SiPMTesterInterface.Libraries
         public void GetResult(out double RawBreakdownVoltage, out double CompensatedBreakdownVoltage, out double ChiSquare)
         {
             RIVA_Class_GetResults(ivAnalyser, out RawBreakdownVoltage, out CompensatedBreakdownVoltage, out ChiSquare);
+        }
+
+        public void SetProperties(AnalysisProperties properties)
+        {
+            RIVA_Class_SetProperties(ivAnalyser, properties);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -93,12 +85,18 @@ namespace SiPMTesterInterface.Libraries
             GC.SuppressFinalize(this);
         }
 
-        public static void Analyse(CurrentMeasurementDataModel c, string outputPath, double DMMResistance = 0.0)
+        public static void Analyse(CurrentMeasurementDataModel c, string outputPath, AnalysisProperties? properties = null)
         {
             //Calculate DMM currents
 
             Console.WriteLine("Starting analysis...");
             RootIVAnalyser iv = new RootIVAnalyser();
+
+            if (properties != null)
+            {
+                iv.SetProperties((AnalysisProperties)properties); //null check already done
+            }
+
             double vbr;
             double cvbr;
             double cs;
@@ -107,15 +105,17 @@ namespace SiPMTesterInterface.Libraries
             double[] currentsArray = c.IVResult.SMUCurrent.ToArray();
 
             //compensate current
-            if (DMMResistance > 0)
+            if (c.DMMResistanceResult.Resistance > 0)
             {
                 for (int i = 0; i < voltagesArray.Length; i++)
                 {
-                    double current = voltagesArray[i] / DMMResistance;
+                    double current = voltagesArray[i] / c.DMMResistanceResult.Resistance;
                     currentsArray[i] = currentsArray[i] - current;
                     if (currentsArray[i] < 0)
                     {
-                        Console.WriteLine($"Negative current ({current.ToString("0.00")}). Consider increasing the DMM resistance compensation percentage");
+                        
+                        Console.WriteLine($"Negative current ({currentsArray[i].ToString("0.00")}). Consider increasing the DMM resistance compensation percentage");
+                        currentsArray[i] = 0;
                     }
                 }
             }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using Newtonsoft.Json;
 using SiPMTesterInterface.Models;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -180,6 +181,34 @@ namespace SiPMTesterInterface.Classes
                 }
 
                 Blocks.Add(block);
+            }
+        }
+
+        public static bool GetBit(byte b, int bitNumber)
+        {
+            return (b & (1 << bitNumber)) != 0;
+        }
+
+        public class APSUDiagResponse
+        {
+            public byte i2cReadErrorFlags { get; set; } // bit 0-5 block 0-5
+            public byte state { get; set; } // 0 off 1 on  //bit 0-5 block 0-5
+            public byte[] errorFlags { get; set; } = new byte[6]; // bit 0 undervoltage bit1 overvoltage bit2 undercurrent bit3 overcurrent bit4 !Power_good
+            public float[] AVoltage { get; set; } = new float[6];
+            public float[] ACurrent { get; set; } = new float[6];
+
+            public APSUDiagResponse()
+            {
+
+            }
+
+            public bool GetAPSUState(int block)
+            {
+                if (block > 5 || block < 0)
+                {
+                    throw new ArgumentOutOfRangeException("Block must be between 0 and 5");
+                }
+                return GetBit(state, block);
             }
         }
 

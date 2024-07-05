@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Pipelines;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
 using SiPMTesterInterface.AnalysisModels;
@@ -11,6 +12,7 @@ using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Libraries;
 using SiPMTesterInterface.Models;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using static SiPMTesterInterface.Classes.LEDPulserData;
 
 namespace SiPMTesterInterface.ClientApp.Services
 {
@@ -57,6 +59,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
     public class IVMeasurementSettings
     {
+        public bool ManualControl { get; set; } = false;
         public double CurrentLimit { get; set; } = 0.01;
         public double CurrentLimitRange { get; set; } = 0.01;
         public int LED { get; set; } = 100;
@@ -65,11 +68,19 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public IVMeasurementSettings(IConfiguration config)
         {
+            var manualControl = config["DefaultMeasurementSettings:IV:ManualControl"];
             var currentLimit = config["DefaultMeasurementSettings:IV:CurrentLimit"];
             var currentLimitRange = config["DefaultMeasurementSettings:IV:CurrentLimitRange"];
             var led = config["DefaultMeasurementSettings:IV:LED"];
             var ledValuesJsonFile = config["DefaultMeasurementSettings:IV:PulserValueJSONFile"];
             var arrayOffsetValuesJsonFile = config["DefaultMeasurementSettings:IV:ArrayOffsetsJSONFile"];
+
+            if (manualControl != null)
+            {
+                bool val;
+                bool.TryParse(manualControl, out val);
+                ManualControl = val;
+            }
 
             if (currentLimit != null)
             {
@@ -307,6 +318,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             MeasurementType nextMeasurementType;
             try
             {
+                
                 if (IsBlockOrModuleChanging(out nextBlock, out nextModule, out nextMeasurementType))
                 {
                     _logger.LogDebug($"Next measurement type is {nextMeasurementType}");
@@ -424,7 +436,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                         {
                             double voltage = 0.0;
                             double current = 0.0;
-                            Pulser.EnablePSU(actualBlock, PSUs.PSU_A, out voltage, out current);
+                            //Pulser.EnablePSU(actualBlock, PSUs.PSU_A, out voltage, out current);
+                            SetPSU(actualBlock, PSUs.PSU_A, true);
                             CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {actualBlock} enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
                         }
                         catch (SerialTimeoutLimitReachedException ex)
@@ -632,7 +645,12 @@ namespace SiPMTesterInterface.ClientApp.Services
                     if (data.IVResult.AnalysationResult.IsCurrentCheckOK)
                     {
                         string outputPath = Path.Combine(FilePathHelper.GetCurrentDirectory(), utcDate.ToString("yyyyMMddHHmmss"), data.Barcode, "IVAnalysisResult");
-                        RootIVAnalyser.Analyse(data, outputPath);
+                        AnalysisProperties analysisProperties = new AnalysisProperties();
+                        analysisProperties.nDerivativeSmooth = 0;
+                        analysisProperties.nlnSmooth = 0;
+                        analysisProperties.nPreSmooth = 0;
+                        analysisProperties.fitWidth = 150; //divided by 1000 in analysis library
+                        RootIVAnalyser.Analyse(data, outputPath, null);
                     }
                 }
                 catch (DllNotFoundException ex)
@@ -644,6 +662,40 @@ namespace SiPMTesterInterface.ClientApp.Services
                     CreateAndSendLogMessage("RunAnalysis", ex.Message, LogMessageType.Error, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
                     _logger.LogError($"{ex.Message}");
                 }
+
+                try
+                {
+                    FileOperationHelper.SaveIVResult(data, utcDate.ToString("yyyyMMddHHmmss"));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error while writing JSON data: {ex.Message}");
+                }
+
+                try
+                {
+                    double[] temps;
+                    if (data.IVResult.Temperatures.Count > 0)
+                    {
+                        int index = (int)data.IVResult.Temperatures.Count / 2;
+                        temps = data.IVResult.Temperatures[index].Module1;
+                    }
+                    else
+                    {
+                        temps = new double[8];
+                        for (int i = 0; i < 8; i++)
+                        {
+                            temps[i] = 25.0;
+                        }
+                    }
+
+                    FileOperationHelper.WriteBinaryIVData(data.SiPMLocation.Module, data.SiPMLocation.SiPM, "IVBinary", temps, data.IVResult.DMMVoltage.ToArray(), data.IVResult.SMUVoltage.ToArray(), data.IVResult.SMUCurrent.ToArray(), data.DMMResistanceResult.Resistance, data.Barcode, data.IVResult.StartTimestamp);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error while writing binary data: {ex.Message}");
+                }
+
                 _hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
                 _logger.LogInformation("Analysis task done");
 
@@ -702,6 +754,22 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
+        private void RefreshAPSUStates()
+        {
+            try
+            {
+                APSUDiagResponse diagResp = Pulser.GetAPSUStates();
+                for (int i = 0; i < coolerState.BlockNum; i++)
+                {
+                    coolerState.SetAPSUState(i, diagResp.GetAPSUState(i));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error while updating APSU states: {ex.Message}");
+            }
+        }
+
         private void InitPulser()
         {
             try
@@ -739,6 +807,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                     //Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
                     //CreateAndSendLogMessage("Measurement Service - Init - Pulser", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
                     DeviceStates.SetStartedState(Devices.Pulser, true);
+
+                    RefreshAPSUStates();
                 }
                 else
                 {
@@ -995,8 +1065,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IsIVDone = true;
             }
             c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp).ToList();
-            //don't know the analysis result yet
-            FileOperationHelper.SaveIVResult(c, utcDate.ToString("yyyyMMddHHmmss"));
+
+            //append latest dmm resistance measurement if available
+            c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
+            
 
             if (c.IVResult.ErrorHappened)
             {
@@ -1004,6 +1076,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 return;
             }
 
+            //Run analysis and save data there even if analysis fails
             RunAnalysis(c); //async call
 
             _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation);
@@ -1349,6 +1422,12 @@ namespace SiPMTesterInterface.ClientApp.Services
                 _logger.LogDebug($"Can not turn on PSU on block {block} because Pulser is disabled");
                 return;
             }
+            if (ivMeasurementSettings.ManualControl && !askedByUser)
+            {
+                _logger.LogWarning("Manual control enabled but PSU change requested by code");
+                return;
+            }
+            _logger.LogWarning("Manual control disabled. Trying to change PSU and Cooler");
             if (!Enabled && coolerState.GetAPSUState(block))
             {
                 bool userOverride = coolerState.GetAPSUStateIsOverridden(block);
@@ -1399,6 +1478,11 @@ namespace SiPMTesterInterface.ClientApp.Services
             else if (!Pulser.Enabled)
             {
                 _logger.LogDebug($"Can not turn on Cooler on block {s.Block} because Pulser is disabled");
+                return;
+            }
+            if (ivMeasurementSettings.ManualControl && !askedByUser)
+            {
+                _logger.LogWarning("Manual control enabled but Cooler change requested by code");
                 return;
             }
             if (s.Enabled)

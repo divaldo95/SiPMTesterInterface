@@ -5,11 +5,11 @@ import ArrayLocation from './ArrayLocation';
 import ModeSelectButtonGroup from './ModeSelectButtonGroup';
 import { MeasurementContext } from '../context/MeasurementContext';
 import SiPMSettingsModal from './SiPMSettingsModal';
-import { Button } from 'react-bootstrap';
+import { Button, Dropdown } from 'react-bootstrap';
 
 function SiPMArray(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMCount, Editable, className } = props;
-    const { measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView } = useContext(MeasurementContext);
+    const { measurementStates, measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView } = useContext(MeasurementContext);
     const [showModal, setShowModal] = useState(false);
 
     const openModal = () => {
@@ -28,6 +28,46 @@ function SiPMArray(props) {
     const handleBarcodeChange = (e) => {
         //console.log(e.target.value);
         updateBarcode(BlockIndex, ModuleIndex, ArrayIndex, e.target.value);
+    };
+
+    const downloadJSON = (data, filename) => {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const downloadCSV = (data, filename) => {
+        const csvRows = data.map(item => `${item.BreakdownVoltage},${item.CompensatedBreakdownVoltage}`).join('\n');
+        const blob = new Blob([csvRows], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExport = (format) => {
+        const sipms = measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs;
+        const data = sipms.map((sipm) => ({
+            BreakdownVoltage: sipm.IVAnalysationResult.BreakdownVoltage,
+            CompensatedBreakdownVoltage: sipm.IVAnalysationResult.CompensatedBreakdownVoltage
+        }));
+
+        if (format === 'json') {
+            downloadJSON(data, 'breakdown_voltages.json');
+        } else if (format === 'text') {
+            downloadCSV(data, 'breakdown_voltages.txt');
+        }
     };
 
     return (
@@ -68,7 +108,22 @@ function SiPMArray(props) {
                         </div>
 
                         <div className="col-auto">
-                            <Button disabled={measurementDataView} onClick={openModal} variant="secondary"><i className="bi bi-gear"></i></Button>
+                            {measurementDataView ? (
+                                <Dropdown>
+                                    <Dropdown.Toggle variant="secondary" id="dropdown-basic">
+                                        <i className="bi bi-download"></i>
+                                    </Dropdown.Toggle>
+
+                                    <Dropdown.Menu>
+                                        <Dropdown.Item onClick={() => handleExport('json')}>JSON</Dropdown.Item>
+                                        <Dropdown.Item onClick={() => handleExport('text')}>Text</Dropdown.Item>
+                                    </Dropdown.Menu>
+                                </Dropdown>
+                            ) : (
+                                <Button disabled={measurementDataView} onClick={openModal} variant="secondary">
+                                    <i className="bi bi-gear"></i>
+                                </Button>
+                            )}
                         </div>
 
                         <div className="col-auto float-end">

@@ -13,7 +13,7 @@ namespace SiPMTesterInterface.Models
         public int CorrectionPercentage { get; set; }
         public List<double> Voltages { get; set; }
         public List<double> Currents { get; set; }
-        public double Resistance { get; set; }
-}
+        public double Resistance { get; set; } = 0.0;
+    }
 }
 

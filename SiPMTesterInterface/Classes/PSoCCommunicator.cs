@@ -10,6 +10,7 @@ using static SiPMTesterInterface.Classes.CoolerResponse;
 using SiPMTesterInterface.Enums;
 using System.Text;
 using System.Globalization;
+using static SiPMTesterInterface.Classes.LEDPulserData;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -120,9 +121,14 @@ namespace SiPMTesterInterface.Classes
         {
             //TODO: Handle blocks properly here
             bool timeoutHappened;
+
+            // list can be altered
+            int[] activeBlocks = new int[ActiveBlocks.Count];
+            ActiveBlocks.CopyTo(activeBlocks);
+
             try
             {
-                foreach (var block in ActiveBlocks)
+                foreach (var block in activeBlocks)
                 {
                     TemperaturesArray t = ReadTemperatures(block);
                     CoolerResponse c = GetCoolerState(block);
@@ -253,6 +259,55 @@ namespace SiPMTesterInterface.Classes
             }
             command = command.Remove(command.Length - 1);
             WriteCommand(command);
+        }
+
+        public APSUDiagResponse GetAPSUStates()
+        {
+            string command = "get_A_psu_diag";
+            WriteCommand(command);
+
+            // Remove the "get_A_psu_diag,OK*" prefix and trailing "*\n"
+            string trimmedData = LastLine.Substring("get_A_psu_diag,OK*".Length);
+            trimmedData = trimmedData.Substring(0, trimmedData.Length - 2); // Remove the trailing "*\n"
+
+            // Split the remaining data by commas
+            string[] tokens = trimmedData.Split(',');
+
+            // Create a new instance of the struct
+            APSUDiagResponse diagResp = new APSUDiagResponse();
+
+            // Assign values from the tokens
+            diagResp.i2cReadErrorFlags = byte.Parse(tokens[0], System.Globalization.NumberStyles.HexNumber);
+            diagResp.state = byte.Parse(tokens[1], System.Globalization.NumberStyles.HexNumber);
+
+            for (int i = 0; i < 6; i++)
+            {
+                diagResp.errorFlags[i] = byte.Parse(tokens[2 + i], System.Globalization.NumberStyles.HexNumber);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                diagResp.AVoltage[i] = float.Parse(tokens[8 + i]);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                diagResp.ACurrent[i] = float.Parse(tokens[14 + i]);
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                if(diagResp.GetAPSUState(i))
+                {
+                    if (ActiveBlocks.LastIndexOf(i) < 0) //if not in list
+                    {
+                        ActiveBlocks.Add(i); //add
+                    }
+                }
+            }
+
+            return diagResp;
+
         }
 
         private string ExtractDataFromResponse()
