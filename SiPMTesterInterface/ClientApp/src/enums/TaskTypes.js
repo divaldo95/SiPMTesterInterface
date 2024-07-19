@@ -6,8 +6,10 @@
     Waiting: 4,
     Finished: 5,
     Idle: 6,
-    TemperatureStabilisation: 7
-}
+    TemperatureStabilisation: 7,
+    DarkCurrent: 8,
+    ForwardResistance: 9
+}  
 
 export function TaskTypesString(type) {
     switch (type) {
@@ -27,6 +29,10 @@ export function TaskTypesString(type) {
             return "Idle";
         case TaskTypes.TemperatureStabilisation:
             return "Waiting for Temperature";
+        case TaskTypes.DarkCurrent:
+            return "Dark Current";
+        case TaskTypes.ForwardResistance:
+            return "Forward Resistance";
         default:
             return "";
     }

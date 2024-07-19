@@ -148,6 +148,10 @@ const ErrorMessageModal = ({ show, handleClose, error, handleButtonClick }) => {
         );
     };
 
+    if (!show) {
+        return null;
+    }
+
     return (
         <Modal show={show} onHide={handleClose} backdrop="static" centered size="lg">
             <Modal.Header closeButton>

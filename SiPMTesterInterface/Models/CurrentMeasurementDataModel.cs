@@ -15,6 +15,8 @@ namespace SiPMTesterInterface.Models
 		public MeasurementIdentifier IVMeasurementID { get; set; } = new MeasurementIdentifier();
 		public MeasurementIdentifier SPSMeasurementID { get; set; } = new MeasurementIdentifier();
         public IVMeasurementResponseModel IVResult { get; set; } = new IVMeasurementResponseModel();
+		public ForwardResistanceMeasurementResponseModel ForwardResistanceResult { get; set; } = new ForwardResistanceMeasurementResponseModel();
+		public DarkCurrentMeasurementResponseModel DarkCurrentResult { get; set; } = new DarkCurrentMeasurementResponseModel();
         //placeholder for SPS response
 	}
 }

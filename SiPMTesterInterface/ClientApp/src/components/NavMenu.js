@@ -17,8 +17,49 @@ const NavMenu = () => {
     const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
     const { instrumentStatuses, updateCurrentTask, canToggleMeasurementView,
             toggleMeasurementView, measurementDataView, handleShowLogModal,
-            handleCloseLogModal, handleShowPulserLEDModal } = useContext(MeasurementContext);
-    
+        handleCloseLogModal, handleShowPulserLEDModal, activeSiPMs, handleShowMeasurementWizard } = useContext(MeasurementContext);
+
+
+    const renderActiveSiPMS = () => {
+        //console.log(activeSiPMs.length);
+        if (activeSiPMs.length === 0) {
+            return (
+                <NavItem>
+                    <NavLink tag={Link} className="text-dark"><Badge bg="primary">0</Badge></NavLink>
+                </NavItem>
+            );
+        }
+        else if (activeSiPMs.length === 1) {
+            return (
+                <NavItem>
+                    <NavLink tag={Link} className="text-dark"><Badge bg="primary">{activeSiPMs[0].Block}, {activeSiPMs[0].Module}, {activeSiPMs[0].Array}, {activeSiPMs[0].SiPM}</Badge></NavLink>
+                </NavItem>
+            );
+        }
+        else {
+            return (
+                <NavDropdown title={<Badge bg="primary">{activeSiPMs.length}</Badge>} id="basic-nav-dropdown">
+                    {activeSiPMs.map((sipm, index) => (
+                        <NavDropdown.Item key={index}><Badge bg="primary">{sipm.Block}, {sipm.Module}, {sipm.Array}, {sipm.SiPM}</Badge></NavDropdown.Item>
+                    ))}
+                </NavDropdown>
+            );
+        }
+    };
+
+    const renderWizardButton = () => {
+        if (!measurementDataView) {
+            return (
+                <NavItem>
+                    <NavLink onClick={handleShowMeasurementWizard} tag={Link} className="text-dark"><Badge bg="info"><i className="bi bi-magic"></i></Badge></NavLink>
+                </NavItem>
+            );
+        }
+        else {
+            return null;
+        }
+    };
+
     return (
         <header>
             <Navbar className="navbar-expand-sm navbar-toggleable-sm ng-white border-bottom box-shadow" container light color="light" fixed="top">
@@ -32,14 +73,12 @@ const NavMenu = () => {
                         <NavItem>
                             <NavLink tag={Link} className="text-dark"><Badge bg="primary">{TaskTypesString(instrumentStatuses.CurrentTask)}</Badge></NavLink>
                         </NavItem>
-                        <NavDropdown title={<Badge bg="primary">1</Badge>} id="basic-nav-dropdown">
-                            <NavDropdown.Item><Badge bg="primary">IV: 0, 0, 4, 2</Badge></NavDropdown.Item>
-                        </NavDropdown>
+                        {renderActiveSiPMS()}
                         <NavItem>
                             <NavLink tag={Link} className="text-dark" disabled={!canToggleMeasurementView()} onClick={toggleMeasurementView}>{measurementDataView ? <Badge bg="primary"><i className="bi bi-file-earmark-plus"></i></Badge> : <Badge bg="primary"><i className="bi bi-file-earmark-play"></i></Badge>}</NavLink>
                         </NavItem>
+                        {renderWizardButton()}
                         <NavItem>
-                            
                             <NavLink tag={Link} className="text-dark" onClick={handleShowPulserLEDModal}><Badge bg="primary"><i className="bi bi-lightbulb"></i></Badge></NavLink>
                         </NavItem>
                         <NavItem>

@@ -1,16 +1,20 @@
-﻿import {useContext, useState} from 'react';
+﻿import { useContext, useState, useCallback } from 'react';
 import SiPMSensor from './SiPMSensor';
 import { StatusEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
 import ArrayLocation from './ArrayLocation';
 import ModeSelectButtonGroup from './ModeSelectButtonGroup';
 import { MeasurementContext } from '../context/MeasurementContext';
-import SiPMSettingsModal from './SiPMSettingsModal';
+import ArraySettingsModal from './ArraySettingsModal';
 import { Button, Dropdown } from 'react-bootstrap';
+import debounce from 'lodash.debounce';
+import MeasurementStateService from '../services/MeasurementStateService';
 
 function SiPMArray(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMCount, Editable, className } = props;
-    const { measurementStates, measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView } = useContext(MeasurementContext);
+    const { measurementStates, measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView, updateVopData } = useContext(MeasurementContext);
     const [showModal, setShowModal] = useState(false);
+
+    
 
     const openModal = () => {
         setShowModal(true);
@@ -20,6 +24,32 @@ function SiPMArray(props) {
         setShowModal(false);
     };
 
+    const UpdateVopsAndEnable = (serverResponse) => {
+        serverResponse.Channels.map((channel, index) => {
+            updateVopData(BlockIndex, ModuleIndex, ArrayIndex, channel.ChNo - 1, channel.Vop);
+        });
+    }
+
+    const handleSearch = (barcode) => {
+        try {
+            const response = MeasurementStateService.getArrayPropertiesBySN(barcode)
+                .then((resp) => {
+                    console.log(resp);
+                    UpdateVopsAndEnable(resp);
+                })
+        } catch (error) {
+            console.error('Error getting array properties by barcode: ', error);
+            for (let i = 0; i < measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.length; i++) {
+                updateVopData(BlockIndex, ModuleIndex, ArrayIndex, i, 0.0);
+            }
+            
+        }
+    };
+
+    const debounceFn = useCallback(debounce(handleSearch, 2000), []);
+
+    const isAllSelectedHasVop = measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.some(sipm => sipm.IV > 0 && sipm.OperatingVoltage < 20.0);
+
     // Function to handle click event
     const handleClick = (property) => {
         updateSiPM(BlockIndex, ModuleIndex, ArrayIndex, undefined, property);
@@ -28,6 +58,7 @@ function SiPMArray(props) {
     const handleBarcodeChange = (e) => {
         //console.log(e.target.value);
         updateBarcode(BlockIndex, ModuleIndex, ArrayIndex, e.target.value);
+        debounceFn(e.target.value);
     };
 
     const downloadJSON = (data, filename) => {
@@ -72,7 +103,7 @@ function SiPMArray(props) {
 
     return (
         <>
-            <SiPMSettingsModal showModal={showModal}  closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} />
+            <ArraySettingsModal showModal={showModal}  closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} />
             <div className={`card ${className}`}>
                 <h5 className="card-header">
                     <div className="row align-items-center justify-content-center">
@@ -120,7 +151,7 @@ function SiPMArray(props) {
                                     </Dropdown.Menu>
                                 </Dropdown>
                             ) : (
-                                <Button disabled={measurementDataView} onClick={openModal} variant="secondary">
+                                    <Button disabled={measurementDataView} onClick={openModal} variant={isAllSelectedHasVop ? "secondary" : "success"}>
                                     <i className="bi bi-gear"></i>
                                 </Button>
                             )}

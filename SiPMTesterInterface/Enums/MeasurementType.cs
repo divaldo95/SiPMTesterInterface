@@ -6,16 +6,13 @@ using System.Text.Json.Serialization;
 
 namespace SiPMTesterInterface.Enums
 {
-    //[JsonConverter(typeof(StringEnumConverter))]
     public enum MeasurementType
 	{
-        //[EnumMember(Value = "IVMeasurement")]
         IVMeasurement = 0,
-        //[EnumMember(Value = "SPSMeasurement")]
         SPSMeasurement = 1,
-        //[EnumMember(Value = "DMMMeasurement")]
         DMMResistanceMeasurement = 2,
-        //[EnumMember(Value = "Unknown")]
+        DarkCurrentMeasurement = 3,
+        ForwardResistanceMeasurement = 4,
         Unknown = 999
     }
 }

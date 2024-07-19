@@ -38,6 +38,7 @@ public class OrchestratorUnitTest
 
         while (orchestrator.GetNextIterationData(out Type, out nextMeasurementData, out sipms))
         {
+            string additionalData = "";
             if (Type == MeasurementType.DMMResistanceMeasurement)
             {
                 Console.WriteLine("DMM Measurement");
@@ -58,6 +59,22 @@ public class OrchestratorUnitTest
                     Debug.Fail($"SiPM count error on SPS measurement ({sipms.Count})");
                 }
             }
+            else if (Type == MeasurementType.ForwardResistanceMeasurement)
+            {
+                if (sipms.Count != 1)
+                {
+                    Debug.Fail($"SiPM count error on FR measurement ({sipms.Count})");
+                }
+            }
+            else if (Type == MeasurementType.DarkCurrentMeasurement)
+            {
+                var dcd = nextMeasurementData as NIVoltageAndCurrentStartModel;
+                if (sipms.Count != 1)
+                {
+                    Debug.Fail($"SiPM count error on DC measurement ({sipms.Count})");
+                }
+                additionalData = $"| {dcd.MeasurementType}";
+            }
             else //end of measurement
             {
                 Debug.Fail($"Unknown measurement type");
@@ -66,7 +83,7 @@ public class OrchestratorUnitTest
             Console.WriteLine($"{Type}");
             for (int i = 0; i < sipms.Count; i++)
             {
-                Console.WriteLine($"{sipms[i]}");
+                Console.WriteLine($"{sipms[i]} {additionalData}");
             }
             Console.WriteLine("----------------------------------------------------------");
         }

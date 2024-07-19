@@ -1,9 +1,5 @@
-﻿import { createContext, useContext, useState, useEffect } from 'react';
-import SiPMSensor from './SiPMSensor';
-import SiPMArray from './SiPMArray';
-import SiPMModule from './SiPMModule';
+﻿import { useContext, useState, useEffect } from 'react';
 import SiPMBlock from './SiPMBlock';
-import { StatusEnum, MeasurementStateEnum, getStatusBackgroundClass } from '../enums/StatusEnum';
 import { MeasurementContext } from '../context/MeasurementContext';
 import { LogContext } from '../context/LogContext';
 import ButtonsComponent from './ButtonsComponent';
@@ -13,27 +9,30 @@ import ToastComponent from './ToastComponent';
 import VoltageListComponent from './VoltageListComponent';
 import MeasurementStateService from '../services/MeasurementStateService';
 import { HubConnectionBuilder } from '@microsoft/signalr';
-import { MessageTypeEnum, getIconClass } from '../enums/MessageTypeEnum';
+import { MessageTypeEnum } from '../enums/MessageTypeEnum';
 import { LogMessageType } from '../enums/LogMessageTypeEnum';
 import StatesCard from './StatesCard';
 import SerialStateCard from './SerialStateCard';
 import LogModal from './LogModal';
 import ErrorMessageModal from './ErrorMessageModal';
-import MeasurementSidebar from './MeasurementSidebar';
-import { Container, Row, Col } from 'react-bootstrap';
+import { Accordion } from 'react-bootstrap';
 import PulserValuesModal from './PulserValuesModal';
+
+import { BarcodeScanner } from 'react-barcode-scanner'
+import "react-barcode-scanner/polyfill"
+import MeasurementWizard from './MeasurementWizard';
 
 function Measurement() {
     const [count, setCount] = useState(0);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const { measurementData, addToast, isAnyMeasurementRunning, updateVoltages,
         updateInstrumentStates, instrumentStatuses, updateSiPMMeasurementStates,
         resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask,
         measurementDataView, showLogModal, handleCloseLogModal,
-        handleClosePulserLEDModal, showPulserLEDModal } = useContext(MeasurementContext);
+        handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun, canMeasurementStart,
+        updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard } = useContext(MeasurementContext);
 
     
-    const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
+    const { fetchLogs, updateLogsResolved, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
     const [showErrorsDialog, setShowErrorsDialog] = useState(false);    
 
     useEffect(() => {
@@ -47,7 +46,7 @@ function Measurement() {
 
     const handleErrorMessageBtnClick = async (errorId, buttonType) => {
         try {
-            const response = MeasurementStateService.setLogResponse(errorId, buttonType)
+            MeasurementStateService.setLogResponse(errorId, buttonType)
                 .then((resp) => {
                     console.log("Updated log message state on server");
                     updateLogsResolved(errorId, buttonType);
@@ -95,31 +94,6 @@ function Measurement() {
         }));
     };
 
-    const isFirstStep = () => {
-        return count === 0;
-    }
-
-    const isLastStep = () => {
-        return count === 1;
-    }
-
-    const increment = () => {
-        if (count < 3) {
-            setCount(prevCount => prevCount + 1);
-        }
-    };
-
-    const decrement = () => {
-        if (count > 0) {
-            setCount(prevCount => prevCount - 1);
-        }
-    };
-
-
-    const handleButtonClick1 = () => {
-        decrement();
-    };
-
     const stopMeasurement = () => {
         try {
             MeasurementStateService.stopMeasurement();
@@ -129,16 +103,14 @@ function Measurement() {
     }
 
     const handleButtonClick2 = () => {
-        //increment();
         MeasurementStateService.startMeasurement(measurementData);
         resetSiPMMeasurementStates();
-        //updateIVMeasurementIsRunning(true);
         
     };
 
     const refreshMeasuredSiPMStates = async () => {
         try {
-            const data = await MeasurementStateService.getMeasuredSiPMStates()
+            await MeasurementStateService.getMeasuredSiPMStates()
                 .then((resp) => {
                     updateSiPMMeasurementStates(undefined, undefined, undefined, undefined, undefined, resp);
                     console.log(resp);
@@ -151,7 +123,7 @@ function Measurement() {
     const refreshMeasurementState = async () => {
         //setIsLoading(true);
         try {
-            const data = await MeasurementStateService.getMeasurementStates()
+            await MeasurementStateService.getMeasurementStates()
                 .then((resp) => {
                     updateInstrumentStates(resp);
                     if (isAnyMeasurementRunning() === false) {
@@ -172,7 +144,7 @@ function Measurement() {
     const refreshPulserConnectionState = async () => {
         //setIsLoading(true);
         try {
-            const data = await MeasurementStateService.getPulserState()
+            await MeasurementStateService.getPulserState()
                 .then((resp) => {
                     setPulserState(resp.PulserState);
                     //console.log(resp);
@@ -195,6 +167,7 @@ function Measurement() {
 
     useEffect(() => {
         fetchLogs();
+        fetchCurrentRun();
 
         const connection = new HubConnectionBuilder()
             .withUrl('hub')
@@ -257,6 +230,10 @@ function Measurement() {
                 connection.on('ReceiveCurrentTask', (currentTask) => {
                     updateCurrentTask(currentTask);
                 });
+
+                connection.on('ReceiveActiveSiPMs', (activeSiPMs) => {
+                    updateActiveSiPMs(activeSiPMs);
+                });
             })
 
             .catch(e => {
@@ -267,23 +244,7 @@ function Measurement() {
         refreshPulserConnectionState();
     }, []); // Empty dependency array ensures the effect runs only once when the component mounts
 
-    const toggleSidebarCollapsed = () => {
-        if (sidebarCollapsed) {
-            setSidebarCollapsed(false);
-        }
-        else {
-            setSidebarCollapsed(true);
-        }
-        //updateIVMeasurementIsRunning(!currentState);
-    }
-
     const buttons = [
-        {
-            text: "Previous",
-            onClick: handleButtonClick1,
-            disabled: isFirstStep(), // Set to true to disable the button
-            className: "bg-danger text-light"
-        },
         {
             text: "Get Times",
             onClick: getMeasurementTimes,
@@ -293,7 +254,7 @@ function Measurement() {
         {
             text: "Start",
             onClick: handleButtonClick2,
-            disabled: isAnyMeasurementRunning(), // Set to true to disable the button
+            disabled: !canMeasurementStart(), // Set to true to disable the button
             className: "bg-success text-light"
         },
         // Add more buttons as needed
@@ -305,25 +266,23 @@ function Measurement() {
         //console.log(measurementData);
     };
 
-    const sidebarMargin = () => {
-        return '0px';
-        if(sidebarCollapsed) {
-            return '80px';
-        }
-        else {
-            return '80px';
+    const onCapture = (detected) => {
+        if (detected) {
+            window.alert(detected.rawValue)
         }
     }
 
     return (
         <>
             <div style={{ display: 'flex' }}>
+                { /*<BarcodeScanner onCapture={onCapture} options={{ formats: ['code_39', 'code_93', 'qr_code'] }} /> */ }
                 { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
-                <div className="m-3" style={{ marginLeft: `${sidebarMargin()}`, paddingLeft: `${sidebarMargin()}`, width: '100%' }}>
+                <div className="m-3" style={{ marginLeft: `80px`, paddingLeft: `80px`, width: '100%' }}>
                     <ToastComponent></ToastComponent>
                     <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
                     <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
                     <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
+                    <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} />
                     <div className={`${count !== 0 ? 'd-none' : ''}`}>
                         <div className="row mb-4">
                             <div className="col">
@@ -353,11 +312,24 @@ function Measurement() {
                             </div>
                         </div>
 
-                        <SiPMBlock BlockIndex={0} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
-                        </SiPMBlock>
+                        <Accordion defaultActiveKey="0" className="mb-3">
+                            {measurementData.Blocks.map((block, index) => (
+                                <Accordion.Item key={index} eventKey={index}>
+                                    <Accordion.Header>
+                                        <span>Block {index}</span>
+                                    </Accordion.Header>
+                                    <Accordion.Body>
+                                        <SiPMBlock BlockIndex={index} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
+                                        </SiPMBlock>
+                                    </Accordion.Body>
+                                </Accordion.Item>
+                            ))}
+                        </Accordion>
+
+                        
                     </div>
 
-                    <div className={`${measurementDataView === true ? 'd-none' : ''}`}>
+                    <div className={`${measurementDataView === true ? 'd-none' : 'd-none'}`}> {/* Do not need it */ }
                         <VoltageListComponent className="" MeasurementMode="IV" handleNewList={handleVoltageList}></VoltageListComponent>
                     </div>
 

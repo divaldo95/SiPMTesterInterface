@@ -17,8 +17,9 @@ export const MeasurementStateEnum = {
     FinishedIV: 3,
     FinishedDMM: 4,
     FinishedSPS: 5,
-    Error: 6,
-    Unknown: 7
+    FinishedVoltageAndCurrent: 6,
+    Error: 7,
+    Unknown: 8
 }
 
 export const AnalysisStateEnum = {
@@ -41,6 +42,8 @@ export function MeasurementStatusString(status) {
             return "Finished DMM";
         case MeasurementStateEnum.FinishedSPS:
             return "Finished SPS";
+        case MeasurementStateEnum.FinishedVoltageAndCurrent:
+            return "Finished VI";
         case MeasurementStateEnum.Error:
             return "Error";
         case MeasurementStateEnum.Unknown:
@@ -147,6 +150,12 @@ export function getMeasurementStatusBtnClasses(status) {
                 icon: "bi-check-circle",
             };
         case MeasurementStateEnum.FinishedSPS:
+            return {
+                buttonColor: "btn-success",
+                textColor: "",
+                icon: "bi-check-circle",
+            };
+        case MeasurementStateEnum.FinishedVoltageAndCurrent:
             return {
                 buttonColor: "btn-success",
                 textColor: "",

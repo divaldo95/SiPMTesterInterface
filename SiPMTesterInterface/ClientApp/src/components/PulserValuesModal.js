@@ -162,6 +162,10 @@ const PulserValuesModal = ({ show, handleClose }) => {
         URL.revokeObjectURL(url);
     };
 
+    if (!show) {
+        return null;
+    }
+
     return (
         <Modal scrollable show={show} onHide={handleClose} backdrop="static" centered size="lg">
             <Modal.Header closeButton>

@@ -4,6 +4,8 @@ import { Table, Button, Collapse, Container, Accordion } from 'react-bootstrap';
 function CoolerTable(props) {
     const { className, coolerArray } = props;
 
+    const coolersToShow = coolerArray.slice(-25).reverse();
+
     return (
         <Container className="mt-5">
             <Accordion defaultActiveKey="0">
@@ -29,7 +31,7 @@ function CoolerTable(props) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {coolerArray.map((item, index) => (
+                                    {coolersToShow.map((item, index) => (
                                         <tr key={index}>
                                             <td>{item.Block}</td>
                                             <td>{item.State1}</td>

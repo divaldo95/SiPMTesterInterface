@@ -28,6 +28,9 @@ namespace SiPMTesterInterface.Interfaces
 
         public Task ReceivePulserReadoutIntervalChange(int interval);
 
+        public Task ReceiveActiveSiPMs(List<CurrentSiPMModel> a);
+
+
     }
 }
 

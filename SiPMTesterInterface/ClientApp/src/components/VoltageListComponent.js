@@ -23,14 +23,14 @@ function VoltageListComponent(props) {
             }
         }
         else if (BlockIndex !== undefined && ModuleIndex !== undefined && ArrayIndex !== undefined) {
-            console.log("Updating all sipm in array");
+            //console.log("Updating all sipm in array");
             const firstIVVoltages = measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[0].IVVoltages;
             if (measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.every(sipm => sipm.IVVoltages.length === firstIVVoltages.length && sipm.IVVoltages.every((voltage, index) => voltage === firstIVVoltages[index]))) {
                 return firstIVVoltages;
             }
         }
         else {
-            console.log("Updating all SiPMs data");
+            //console.log("Updating all SiPMs data");
             if (MeasurementMode === 'IV') {
                 return measurementData.IVVoltages;
             }

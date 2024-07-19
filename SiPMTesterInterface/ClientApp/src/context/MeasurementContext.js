@@ -1,4 +1,5 @@
 ﻿import React, { useContext, createContext, useState } from 'react';
+import MeasurementStateService from '../services/MeasurementStateService';
 import { TaskTypes } from '../enums/TaskTypes';
 
 
@@ -12,15 +13,22 @@ const initialState = {
                 SiPMs: Array.from({ length: 16 }, () => ({
                     DMMResistance: 0,
                     IV: 0,
+                    DarkCurrent: 0,
+                    ForwardResistance: 0,
                     IVVoltages: [],
                     SPS: 0,
                     SPSVoltages: [],
-                    SPSVoltagesIsOffsets: 0
+                    SPSVoltagesIsOffsets: 0,
+                    OperatingVoltage: 0.0,
                 })),
                 Barcode: ""
             }))
         }))
     })),
+    IV: 0,
+    SPS: 0,
+    DarkCurrent: 0,
+    ForwardResistance: 0,
     DMMResistance: {
         CorrectionPercentage: 10,
         Iterations: 3,
@@ -32,6 +40,7 @@ const initialState = {
 };
 
 const initialMeasurementState = {
+    ActiveSiPMs: [],
     Blocks: Array.from({ length: 2 }, () => ({
         Modules: Array.from({ length: 2 }, () => ({
             Arrays: Array.from({ length: 4 }, () => ({
@@ -122,6 +131,11 @@ export const MeasurementProvider = ({ children }) => {
 
     const [coolerStateHandler, setCoolerStateHandler] = useState(initialCoolerData);
 
+    const [showMeasurementWizard, setShowMeasurementWizard] = useState(false);
+
+    const handleShowMeasurementWizard = () => setShowMeasurementWizard(true);
+    const handleCloseMeasurementWizard = () => setShowMeasurementWizard(false);
+
     const updateCoolerStateHandler = (newState) => {
         setCoolerStateHandler(newState);
     };
@@ -158,6 +172,56 @@ export const MeasurementProvider = ({ children }) => {
         );
     };
 
+    const checkBarcodes = () => {
+        for (const block of measurementData.Blocks) {
+            for (const module of block.Modules) {
+                for (const array of module.Arrays) {
+                    // Check if any SiPM in the array has IV or SPS greater than 0
+                    const hasRelevantSiPM = array.SiPMs.some(sipm => sipm.IV > 0 || sipm.SPS > 0);
+                    if (hasRelevantSiPM && (!array.Barcode || !array.Barcode.trim())) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    };
+
+    const checkCheckedSiPMs = () => {
+        for (const block of measurementData.Blocks) {
+            for (const module of block.Modules) {
+                for (const array of module.Arrays) {
+                    // Check if any SiPM in the array has IV or SPS greater than 0
+                    const hasRelevantSiPM = array.SiPMs.some(sipm => sipm.IV > 0 || sipm.SPS > 0);
+                    if (hasRelevantSiPM) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    const canMeasurementStart = () => {
+        return (checkCheckedSiPMs() && checkBarcodes());
+    };
+
+    const fetchCurrentRun = () => {
+        try {
+            const data = MeasurementStateService.getCurrentRun()
+                .then((resp) => {
+                    if (resp.Blocks.length > 0) {
+                        setMeasurementData(resp);
+                    }
+                    
+                    console.log(resp);
+                })
+        } catch (error) {
+            console.error('Error fetching current run data:', error);
+        }
+        
+    }
+
     const updateSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
         setMeasurementStates(prevMeasurementData => {
             const updatedData = prevMeasurementData;
@@ -177,11 +241,16 @@ export const MeasurementProvider = ({ children }) => {
         });
     };
 
-    const resetSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
+    const updateActiveSiPMs = (newData) => {
         setMeasurementStates(prevMeasurementData => {
-            return initialMeasurementState; //reset state
-
+            const updatedData = prevMeasurementData;
+            updatedData.ActiveSiPMs = newData;
+            return updatedData;
         });
+    };
+
+    const resetSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
+        setMeasurementStates(initialMeasurementState);
     };
 
     /*
@@ -229,6 +298,41 @@ export const MeasurementProvider = ({ children }) => {
 
             return updatedState;
         });
+    };
+
+    const updateVopData = (BlockIndex, ModuleIndex, ArrayIndex, index, Vop) => {
+        setMeasurementData(prevMeasurementState => {
+            const updatedState = { ...prevMeasurementState };
+            updatedState.Blocks = [...prevMeasurementState.Blocks];
+            updatedState.Blocks[BlockIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex],
+                Modules: [...prevMeasurementState.Blocks[BlockIndex].Modules]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex],
+                Arrays: [...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex],
+                SiPMs: [...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index],
+                OperatingVoltage: Vop,
+                IV: (Vop > 20.0 ? 1 : 0)
+            };
+
+            //console.log(updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index]);
+            return updatedState;
+        });
+        /*
+        setMeasurementData(prevMeasurementState => {
+            const updatedState = prevMeasurementState;
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index].OperatingVoltage = Vop;
+            console.log(updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index]);
+            return updatedState;
+        });
+        */
     };
 
     /*
@@ -399,7 +503,7 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const isAnyMeasurementRunning = () => {
-        if (instrumentStatuses.CurrentTask == TaskTypes.Finished || instrumentStatuses.CurrentTask == TaskTypes.Idle) {
+        if (instrumentStatuses.CurrentTask === TaskTypes.Finished || instrumentStatuses.CurrentTask === TaskTypes.Idle) {
             return false;
         }
         else {
@@ -408,7 +512,7 @@ export const MeasurementProvider = ({ children }) => {
     }
 
     const canToggleMeasurementView = () => {
-        if (instrumentStatuses.CurrentTask == TaskTypes.Finished) {
+        if (instrumentStatuses.CurrentTask === TaskTypes.Finished) {
             return true;
         }
         else {
@@ -418,10 +522,12 @@ export const MeasurementProvider = ({ children }) => {
 
     const toggleMeasurementView = () => {
         let prevValue = measurementDataView;
-        if (instrumentStatuses.CurrentTask == TaskTypes.Finished) {
+        if (instrumentStatuses.CurrentTask === TaskTypes.Finished) {
             setMeasurementDataView(!prevValue);
         }
     }
+
+    const activeSiPMs = measurementStates.ActiveSiPMs;
 
     return (
         <MeasurementContext.Provider
@@ -433,7 +539,9 @@ export const MeasurementProvider = ({ children }) => {
                 resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask, canToggleMeasurementView,
                 toggleMeasurementView, measurementDataView, handleShowLogModal, handleCloseLogModal, showLogModal,
                 coolerStateHandler, updateCoolerStateHandler, updateCoolerData,
-                handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal
+                handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun,
+                canMeasurementStart, updateActiveSiPMs, activeSiPMs, showMeasurementWizard, handleCloseMeasurementWizard,
+                handleShowMeasurementWizard, updateVopData
             }}>
             {children}
         </MeasurementContext.Provider>

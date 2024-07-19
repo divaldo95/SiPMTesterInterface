@@ -162,7 +162,7 @@ namespace SiPMTesterInterface.Classes
                         var array = new PulserArray
                         {
                             SiPMs = new List<PulserSiPM>(),
-                            LEDPulserOffset = 10 // default LEDPulserOffset value
+                            LEDPulserOffset = 0 // default LEDPulserOffset value
                         };
 
                         for (int s = 0; s < numberOfSiPMs; s++)

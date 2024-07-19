@@ -312,6 +312,31 @@ namespace SiPMTesterInterface.Controllers
             return Ok("Measurement start requested successfully");
         }
 
+        [HttpGet("start")]
+        public IActionResult GetCurrentRun()
+        {
+            try
+            {
+                return Ok(_measurementService.CurrentRun);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpGet("getarrayprops/{sn}")]
+        public IActionResult GetArrayPropertiesBySN(string sn)
+        {
+            try
+            {
+                return Ok(_measurementService.GetArrayData(sn));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
 
         [HttpPost("cooler")]
         public IActionResult SetCooler([FromBody] CoolerSettingsModel coolerSettings)

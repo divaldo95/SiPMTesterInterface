@@ -144,7 +144,7 @@ namespace SiPMTesterInterface.Classes
                 else
                 {
                     // If there are no messages, sleep for a short while to avoid busy-waiting
-                    Thread.Sleep(10);
+                    Thread.Sleep(5);
                 }
             }
         }

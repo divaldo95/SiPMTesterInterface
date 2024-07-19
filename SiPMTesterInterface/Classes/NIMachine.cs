@@ -83,6 +83,20 @@ namespace SiPMTesterInterface.Classes
         public DMMResistanceMeasurementResponseModel Data { get; set; }
     }
 
+    public class VoltageAndCurrenteasurementDataReceivedEventArgs : EventArgs
+    {
+        public VoltageAndCurrenteasurementDataReceivedEventArgs() : base()
+        {
+            Data = new VoltageAndCurrentMeasurementResponseModel();
+        }
+
+        public VoltageAndCurrenteasurementDataReceivedEventArgs(VoltageAndCurrentMeasurementResponseModel d) : base()
+        {
+            Data = d;
+        }
+        public VoltageAndCurrentMeasurementResponseModel Data { get; set; }
+    }
+
     public class MeasurementStartEventArgs : EventArgs
     {
         public MeasurementStartEventArgs() : base()
@@ -105,6 +119,7 @@ namespace SiPMTesterInterface.Classes
         public event EventHandler<DMMMeasurementDataReceivedEventArgs> OnDMMMeasurementDataReceived;
         public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartSuccess;
         public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartFail;
+        public event EventHandler<VoltageAndCurrenteasurementDataReceivedEventArgs> OnVIMeasurementDataReceived;
 
         public void StartIVMeasurement(NIIVStartModel measurementData)
         {
@@ -115,6 +130,13 @@ namespace SiPMTesterInterface.Classes
         public void StartDMMResistanceMeasurement(NIDMMStartModel measurementData)
         {
             string msg = "StartDMMMeasurement:" + JsonConvert.SerializeObject(measurementData);
+            Console.WriteLine($"Sent command: {msg}");
+            base.reqSocket.RunCommand(msg);
+        }
+
+        public void StartVIMeasurement(NIVoltageAndCurrentStartModel measurementData)
+        {
+            string msg = "StartVoltageAndCurrentMeasurement:" + JsonConvert.SerializeObject(measurementData);
             Console.WriteLine($"Sent command: {msg}");
             base.reqSocket.RunCommand(msg);
         }
@@ -209,6 +231,21 @@ namespace SiPMTesterInterface.Classes
                     }
                     RemoveFromWaitingResponseData(respModel.Identifier);
                     OnDMMMeasurementDataReceived?.Invoke(this, new DMMMeasurementDataReceivedEventArgs(respModel));
+                }
+                return;
+            }
+
+            else if (e.Response.Sender == "VoltageAndCurrentMeasurementDone" || e.Response.Sender == "VIMeasurementResult")
+            {
+                VoltageAndCurrentMeasurementResponseModel respModel;
+                if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    if (respModel.ErrorHappened)
+                    {
+                        _logger.LogError(respModel.ErrorMessage);
+                    }
+                    RemoveFromWaitingResponseData(respModel.Identifier);
+                    OnVIMeasurementDataReceived?.Invoke(this, new VoltageAndCurrenteasurementDataReceivedEventArgs(respModel));
                 }
                 return;
             }

@@ -57,6 +57,10 @@ const LogModal = ({ show, handleClose }) => {
         );
     };
 
+    if (!show) {
+        return null;
+    }
+
     return (
         <Modal show={show} onHide={handleClose} size="xl" scrollable centered aria-labelledby="log-modal-title">
             <Modal.Header closeButton>

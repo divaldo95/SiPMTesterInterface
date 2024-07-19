@@ -43,7 +43,12 @@ namespace SiPMTesterInterface.Hubs
         public async Task SendPulserReadoutIntervalChange(int interval)
             => await Clients.All.ReceivePulserReadoutIntervalChange(interval);
 
+        public async Task SendActiveSiPMs(List<CurrentSiPMModel> a)
+            => await Clients.All.ReceiveActiveSiPMs(a);
+
         
+
+
     }
 }
 

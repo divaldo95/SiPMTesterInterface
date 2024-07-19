@@ -14,6 +14,20 @@ namespace SiPMTesterInterface.Classes
         }
     }
 
+    public class ActiveSiPMsChangedEventArgs : EventArgs
+    {
+        public ActiveSiPMsChangedEventArgs() : base()
+        {
+            ActiveSiPMs = new List<CurrentSiPMModel>();
+        }
+
+        public ActiveSiPMsChangedEventArgs(List<CurrentSiPMModel> l) : base()
+        {
+            ActiveSiPMs = l;
+        }
+        public List<CurrentSiPMModel> ActiveSiPMs;
+    }
+
 	public class ServiceStateHandler
 	{
         private int BlockNum;
@@ -26,6 +40,26 @@ namespace SiPMTesterInterface.Classes
         private CurrentMeasurementDataModel[] AllSiPMsData; //store data for every single SiPM (flattened)
         private PulserValues[] pulserValues; //store pulser values for every single SiPM (flattened)
         public Queue<DMMResistanceMeasurementResponseModel> DMMResistances { get; private set; }
+
+        public event EventHandler<ActiveSiPMsChangedEventArgs> OnActiveSiPMsChanged;
+
+        private List<CurrentSiPMModel> _activeSiPMs = new List<CurrentSiPMModel>();
+
+        public List<CurrentSiPMModel> ActiveSiPMs
+        {
+            get
+            {
+                return _activeSiPMs;
+            }
+            set
+            {
+                _activeSiPMs.Clear();
+                _activeSiPMs.AddRange(value);
+                OnActiveSiPMsChanged?.Invoke(this, new ActiveSiPMsChangedEventArgs(_activeSiPMs));
+
+
+            }
+        }
 
         //Save current measurement results here in a flattened array
         public ServiceStateHandler(int blockNum = 2, int moduleNum = 2, int arrayNum = 4, int sipmNum = 16)
@@ -52,6 +86,7 @@ namespace SiPMTesterInterface.Classes
             // Project each group into the desired JSON structure
             var result = new
             {
+                ActiveSiPMs = ActiveSiPMs,
                 Blocks = Enumerable.Range(0, BlockNum).Select(blockIndex =>
                 new
                 {
@@ -122,6 +157,84 @@ namespace SiPMTesterInterface.Classes
                 throw new ArgumentOutOfRangeException("Measurement not started or index out of bounds");
             }
             return AllSiPMsData[arrayIndex];
+        }
+
+        public bool GetSiPMDataByDarkCurrentID(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)
+        {
+            if (AllSiPMsData == null)
+            {
+                sipmData = new CurrentMeasurementDataModel();
+                return false;
+            }
+            CurrentMeasurementDataModel? sipmMeasData = AllSiPMsData.FirstOrDefault(model => model.DarkCurrentResult.Equals(id));
+
+            if (sipmMeasData != null)
+            {
+                sipmData = sipmMeasData;
+                return true;
+            }
+            else
+            {
+                sipmData = new CurrentMeasurementDataModel();
+                return false;
+            }
+        }
+
+        public bool GetSiPMDataByForwardResistanceID(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)
+        {
+            if (AllSiPMsData == null)
+            {
+                sipmData = new CurrentMeasurementDataModel();
+                return false;
+            }
+            CurrentMeasurementDataModel? sipmMeasData = AllSiPMsData.FirstOrDefault(model => model.ForwardResistanceResult.Equals(id));
+
+            if (sipmMeasData != null)
+            {
+                sipmData = sipmMeasData;
+                return true;
+            }
+            else
+            {
+                sipmData = new CurrentMeasurementDataModel();
+                return false;
+            }
+        }
+
+        public void SetDarkCurrentMeasurementData(int block, int module, int array, int sipm, bool isLeakageCurrent, VoltageAndCurrentMeasurementResponseModel result)
+        {
+            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
+            if (isLeakageCurrent)
+            {
+                SiPM.DarkCurrentResult.LeakageCurrentResult = result;
+            }
+            else
+            {
+                SiPM.DarkCurrentResult.DarkCurrentResult = result;
+            }
+        }
+
+        public void SetDarkCurrentMeasurementIdentifier(int block, int module, int array, int sipm, bool isLeakageCurrent, MeasurementIdentifier id)
+        {
+            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
+            if (isLeakageCurrent)
+            {
+                SiPM.DarkCurrentResult.LeakageCurrentResult.Identifier = id;
+            }
+            else
+            {
+                SiPM.DarkCurrentResult.DarkCurrentResult.Identifier = id;
+            }
+        }
+
+        public void SetForwardResistanceMeasurementData(int block, int module, int array, int sipm, VoltageAndCurrentMeasurementResponseModel result)
+        {
+            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result = result;
+        }
+
+        public void SetForwardResistanceMeasurementIdentifier(int block, int module, int array, int sipm, MeasurementIdentifier id)
+        {
+            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result.Identifier = id;
         }
 
         public bool GetSiPMIVMeasurementData(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)

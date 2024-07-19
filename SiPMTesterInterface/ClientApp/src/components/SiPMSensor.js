@@ -61,7 +61,13 @@ function SiPMSensor(props) {
 
     const getSiPMMeasurementValue = (property) => {
         //console.log(measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex]);
-        return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
+        try {
+            return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
+        }
+        catch {
+            return null;
+        }
+        
     }
 
     const getAnalysationBackgroundClass = () => {

@@ -23,6 +23,8 @@ const API_UNRESOLVED_LOGS = 'logs/unresolved/'
 const API_NEEDSATTENTION_LOGS = 'logs/needsattention/'
 const API_RESOLVE_LOGS = 'logs/resolve/'
 
+const API_ARRAY_PROPS = 'getarrayprops/'
+
 const MeasurementStateService = {
     getMeasurementStates: async () => {
         try {
@@ -45,6 +47,15 @@ const MeasurementStateService = {
             return response.data;
         } catch (error) {
             console.error('Error starting measurement:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getCurrentRun: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_START_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching current run data:', error);
             throw error; // You can handle the error as needed in your application
         }
     },
@@ -297,6 +308,15 @@ const MeasurementStateService = {
             return response.data;
         } catch (error) {
             console.error('Error setting pulser LED value:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getArrayPropertiesBySN: async (barcode) => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_ARRAY_PROPS + barcode + '/');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching array properties:', error);
             throw error; // You can handle the error as needed in your application
         }
     },

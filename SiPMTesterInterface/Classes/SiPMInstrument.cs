@@ -274,11 +274,15 @@ namespace SiPMTesterInterface.Classes
         {
             if (!Enabled)
             {
-                throw new MethodAccessException("Device not enabled, can not stop");
+                //throw new MethodAccessException("Device not enabled, can not stop");
+                _logger.LogWarning($"NI device not enabled, can not stop");
+                return;
             }
             if (!Initialized)
             {
-                throw new MethodAccessException("Device not intialized, can not stop");
+                _logger.LogWarning($"Device not intialized, can not stop");
+                return;
+                //throw new MethodAccessException("Device not intialized, can not stop");
             }
             reqSocket.Stop();
             subSocket.Stop();
@@ -327,13 +331,13 @@ namespace SiPMTesterInterface.Classes
             }
             if (sender == "Alive")
             {
-                _logger.LogInformation("Alive message received");
+                //_logger.LogInformation("Alive message received");
                 ConnectionState = ConnectionState.Connected;
                 this.reqSocket.Restart();
             }
             if (sender == "Exiting")
             {
-                _logger.LogInformation("Exiting message received");
+                //_logger.LogInformation("Exiting message received");
                 ConnectionState = ConnectionState.Disconnected;
                 MeasurementState = MeasurementState.Finished;
                 this.reqSocket.Restart();

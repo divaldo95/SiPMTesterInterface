@@ -4,6 +4,8 @@ import { Table, Button, Collapse, Container, Accordion } from 'react-bootstrap';
 function TemperaturesTable(props) {
     const { className, temperaturesArray } = props;
 
+    const temperaturesToShow = temperaturesArray.slice(-25).reverse();
+
     return (
         <Container className="mt-5">
             <Accordion defaultActiveKey="0">
@@ -22,7 +24,7 @@ function TemperaturesTable(props) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {temperaturesArray.map((item, index) => (
+                                {temperaturesToShow.map((item, index) => (
                                     <tr key={index}>
                                         <td>{item.Block}</td>
                                         <td>{item.Module1.join(', ')}</td>

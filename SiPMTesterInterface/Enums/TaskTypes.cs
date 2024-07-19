@@ -10,7 +10,9 @@ namespace SiPMTesterInterface.Enums
         Waiting = 4,
         Finished = 5,
         Idle = 6,
-        TemperatureStabilisation = 7
+        TemperatureStabilisation = 7,
+        DarkCurrent = 8,
+        ForwardResistance = 9
     }
 }
 

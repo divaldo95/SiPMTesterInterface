@@ -5,12 +5,15 @@ namespace SiPMTesterInterface.Models
 {
     public class SiPM
     {
-        public int DMMResistance { get; set; }
-        public int IV { get; set; }
-        public int SPS { get; set; }
-        public int SPSVoltagesIsOffsets { get; set; }
+        public int DMMResistance { get; set; } = 0;
+        public int IV { get; set; } = 0;
+        public int SPS { get; set; } = 0;
+        public int DarkCurrent { get; set; } = 0;
+        public int ForwardResistance { get; set; } = 0;
+        public int SPSVoltagesIsOffsets { get; set; } = 0;
         public List<double> IVVoltages { get; set; } = new List<double>();
         public List<double> SPSVoltages { get; set; } = new List<double>();
+        public double OperatingVoltage { get; set; } = 0;
     }
 
     public class Array
@@ -35,6 +38,8 @@ namespace SiPMTesterInterface.Models
         public DMMResistanceModel DMMResistance { get; set; } = new DMMResistanceModel();
         public int IV { get; set; }
         public int SPS { get; set; }
+        public int DarkCurrent { get; set; }
+        public int ForwardResistance { get; set; }
         public int SPSVoltagesIsOffsets { get; set; }
         public List<double> IVVoltages { get; set; } = new List<double>();
         public List<double> SPSVoltages { get; set; } = new List<double>();

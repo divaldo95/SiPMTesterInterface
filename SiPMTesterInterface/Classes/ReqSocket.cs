@@ -38,7 +38,7 @@ namespace SiPMTesterInterface.Classes
 
         private Timer _timer;
 
-        private const int RequestTimeout = 3000;
+        private const int RequestTimeout = 2000;
         private const int RequestRetries = 3;
 
         private int sequence = 0;
@@ -139,7 +139,7 @@ namespace SiPMTesterInterface.Classes
                         {
                             reqSocket = CreateServerSocket();
                             Start(); //start even when error happens, client can become alive until next try
-                            Console.WriteLine("C: Server seems to be offline, abandoning");
+                            //Console.WriteLine("C: Server seems to be offline, abandoning");
                             OnMessageReceiveFail?.Invoke(this, new MessageReceiveFailEventArgs(message));
                             break;
                         }
