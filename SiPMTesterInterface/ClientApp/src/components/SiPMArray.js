@@ -5,7 +5,7 @@ import ArrayLocation from './ArrayLocation';
 import ModeSelectButtonGroup from './ModeSelectButtonGroup';
 import { MeasurementContext } from '../context/MeasurementContext';
 import ArraySettingsModal from './ArraySettingsModal';
-import { Button, Dropdown } from 'react-bootstrap';
+import { Button, Dropdown, InputGroup, FormControl, Spinner } from 'react-bootstrap';
 import debounce from 'lodash.debounce';
 import MeasurementStateService from '../services/MeasurementStateService';
 
@@ -13,6 +13,7 @@ function SiPMArray(props) {
     const { BlockIndex, ModuleIndex, ArrayIndex, SiPMCount, Editable, className } = props;
     const { measurementStates, measurementData, updateBarcode, updateSiPM, isAnyMeasurementRunning, measurementDataView, updateVopData } = useContext(MeasurementContext);
     const [showModal, setShowModal] = useState(false);
+    const [isBarcodeFetching, setIsBarcodeFetching] = useState(false);
 
     
 
@@ -30,20 +31,24 @@ function SiPMArray(props) {
         });
     }
 
-    const handleSearch = (barcode) => {
-        try {
-            const response = MeasurementStateService.getArrayPropertiesBySN(barcode)
-                .then((resp) => {
-                    console.log(resp);
-                    UpdateVopsAndEnable(resp);
-                })
-        } catch (error) {
-            console.error('Error getting array properties by barcode: ', error);
-            for (let i = 0; i < measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.length; i++) {
-                updateVopData(BlockIndex, ModuleIndex, ArrayIndex, i, 0.0);
-            }
-            
+    const fillVopWithZero = () => {
+        for (let i = 0; i < measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs.length; i++) {
+            updateVopData(BlockIndex, ModuleIndex, ArrayIndex, i, 0.0);
         }
+    };
+
+    const handleSearch = (barcode) => {
+        MeasurementStateService.getArrayPropertiesBySN(barcode)
+            .then((resp) => {
+                console.log(resp);
+                UpdateVopsAndEnable(resp);
+                setIsBarcodeFetching(false);
+            })
+            .catch((err) => {
+                setIsBarcodeFetching(false);
+                fillVopWithZero();
+                console.error(err);
+            });
     };
 
     const debounceFn = useCallback(debounce(handleSearch, 2000), []);
@@ -59,6 +64,7 @@ function SiPMArray(props) {
         //console.log(e.target.value);
         updateBarcode(BlockIndex, ModuleIndex, ArrayIndex, e.target.value);
         debounceFn(e.target.value);
+        setIsBarcodeFetching(true);
     };
 
     const downloadJSON = (data, filename) => {
@@ -103,7 +109,7 @@ function SiPMArray(props) {
 
     return (
         <>
-            <ArraySettingsModal showModal={showModal}  closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} />
+            <ArraySettingsModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} handleBarcodeChange={handleBarcodeChange} isBarcodeFetching={isBarcodeFetching} />
             <div className={`card ${className}`}>
                 <h5 className="card-header">
                     <div className="row align-items-center justify-content-center">
@@ -115,17 +121,24 @@ function SiPMArray(props) {
 
                         {/* Text Input */}
                         <div className="col">
-                            <input
-                                type="text"
-                                id={`barcodeInput${ArrayIndex}`}
-                                className={`form-control`}
-                                placeholder={`Enter Barcode for Array ${ArrayIndex + 1}`}
-                                value={measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].Barcode}
-                                onChange={(e) => handleBarcodeChange(e)}
-                                required // HTML5 form validation
-                                pattern="\S+" // Ensures non-whitespace characters are entered
-                                disabled={measurementDataView} // Disable input if no SiPM is selected in the array
-                            />
+                            <InputGroup>
+                                <FormControl
+                                    type="text"
+                                    id={`barcodeInput${ArrayIndex}`}
+                                    className="form-control"
+                                    placeholder={`Enter Barcode for Array ${ArrayIndex + 1}`}
+                                    value={measurementData.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].Barcode}
+                                    onChange={(e) => handleBarcodeChange(e)}
+                                    required // HTML5 form validation
+                                    pattern="\S+" // Ensures non-whitespace characters are entered
+                                    disabled={measurementDataView} // Disable input if no SiPM is selected in the array
+                                />
+                                {isBarcodeFetching && (
+                                    <InputGroup.Text>
+                                        <Spinner animation="border" size="sm" />
+                                    </InputGroup.Text>
+                                )}
+                            </InputGroup>
                         </div>
 
                         <div className="w-100 d-md-none mb-2"></div>

@@ -316,7 +316,7 @@ const MeasurementStateService = {
             const response = await axios.get(API_BASE_URL + API_ARRAY_PROPS + barcode + '/');
             return response.data;
         } catch (error) {
-            console.error('Error fetching array properties:', error);
+            //console.error('Error fetching array properties:', error);
             throw error; // You can handle the error as needed in your application
         }
     },

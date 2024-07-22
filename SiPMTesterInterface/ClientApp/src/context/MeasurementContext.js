@@ -7,7 +7,7 @@ export const MeasurementContext = createContext();
 export const useMeasurement = () => useContext(MeasurementContext);
 
 const initialState = {
-    Blocks: Array.from({ length: 2 }, () => ({
+    Blocks: Array.from({ length: 4 }, () => ({
         Modules: Array.from({ length: 2 }, () => ({
             Arrays: Array.from({ length: 4 }, () => ({
                 SiPMs: Array.from({ length: 16 }, () => ({
@@ -41,7 +41,7 @@ const initialState = {
 
 const initialMeasurementState = {
     ActiveSiPMs: [],
-    Blocks: Array.from({ length: 2 }, () => ({
+    Blocks: Array.from({ length: 4 }, () => ({
         Modules: Array.from({ length: 2 }, () => ({
             Arrays: Array.from({ length: 4 }, () => ({
                 SiPMs: Array.from({ length: 16 }, () => ({
@@ -249,7 +249,7 @@ export const MeasurementProvider = ({ children }) => {
         });
     };
 
-    const resetSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
+    const resetSiPMMeasurementStates = () => {
         setMeasurementStates(initialMeasurementState);
     };
 

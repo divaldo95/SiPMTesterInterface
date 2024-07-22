@@ -7,7 +7,8 @@ namespace SiPMTesterInterface.Enums
         Off = 1,
         TemperatureSensorError = 2,
         ThermalRunaway = 3,
-        BlockedFan = 4
+        BlockedFan = 4,
+        PeltierError = 5
     };
 }
 

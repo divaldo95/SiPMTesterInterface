@@ -21,7 +21,7 @@ public class OrchestratorUnitTest
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
         ILogger<MeasurementOrchestrator> logger = factory.CreateLogger<MeasurementOrchestrator>();
 
-        string inJson = InputJSONs.inputJSON1;
+        string inJson = InputJSONs.inputJSON2;
         MeasurementStartModel? startModel;
         bool success = Parser.String2JSON(inJson, out startModel);
         MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(logger);
@@ -36,56 +36,102 @@ public class OrchestratorUnitTest
         object nextMeasurementData;
         List<CurrentSiPMModel> sipms;
 
-        while (orchestrator.GetNextIterationData(out Type, out nextMeasurementData, out sipms))
+        int nextBlock = -1;
+        int nextModule = -1;
+        MeasurementType blockChangingType;
+
+        bool isChanging = false;
+
+        while (true)
         {
-            string additionalData = "";
-            if (Type == MeasurementType.DMMResistanceMeasurement)
+            if (orchestrator.GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out isChanging, false))
             {
-                Console.WriteLine("DMM Measurement");
-                continue;
+                if (isChanging)
+                {
+                    Console.WriteLine($"Block is changing to {Type}");
+                    if (sipms.Count > 0)
+                        Console.WriteLine($"Block number is {sipms[0].Block}");
+                }
+                
             }
 
-            else if (Type == MeasurementType.IVMeasurement)
+            if (orchestrator.GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out isChanging, false))
             {
-                if (sipms.Count != 1)
+                if (isChanging)
                 {
-                    Debug.Fail($"Can not measure more than one SiPM at a time for IV");
+                    Console.WriteLine($"Block is changing to {Type}");
+                    if (sipms.Count > 0)
+                        Console.WriteLine($"Block number is {sipms[0].Block}");
                 }
-            }
-            else if (Type == MeasurementType.SPSMeasurement) 
-            {
-                if (sipms.Count < 1 || sipms.Count > 8)
-                {
-                    Debug.Fail($"SiPM count error on SPS measurement ({sipms.Count})");
-                }
-            }
-            else if (Type == MeasurementType.ForwardResistanceMeasurement)
-            {
-                if (sipms.Count != 1)
-                {
-                    Debug.Fail($"SiPM count error on FR measurement ({sipms.Count})");
-                }
-            }
-            else if (Type == MeasurementType.DarkCurrentMeasurement)
-            {
-                var dcd = nextMeasurementData as NIVoltageAndCurrentStartModel;
-                if (sipms.Count != 1)
-                {
-                    Debug.Fail($"SiPM count error on DC measurement ({sipms.Count})");
-                }
-                additionalData = $"| {dcd.MeasurementType}";
-            }
-            else //end of measurement
-            {
-                Debug.Fail($"Unknown measurement type");
+
             }
 
-            Console.WriteLine($"{Type}");
-            for (int i = 0; i < sipms.Count; i++)
+            if (orchestrator.GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out isChanging, false))
             {
-                Console.WriteLine($"{sipms[i]} {additionalData}");
+                if (isChanging)
+                {
+                    Console.WriteLine($"Block is changing to {Type}");
+                    if (sipms.Count > 0)
+                        Console.WriteLine($"Block number is {sipms[0].Block}");
+                }
+
             }
-            Console.WriteLine("----------------------------------------------------------");
+
+            if (orchestrator.GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out _, true))
+            {
+                string additionalData = "";
+                if (Type == MeasurementType.DMMResistanceMeasurement)
+                {
+                    Console.WriteLine("DMM Measurement");
+                    continue;
+                }
+
+                else if (Type == MeasurementType.IVMeasurement)
+                {
+                    if (sipms.Count != 1)
+                    {
+                        Debug.Fail($"Can not measure more than one SiPM at a time for IV");
+                    }
+                }
+                else if (Type == MeasurementType.SPSMeasurement)
+                {
+                    if (sipms.Count < 1 || sipms.Count > 8)
+                    {
+                        Debug.Fail($"SiPM count error on SPS measurement ({sipms.Count})");
+                    }
+                }
+                else if (Type == MeasurementType.ForwardResistanceMeasurement)
+                {
+                    if (sipms.Count != 1)
+                    {
+                        Debug.Fail($"SiPM count error on FR measurement ({sipms.Count})");
+                    }
+                }
+                else if (Type == MeasurementType.DarkCurrentMeasurement)
+                {
+                    var dcd = nextMeasurementData as NIVoltageAndCurrentStartModel;
+                    if (sipms.Count != 1)
+                    {
+                        Debug.Fail($"SiPM count error on DC measurement ({sipms.Count})");
+                    }
+                    additionalData = $"| {dcd.MeasurementType}";
+                }
+                else //end of measurement
+                {
+                    Debug.Fail($"Unknown measurement type");
+                }
+
+                Console.WriteLine($"{Type}");
+                for (int i = 0; i < sipms.Count; i++)
+                {
+                    Console.WriteLine($"{sipms[i]} {additionalData}");
+                }
+                Console.WriteLine("----------------------------------------------------------");
+            }
+            else
+            {
+                break;
+            }
         }
     }
 }

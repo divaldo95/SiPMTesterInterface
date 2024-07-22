@@ -4,7 +4,7 @@ import { MeasurementContext } from '../context/MeasurementContext';
 import ModeSelectButtonGroup from './ModeSelectButtonGroup';
 
 function ArraySettingsModal(props) {
-    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex } = props;
+    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, handleBarcodeChange, isBarcodeFetching } = props;
     const [buttonStatus, setButtonStatus] = useState({});
     const [validated, setValidated] = useState(false);
     const { measurementData, updateVoltages, updateVopData, updateBarcode } = useContext(MeasurementContext);
@@ -103,11 +103,6 @@ function ArraySettingsModal(props) {
         updateVoltages(BlockIndex, ModuleIndex, ArrayIndex, index, "IV", sortedList, false);
     };
 
-    const handleBarcodeChange = (e) => {
-        //console.log(e.target.value);
-        updateBarcode(BlockIndex, ModuleIndex, ArrayIndex, e.target.value);
-    };
-
     return (
         <Modal show={showModal} onHide={closeModal} centered size="lg" fullscreen={false}>
             <Modal.Header closeButton>
@@ -131,7 +126,7 @@ function ArraySettingsModal(props) {
                                             aria-label="Barcode"
                                             aria-describedby="pulser-submit-btn"
                                             value={currentArray.Barcode}
-                                            onChange={handleBarcodeChange}
+                                            onChange={(e) => handleBarcodeChange(e)}
                                             name="Barcode"
                                             required
                                             isInvalid={validated && currentArray.Barcode.length < 1}
@@ -140,23 +135,11 @@ function ArraySettingsModal(props) {
                                             Please enter a barcode
                                         </Form.Control.Feedback>
                                     </FloatingLabel>
-                                    <Button
-                                        className={isIntervalUpdateSuccess ? "btn-success" : isIntervalUpdateError ? "btn-danger" : "btn-primary"}
-                                        type="submit"
-                                        id="pulser-submit-btn"
-                                        disabled={isIntervalWaitingUpdate || isIntervalUpdateSuccess || isIntervalUpdateError}
-                                    >
-                                        {isIntervalWaitingUpdate ? (
-                                            <>
-                                                Fetching Vops...
-                                                <Spinner animation="border" role="status" size="sm" className="ms-2">
-                                                    <span className="visually-hidden">Loading...</span>
-                                                </Spinner>
-                                            </>
-                                        ) : (
-                                            isIntervalUpdateSuccess ? "Vops fetched" : isIntervalUpdateError ? "Error fetching" : "Fetch Vops"
-                                        )}
-                                    </Button>
+                                    {isBarcodeFetching && (
+                                        <InputGroup.Text>
+                                            <Spinner animation="border" size="sm" />
+                                        </InputGroup.Text>
+                                    )}
                                 </InputGroup>
                             </Form>
                         </div>

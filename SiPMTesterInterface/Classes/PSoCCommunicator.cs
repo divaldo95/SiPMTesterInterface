@@ -148,8 +148,8 @@ namespace SiPMTesterInterface.Classes
             catch(Exception ex)
             {
                 timeoutHappened = false;
-                _logger.LogDebug(ex.StackTrace);
-                _logger.LogDebug(ex.Message);
+                if (Debug) _logger.LogDebug(ex.StackTrace);
+                if (Debug) _logger.LogDebug(ex.Message);
             }
 
             try
@@ -176,7 +176,7 @@ namespace SiPMTesterInterface.Classes
             }
             catch (Exception ex)
             {
-                _logger.LogDebug($"Refresh error: {ex.Message}");
+                if (Debug) _logger.LogDebug($"Refresh error: {ex.Message}");
             }
             
         }
@@ -227,7 +227,7 @@ namespace SiPMTesterInterface.Classes
             string command = "set_module,";
             string modecmd = "";
             int actualSiPMNum = 0;
-            if (block > 1 || block < 0)
+            if (block > 3 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
             }
@@ -258,6 +258,22 @@ namespace SiPMTesterInterface.Classes
                 command += b.ToString() + ",";
             }
             command = command.Remove(command.Length - 1);
+            WriteCommand(command);
+        }
+
+        public void ComReset()
+        {
+            string command = "com_reset";
+            WriteCommand(command);
+        }
+
+        public void BlockReset(int block)
+        {
+            if (block < 0 || block > 3)
+            {
+                throw new Exception("Block could not be higher than 3 or less than 0");
+            }
+            string command = $"block_reset,{block}";
             WriteCommand(command);
         }
 
@@ -350,7 +366,7 @@ namespace SiPMTesterInterface.Classes
         public void SetCooler(int block, int module, bool state, double target_temp, int fan_speed)
         {
             string command = "set_cooler,";
-            if (block > 1 || block < 0)
+            if (block > 3 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
             }

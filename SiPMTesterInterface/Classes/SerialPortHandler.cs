@@ -110,6 +110,8 @@ namespace SiPMTesterInterface.Classes
         public bool Enabled { get; protected set; } = false;
         public bool Initialized { get; protected set; } = false;
 
+        protected bool Debug = false;
+
         public string LastLine { get; private set; } = "";
         public event EventHandler<SerialConnectionStateChangedEventArgs> OnSerialStateChanged;
         public event EventHandler<SerialErrorMessageReceivedEventArgs> OnSerialErrorMessageReceived;
@@ -118,11 +120,11 @@ namespace SiPMTesterInterface.Classes
         {
         }
 
-        public SerialPortHandler(SerialSettings settings, ILogger<SerialPortHandler> logger) : this(logger, settings.SerialPort, settings.BaudRate, settings.Timeout, settings.Enabled, settings.AutoDetect, settings.AutoDetectString, settings.AutoDetectExpectedAnswer)
+        public SerialPortHandler(SerialSettings settings, ILogger<SerialPortHandler> logger) : this(logger, settings.SerialPort, settings.BaudRate, settings.Timeout, settings.Enabled, settings.AutoDetect, settings.AutoDetectString, settings.AutoDetectExpectedAnswer, settings.Debug)
         {
         }
 
-        public SerialPortHandler(ILogger<SerialPortHandler> logger, string Port, int Baud, int Timeout = 10000, bool Enabled = false, bool autoDetect = false, string autoDetectString = "", string autoDetectExpectedAnswer = "")
+        public SerialPortHandler(ILogger<SerialPortHandler> logger, string Port, int Baud, int Timeout = 10000, bool Enabled = false, bool autoDetect = false, string autoDetectString = "", string autoDetectExpectedAnswer = "", bool debug = false)
         {
             this.Enabled = Enabled;
             _logger = logger;
@@ -132,6 +134,7 @@ namespace SiPMTesterInterface.Classes
             _AutoDetectString = autoDetectString;
             _AutoDetectExpectedAnswer = autoDetectExpectedAnswer;
             _Timeout = Timeout;
+            Debug = debug;
         }
 
         public void Init()
@@ -282,11 +285,11 @@ namespace SiPMTesterInterface.Classes
                     try
                     {
                         Thread.Sleep(100);
-                        _logger.LogDebug("Command sent to serial pulser: " + command);
+                        if (Debug) _logger.LogDebug("Command sent to serial pulser: " + command);
                         _serialPort.DiscardInBuffer();
                         _serialPort.Write(command + System.Convert.ToChar(System.Convert.ToUInt32("0x0D", 16)));
                         LastLine = _serialPort.ReadLine(); //Try with read
-                        _logger.LogDebug("Received: " + LastLine);
+                        if (Debug) _logger.LogDebug("Received: " + LastLine);
 
                         if (LastLine.Contains("ERROR", StringComparison.CurrentCultureIgnoreCase) || LastLine.Contains("invalid", StringComparison.CurrentCultureIgnoreCase)) //if returned with error, increase counter and try again
                         {
@@ -295,7 +298,7 @@ namespace SiPMTesterInterface.Classes
                             int indexInvalid = lowerCaseResp.IndexOf("invalid");
                             if (indexError < 0 && indexInvalid < 0)
                             {
-                                _logger.LogDebug("Could not extract data from responses");
+                                if (Debug) _logger.LogDebug("Could not extract data from responses");
                                 errorMessage = LastLine;
                             }
                             else

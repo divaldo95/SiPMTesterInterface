@@ -5,6 +5,7 @@ namespace SiPMTesterInterface.Models
 	{
         public bool Enabled { get; set; } = true;
         public bool AutoDetect { get; set; } = false;
+        public bool Debug { get; set; } = false;
         public string AutoDetectString { get; set; } = "";
         public string AutoDetectExpectedAnswer { get; set; } = "";
         public string SerialPort { get; set; } = "";
@@ -15,6 +16,7 @@ namespace SiPMTesterInterface.Models
 		{
             var enabled = config[obj + ":Enabled"];
             var autoDetect = config[obj + ":AutoDetect"];
+            var debug = config[obj + ":Debug"];
             var autoDetectString = config[obj + ":AutoDetectString"];
             var autoDetectExpectedAnswer = config[obj + ":AutoDetectExpectedAnswer"];
             var sPort = config[obj+":SerialPort"];
@@ -32,6 +34,12 @@ namespace SiPMTesterInterface.Models
                 bool val;
                 bool.TryParse(autoDetect, out val);
                 AutoDetect = val;
+            }
+            if (debug != null)
+            {
+                bool val;
+                bool.TryParse(debug, out val);
+                Debug = val;
             }
             if (autoDetectString != null)
             {

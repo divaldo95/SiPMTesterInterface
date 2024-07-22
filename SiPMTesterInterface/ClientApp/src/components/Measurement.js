@@ -17,10 +17,10 @@ import LogModal from './LogModal';
 import ErrorMessageModal from './ErrorMessageModal';
 import { Accordion } from 'react-bootstrap';
 import PulserValuesModal from './PulserValuesModal';
-
 import { BarcodeScanner } from 'react-barcode-scanner'
 import "react-barcode-scanner/polyfill"
 import MeasurementWizard from './MeasurementWizard';
+import BlockLocation from './BlockLocation';
 
 function Measurement() {
     const [count, setCount] = useState(0);
@@ -228,10 +228,14 @@ function Measurement() {
                 });
 
                 connection.on('ReceiveCurrentTask', (currentTask) => {
+                    console.log("Received new current task: ");
+                    console.log(currentTask);
                     updateCurrentTask(currentTask);
                 });
 
                 connection.on('ReceiveActiveSiPMs', (activeSiPMs) => {
+                    console.log('Received new active SiPMs: ');
+                    console.log(activeSiPMs);
                     updateActiveSiPMs(activeSiPMs);
                 });
             })
@@ -272,6 +276,17 @@ function Measurement() {
         }
     }
 
+    const downloadMeasurementDataJson = () => {
+        const dataStr = JSON.stringify(measurementData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'measurementData.json';
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <>
             <div style={{ display: 'flex' }}>
@@ -295,7 +310,7 @@ function Measurement() {
                             </div>
                             <div className="col">
                                 <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
-                                    clickFunction={() => { console.log("Clicked export button") }} tooltipMessage="Export current settings" buttonIcon="bi-download">
+                                    clickFunction={downloadMeasurementDataJson} tooltipMessage="Export current settings" buttonIcon="bi-download">
                                 </OneButtonCard>
                             </div>
                         </div>
@@ -316,6 +331,7 @@ function Measurement() {
                             {measurementData.Blocks.map((block, index) => (
                                 <Accordion.Item key={index} eventKey={index}>
                                     <Accordion.Header>
+                                        <span className="me-3"><BlockLocation blockLocation={index} /></span>
                                         <span>Block {index}</span>
                                     </Accordion.Header>
                                     <Accordion.Body>

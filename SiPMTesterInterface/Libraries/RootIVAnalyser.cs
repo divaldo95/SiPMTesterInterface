@@ -19,6 +19,7 @@ namespace SiPMTesterInterface.Libraries
         public static extern IntPtr RIVA_Class_AnalyseIV(IntPtr ivAnalyser,
                                                     SiPMData data,
                                                     AnalysisTypes method,
+                                                    double temperatureToCompensate,
                                                     bool savePlots,
                                                     string outBasePath,
                                                     string filePrefix);
@@ -40,9 +41,9 @@ namespace SiPMTesterInterface.Libraries
             ivAnalyser = RIVA_Class_Create();
         }
 
-        public void AnalyseIV(SiPMData data, AnalysisTypes type, bool savePlots, string outBasePath, string filePrefix)
+        public void AnalyseIV(SiPMData data, AnalysisTypes type, double temperatureToCompensate, bool savePlots, string outBasePath, string filePrefix)
         {
-            RIVA_Class_AnalyseIV(ivAnalyser, data, type, savePlots, outBasePath, filePrefix);
+            RIVA_Class_AnalyseIV(ivAnalyser, data, type, temperatureToCompensate, savePlots, outBasePath, filePrefix);
         }
 
         public void GetResult(out double RawBreakdownVoltage, out double CompensatedBreakdownVoltage, out double ChiSquare)
@@ -143,9 +144,9 @@ namespace SiPMTesterInterface.Libraries
 
             Directory.CreateDirectory(outputPath);
 
-            string outFilePrefix = $"{c.SiPMLocation.Block}_{c.SiPMLocation.Module}_{c.SiPMLocation.Array}_{c.SiPMLocation.SiPM}";
+            string outFilePrefix = $"{c.Barcode}_{c.SiPMLocation.Block}_{c.SiPMLocation.Module}_{c.SiPMLocation.Array}_{c.SiPMLocation.SiPM}";
 
-            iv.AnalyseIV(data, AnalysisTypes.RelativeDerivativeMethod, true, outputPath, outFilePrefix);
+            iv.AnalyseIV(data, AnalysisTypes.RelativeDerivativeMethod, 20.0, true, outputPath, outFilePrefix);
 
             c.IVResult.AnalysationResult.RootFileLocation = Path.Combine(outputPath, outFilePrefix + ".root");
 
@@ -180,6 +181,11 @@ namespace SiPMTesterInterface.Libraries
             int index = GetUsedTemperatureIndex(c.SiPMLocation.Array, c.SiPMLocation.SiPM);
             for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
             {
+                if (c.SiPMLocation.Block != c.IVResult.Temperatures[i].Block)
+                {
+                    continue;
+                }
+
                 if (c.SiPMLocation.Module == 0)
                 {
                     double temp = c.IVResult.Temperatures[i].Module1[index];

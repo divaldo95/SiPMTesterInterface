@@ -12,7 +12,6 @@ using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Libraries;
 using SiPMTesterInterface.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using static SiPMTesterInterface.Classes.LEDPulserData;
 
 namespace SiPMTesterInterface.ClientApp.Services
@@ -23,6 +22,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         public int ModuleCount { get; set; } = 2;
         public int ArrayCount { get; set; } = 4;
         public int SiPMCount { get; set; } = 16;
+        public bool WaitForTemperatureStabilisation { get; set; } = true;
 
         public MeasurementServiceSettings(IConfiguration config)
         {
@@ -30,6 +30,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             var moduleCount = config["MeasurementService:ModuleCount"];
             var arrayCount = config["MeasurementService:ArrayCount"];
             var sipmCount = config["MeasurementService:SiPMCount"];
+            var waitForTemperatureStabilisation = config["MeasurementService:WaitForTemperatureStabilisation"];
 
             if (blockCount != null)
             {
@@ -54,6 +55,12 @@ namespace SiPMTesterInterface.ClientApp.Services
                 int val;
                 int.TryParse(sipmCount, out val);
                 SiPMCount = val;
+            }
+            if (waitForTemperatureStabilisation != null)
+            {
+                bool val;
+                bool.TryParse(waitForTemperatureStabilisation, out val);
+                WaitForTemperatureStabilisation = val;
             }
         }
     }
@@ -180,8 +187,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private int actualBlock = -1;
         private int actualModule = -1;
+        private MeasurementType actualMeasurementType = MeasurementType.Unknown;
         private bool waitForTemperatureStabilisation = false;
         private bool currentlyWaitingForTemperatureStabilisation = false;
+
+        private bool needToChangeBlock = true;
 
         private readonly IConfiguration Configuration;
 
@@ -219,6 +229,8 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private DateTime utcDate;
 
+        string outputBaseDir;
+
         private void PopulateServiceState()
         {
             if (!DeviceStates.IsAllEnabledDeviceStarted() && false)
@@ -228,7 +240,10 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
             serviceState = new ServiceStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
                                                         MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
+            serviceState.OnActiveSiPMsChanged += ServiceState_OnActiveSiPMsChanged;
+
             utcDate = DateTime.UtcNow;
+            outputBaseDir = Path.Combine(FilePathHelper.GetCurrentDirectory(), "Measurements", utcDate.ToString("yyyyMMddHHmmss"));
             // Flatten the structure and save all details
             var SiPMs = globalState.CurrentRun.Blocks
                 .SelectMany((block, blockIdx) => block.Modules
@@ -396,6 +411,41 @@ namespace SiPMTesterInterface.ClientApp.Services
             return Math.Round(Vop, 2, MidpointRounding.AwayFromZero);
         }
 
+        private void HandleBlockChanges(int currentlyUsedBlock, int nextUsedBlock)
+        {
+            CoolerSettingsModel s = new CoolerSettingsModel();
+            // disable if next is -1 -1 as the measurement is ending
+
+            //turn off previous modules and block
+            if (currentlyUsedBlock >= 0)
+            {
+                var FirstPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(currentlyUsedBlock, 0);
+                var SecondPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(currentlyUsedBlock, 1);
+
+                FirstPrevModuleCooler.Enabled = false;
+                SetCooler(FirstPrevModuleCooler);
+
+                SecondPrevModuleCooler.Enabled = false;
+                SetCooler(SecondPrevModuleCooler);
+            }
+
+            var FirstModuleCooler = coolerState.GetCopyOfCoolerSettings(nextUsedBlock, 0);
+            if (!FirstModuleCooler.Enabled)
+            {
+                // enable next
+                FirstModuleCooler.Enabled = true;
+                SetCooler(FirstModuleCooler);
+            }
+
+            var SecondModuleCooler = coolerState.GetCopyOfCoolerSettings(nextUsedBlock, 1);
+            if (!SecondModuleCooler.Enabled)
+            {
+                // enable next
+                SecondModuleCooler.Enabled = true;
+                SetCooler(SecondModuleCooler);
+            }
+        }
+
         public void CheckAndRunNext()
         {
             MeasurementType Type;
@@ -412,6 +462,8 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (MeasurementStopped)
             {
                 CurrentTask = TaskTypes.Idle;
+                TryEndMeasurement();
+                serviceState.ActiveSiPMs = new List<CurrentSiPMModel>(); //empty list 
                 _logger.LogWarning($"Measurement stopped");
                 return;
             }
@@ -423,49 +475,64 @@ namespace SiPMTesterInterface.ClientApp.Services
                 _logger.LogWarning($"{logList.Count} logs waiting for user response");
                 return;
             }
-            int nextBlock;
-            int nextModule;
-            MeasurementType nextMeasurementType;
+
+            bool isBlockChanging;
             try
             {
-                
-                if (IsBlockOrModuleChanging(out nextBlock, out nextModule, out nextMeasurementType))
+                if (GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out isBlockChanging, false))
                 {
-                    _logger.LogDebug($"Next measurement type is {nextMeasurementType}");
-                    if (!coolerState.GetCoolerSettings(nextBlock, nextModule).Enabled)
+                    if (isBlockChanging && needToChangeBlock)
                     {
-                        // enable next
-                        CoolerSettingsModel s = new CoolerSettingsModel();
-                        s.Block = nextBlock;
-                        s.Module = nextModule;
-                        s.Enabled = true;
-                        s.TargetTemperature = 24.0;
-                        s.FanSpeed = 10;
-                        SetCooler(s);
-
-                        // disable previous
-                        if (actualBlock > -1 && actualModule > -1)
+                        _logger.LogInformation("Block is changing");
+                        actualMeasurementType = Type;
+                        if (Type == MeasurementType.DMMResistanceMeasurement)
                         {
-                            s.Block = actualBlock;
-                            s.Module = actualModule;
-                            s.Enabled = false;
-                            s.TargetTemperature = 24.0;
-                            s.FanSpeed = 10;
-                            SetCooler(s);
+                            HandleBlockChanges(actualBlock, 0); //DMM resistance at Block 0
+                            actualBlock = 0;
+                            actualModule = 0;
+                        }
+                        else
+                        {
+                            HandleBlockChanges(actualBlock, sipms[0].Block);
+                            actualBlock = sipms[0].Block;
+                            actualModule = sipms[0].Module;
+                        }
+                        needToChangeBlock = false;
+                    }
+                    else
+                    {
+                        if (isBlockChanging && !needToChangeBlock)
+                        {
+                            _logger.LogInformation("Block changing prevented because it is already changed");
+                        }
+                        if (Type == MeasurementType.DMMResistanceMeasurement)
+                        {
+                            actualBlock = 0;
+                            actualModule = 0;
+                        }
+                        else
+                        {
+                            actualBlock = sipms[0].Block;
+                            actualModule = sipms[0].Module;
                         }
                     }
-                    actualBlock = nextBlock;
-                    actualModule = nextModule;
                 }
 
-                if (nextMeasurementType == MeasurementType.IVMeasurement)
+                if (Type != MeasurementType.DMMResistanceMeasurement && MeasurementServiceSettings.WaitForTemperatureStabilisation)
                 {
-                    _logger.LogDebug($"Let's wait for temperature stabilisation");
+                    _logger.LogDebug($"Let's wait for temperature stabilisation ({actualMeasurementType})");
                     waitForTemperatureStabilisation = true;
                 }
                 else
                 {
-                    _logger.LogDebug($"Do not wait for temperature stabilisation");
+                    if (MeasurementServiceSettings.WaitForTemperatureStabilisation)
+                    {
+                        _logger.LogInformation($"Waiting for temperature stabilisation is disabled by app settings.");
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Do not wait for temperature stabilisation ({actualMeasurementType})");
+                    }
                     waitForTemperatureStabilisation = false;
                 }
             }
@@ -486,28 +553,32 @@ namespace SiPMTesterInterface.ClientApp.Services
             //wait for temperature stabilisation
             if (Pulser != null && Pulser.Enabled)
             {
-                if (nextMeasurementType == MeasurementType.IVMeasurement || nextMeasurementType == MeasurementType.DarkCurrentMeasurement || nextMeasurementType == MeasurementType.ForwardResistanceMeasurement)
+                bool isStable = coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable;
+                _logger.LogDebug($"WaitForTemperatureStabilisation={waitForTemperatureStabilisation}, Block={actualBlock}, Module={actualModule}, TempStable={isStable}");
+                if (waitForTemperatureStabilisation && !isStable)
                 {
-                    _logger.LogDebug($"WaitForTemperatureStabilisation={waitForTemperatureStabilisation}, Block={actualBlock}, Module={actualModule}, TempStable={coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable}");
-                    if (waitForTemperatureStabilisation && !coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable)
-                    {
-                        currentlyWaitingForTemperatureStabilisation = true;
-                        _logger.LogDebug($"Waiting for temperature stabilisation...");
-                        CurrentTask = TaskTypes.TemperatureStabilisation;
-                        return;
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Temperature stabilised");
-                        currentlyWaitingForTemperatureStabilisation = false;
-                    }
+                    currentlyWaitingForTemperatureStabilisation = true;
+                    _logger.LogDebug($"Waiting for temperature stabilisation... (Block={actualBlock}, Module={actualModule}, TempStable={isStable})");
+                    CurrentTask = TaskTypes.TemperatureStabilisation;
+                    return;
+                }
+                else
+                {
+                    _logger.LogDebug($"Temperature stabilised (Block={actualBlock}, Module={actualModule}, TempStable={isStable}, WaitForStabilisation={waitForTemperatureStabilisation})");
+                    currentlyWaitingForTemperatureStabilisation = false;
                 }
             }
 
             Console.WriteLine("Checking new iteration...");
-            if (GetNextIterationData(out Type, out nextMeasurementData, out sipms))
+            if (GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out _, true))
             {
+                needToChangeBlock = true; //if it is necessary at next steps
+                serviceState.ActiveSiPMs = sipms;
                 Console.WriteLine($"Next measurement type is {Type}");
+                if (sipms.Count > 0)
+                {
+                    _logger.LogDebug($"(Block={sipms[0].Block}, Module={sipms[0].Module}, TempStable={coolerState.GetCoolerSettings(sipms[0].Block, sipms[0].Module).State.IsTemperatureStable})");
+                }
                 if (Type == MeasurementType.DMMResistanceMeasurement)
                 {
                     CurrentTask = TaskTypes.DMMResistance;
@@ -534,6 +605,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                         CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
                         return;
                     }
+                    niDMMStart.DMMResistance.Iterations = dmmMeasurementSettings.Iterations;
+                    niDMMStart.DMMResistance.Voltage = dmmMeasurementSettings.Voltage;
+                    niDMMStart.DMMResistance.CorrectionPercentage = dmmMeasurementSettings.CorrectionPercentage;
                     niMachine?.StartDMMResistanceMeasurement(niDMMStart);
                 }
 
@@ -602,7 +676,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error on DMM CheckAndRunNext(): {ex.Message}");
+                        _logger.LogError($"Error on DC CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
                         CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
                         return;
@@ -662,36 +736,6 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     CurrentTask = TaskTypes.IV;
                     ivSiPMs = sipms;
-
-                    //if next measurement is using another block
-                    
-
-                    if (Pulser.Enabled && !coolerState.GetAPSUState(actualBlock)) //if not enabled
-                    {
-                        try
-                        {
-                            double voltage = 0.0;
-                            double current = 0.0;
-                            //Pulser.EnablePSU(actualBlock, PSUs.PSU_A, out voltage, out current);
-                            SetPSU(actualBlock, PSUs.PSU_A, true);
-                            CreateAndSendLogMessage("Measurement Service - APSU", $"PSU A for Block {actualBlock} enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
-                        }
-                        catch (SerialTimeoutLimitReachedException ex)
-                        {
-                            CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                            _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                            return;
-                        }
-                        catch (Exception ex)
-                        {
-                            CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.APSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                            _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                            return;
-                        }
-                    }
-
-                    actualBlock = sipms[0].Block;
-                    actualModule = sipms[0].Module;
 
                     NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel; //some settings duplicated here and in ServiceState
                     if (sipms.Count != 1)
@@ -800,7 +844,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     
                 }
-                serviceState.ActiveSiPMs = sipms;
+                
             }
             else //end of measurement
             {
@@ -819,7 +863,15 @@ namespace SiPMTesterInterface.ClientApp.Services
             {
                 if (Pulser != null && Pulser.Enabled)
                 {
-                    foreach (var activeBlock in Pulser.ActiveBlocks)
+                    if (coolerState.GetAPSUState(0))
+                    {
+                        Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.Off, new[] { 0, 0, 0, 0 });
+                    }
+
+                    List<int> activeBlocks = new List<int>();
+                    activeBlocks.AddRange(Pulser.ActiveBlocks);
+
+                    foreach (var activeBlock in activeBlocks)
                     {
                         for (int i = 0; i < 2; i++)
                         {
@@ -880,6 +932,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             Task t = Task.Run(() =>
             {
+                
                 try
                 {
                     _logger.LogInformation("Starting analysis task...");
@@ -894,7 +947,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                     if (data.IVResult.AnalysationResult.IsCurrentCheckOK)
                     {
-                        string outputPath = Path.Combine(FilePathHelper.GetCurrentDirectory(), utcDate.ToString("yyyyMMddHHmmss"), data.Barcode, "IVAnalysisResult");
+                        string outputPath = Path.Combine(outputBaseDir, data.Barcode, "IVAnalysisResult");
                         AnalysisProperties analysisProperties = new AnalysisProperties();
                         analysisProperties.nDerivativeSmooth = 0;
                         analysisProperties.nlnSmooth = 0;
@@ -915,7 +968,8 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                 try
                 {
-                    FileOperationHelper.SaveIVResult(data, utcDate.ToString("yyyyMMddHHmmss"));
+                    
+                    FileOperationHelper.SaveIVResult(data, outputBaseDir);
                 }
                 catch (Exception ex)
                 {
@@ -955,6 +1009,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public void StartMeasurement(MeasurementStartModel measurementData)
         {
+            needToChangeBlock = true; 
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
             CreateAndSendLogMessage("StartMeasurement", "Measurement is starting...", LogMessageType.Info, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
@@ -967,9 +1022,9 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
 
             MeasurementStopped = true;
-            CheckAndRunNext();
+            CheckAndRunNextAsync();
             niMachine?.StopMeasurement();
-            Pulser?.DisablePSU(0, PSUs.PSU_A);
+            //Pulser?.DisablePSU(0, PSUs.PSU_A);
         }
 
         private void InitNI()
@@ -1015,7 +1070,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                 if (serviceState.GetSiPMDataByDarkCurrentID(e.Data.Identifier, out c))
                 {
                     c.DarkCurrentResult.DarkCurrentResult = e.Data;
-                    c.DarkCurrentResult.DarkCurrentResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.DarkCurrentResult.DarkCurrentResult.StartTimestamp && item.Timestamp <= c.DarkCurrentResult.DarkCurrentResult.EndTimestamp).ToList();
+                    c.DarkCurrentResult.DarkCurrentResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.DarkCurrentResult.DarkCurrentResult.StartTimestamp - Pulser.UpdatePeriod.TotalSeconds && item.Timestamp <= c.DarkCurrentResult.DarkCurrentResult.EndTimestamp).ToList();
+                    FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                 }
                 else
                 {
@@ -1032,6 +1088,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 if (serviceState.GetSiPMDataByDarkCurrentID(e.Data.Identifier, out c))
                 {
                     c.DarkCurrentResult.LeakageCurrentResult = e.Data;
+                    FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                 }
                 else
                 {
@@ -1048,7 +1105,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                 if (serviceState.GetSiPMDataByForwardResistanceID(e.Data.Identifier, out c))
                 {
                     c.ForwardResistanceResult.Result = e.Data;
-                    c.ForwardResistanceResult.Result.Temperatures = Temperatures.Where(item => item.Timestamp >= c.ForwardResistanceResult.Result.StartTimestamp && item.Timestamp <= c.ForwardResistanceResult.Result.EndTimestamp).ToList();
+                    c.ForwardResistanceResult.Result.Temperatures = Temperatures.Where(item => item.Timestamp >= c.ForwardResistanceResult.Result.StartTimestamp - Pulser.UpdatePeriod.TotalSeconds && item.Timestamp <= c.ForwardResistanceResult.Result.EndTimestamp).ToList();
+                    FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                 }
                 else
                 {
@@ -1079,10 +1137,13 @@ namespace SiPMTesterInterface.ClientApp.Services
             try
             {
                 APSUDiagResponse diagResp = Pulser.GetAPSUStates();
+                //string psuStates = JsonConvert.SerializeObject(diagResp);
+                //CreateAndSendLogMessage("PSU States", psuStates, LogMessageType.Info, Devices.APSU, false, ResponseButtons.OK, MeasurementType.Unknown);
                 for (int i = 0; i < coolerState.BlockNum; i++)
                 {
                     coolerState.SetAPSUState(i, diagResp.GetAPSUState(i));
                 }
+
             }
             catch (Exception ex)
             {
@@ -1124,6 +1185,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                     Pulser.Init();
                     DeviceStates.SetInitState(Devices.Pulser, true);
                     Pulser.Start();
+                    Pulser.ComReset(); //disable all coolers and psus
+                    Thread.Sleep(5000);
                     //Pulser.EnablePSU(0, PSUs.PSU_A, out voltage, out current);
                     //CreateAndSendLogMessage("Measurement Service - Init - Pulser", $"PSU A enabled. Voltage: {voltage}, Current: {current}", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
                     DeviceStates.SetStartedState(Devices.Pulser, true);
@@ -1404,7 +1467,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IVResult.AnalysationResult = new IVAnalysationResult();
                 c.IsIVDone = true;
             }
-            c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp).ToList();
+            c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp && item.Block <= c.SiPMLocation.Block).ToList();
 
             //append latest dmm resistance measurement if available
             c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
@@ -1436,6 +1499,27 @@ namespace SiPMTesterInterface.ClientApp.Services
             coolerState.SetModuleCoolerState(m0);
             coolerState.SetModuleCoolerState(m1);
             coolerState.SetModuleTemperatures(e.Data.Temperature);
+
+            if (m0.ActualState != Enums.CoolerStates.On && m0.ActualState != Enums.CoolerStates.Off)
+            {
+                //var m0State = coolerState.GetCopyOfCoolerSettings(e.Data.CoolerState.Block, 0);
+                //m0State.Enabled = true;
+                //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 0).Enabled = false; //set explicitly to false, so it can try to restart
+                //SetCooler(m0State);
+
+                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {0} fan failed. Error code: {m0.ActualState}", LogMessageType.Warning, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+            }
+
+            if (m1.ActualState != Enums.CoolerStates.On && m1.ActualState != Enums.CoolerStates.Off)
+            {
+                //var m1State = coolerState.GetCopyOfCoolerSettings(e.Data.CoolerState.Block, 1);
+                //m1State.Enabled = true;
+                //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 1).Enabled = false; //set explicitly to false, so it can try to restart
+                //SetCooler(m1State);
+
+                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {1} fan failed. Error code: {m1.ActualState}", LogMessageType.Warning, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+            }
+
             _hubContext.Clients.All.ReceivePulserTempCoolerData(e);
         }
 
@@ -1828,6 +1912,11 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (ivMeasurementSettings.ManualControl && !askedByUser)
             {
                 _logger.LogWarning("Manual control enabled but Cooler change requested by code");
+                return;
+            }
+            if (s.Enabled == coolerState.GetCoolerSettings(s.Block, s.Module).Enabled)
+            {
+                //already in same state
                 return;
             }
             if (s.Enabled)

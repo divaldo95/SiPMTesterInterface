@@ -34,7 +34,7 @@ namespace SiPMTesterInterface.Models
 
     public class MeasurementStartModel
     {
-        public bool MeasureDMMResistance { get; set; } = false;
+        public bool MeasureDMMResistance { get; set; } = true;
         public DMMResistanceModel DMMResistance { get; set; } = new DMMResistanceModel();
         public int IV { get; set; }
         public int SPS { get; set; }

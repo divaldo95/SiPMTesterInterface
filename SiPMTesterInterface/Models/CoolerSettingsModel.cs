@@ -10,7 +10,7 @@ namespace SiPMTesterInterface.Models
 		public bool Enabled { get; set; } = false;
 		public bool EnabledByUser { get; set; } = false;
 		public double TargetTemperature { get; set; } = 25.0;
-		public int FanSpeed { get; set; } = 10;
+		public int FanSpeed { get; set; } = 50;
 		public ModuleCoolerState State { get; set; } = new ModuleCoolerState();
         public double[] Temperatures { get; set; } = new double[8];
         public CoolerSettingsModel()

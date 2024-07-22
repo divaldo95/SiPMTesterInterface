@@ -66,5 +66,15 @@ namespace InterfaceTests {
                 return ResourceManager.GetString("inputJSON1", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 
+        ///			{&quot;MeasureDMMResistance&quot;:true,&quot;DMMResistance&quot;:{&quot;Voltage&quot;:30,&quot;Iterations&quot;:5,&quot;CorrectionPercentage&quot;:10},&quot;IV&quot;:0,&quot;SPS&quot;:0,&quot;DarkCurrent&quot;:0,&quot;ForwardResistance&quot;:0,&quot;SPSVoltagesIsOffsets&quot;:0,&quot;IVVoltages&quot;:[],&quot;SPSVoltages&quot;:[],&quot;Blocks&quot;:[{&quot;Modules&quot;:[{&quot;Arrays&quot;:[{&quot;Barcode&quot;:&quot;00319&quot;,&quot;SiPMs&quot;:[{&quot;DMMResistance&quot;:0,&quot;IV&quot;:1,&quot;SPS&quot;:0,&quot;DarkCurrent&quot;:0,&quot;ForwardResistance&quot;:0,&quot;SPSVoltagesIsOffsets&quot;:0,&quot;IVVoltages&quot;:[],&quot;SPSVoltages&quot;:[],&quot;OperatingVoltage&quot;:41.54},{&quot;DMMResistance&quot;:0,&quot;IV&quot;:0,&quot;SPS&quot;:0,&quot;DarkCurrent&quot;:0,&quot;ForwardResistance&quot;:0,&quot;SPSVol [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string inputJSON2 {
+            get {
+                return ResourceManager.GetString("inputJSON2", resourceCulture);
+            }
+        }
     }
 }
