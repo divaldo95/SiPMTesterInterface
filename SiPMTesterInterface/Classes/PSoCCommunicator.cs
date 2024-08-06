@@ -227,7 +227,7 @@ namespace SiPMTesterInterface.Classes
             string command = "set_module,";
             string modecmd = "";
             int actualSiPMNum = 0;
-            if (block > 3 || block < 0)
+            if (block > 4 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
             }
@@ -269,7 +269,7 @@ namespace SiPMTesterInterface.Classes
 
         public void BlockReset(int block)
         {
-            if (block < 0 || block > 3)
+            if (block < 0 || block > 4)
             {
                 throw new Exception("Block could not be higher than 3 or less than 0");
             }
@@ -366,7 +366,7 @@ namespace SiPMTesterInterface.Classes
         public void SetCooler(int block, int module, bool state, double target_temp, int fan_speed)
         {
             string command = "set_cooler,";
-            if (block > 3 || block < 0)
+            if (block > 4 || block < 0)
             {
                 throw new Exception("Block could not be higher than 1");
             }

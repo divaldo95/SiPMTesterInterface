@@ -29,11 +29,11 @@ function Measurement() {
         resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask,
         measurementDataView, showLogModal, handleCloseLogModal,
         handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun, canMeasurementStart,
-        updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard } = useContext(MeasurementContext);
+        updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard, updateMeasurementData } = useContext(MeasurementContext);
 
     
     const { fetchLogs, updateLogsResolved, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
-    const [showErrorsDialog, setShowErrorsDialog] = useState(false);    
+    const [showErrorsDialog, setShowErrorsDialog] = useState(false);
 
     useEffect(() => {
         console.log("Unresolved count changed to " + unresolvedLogCount);
@@ -292,16 +292,16 @@ function Measurement() {
             <div style={{ display: 'flex' }}>
                 { /*<BarcodeScanner onCapture={onCapture} options={{ formats: ['code_39', 'code_93', 'qr_code'] }} /> */ }
                 { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
-                <div className="m-3" style={{ marginLeft: `80px`, paddingLeft: `80px`, width: '100%' }}>
+                <div className="m-3">
                     <ToastComponent></ToastComponent>
                     <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
                     <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
                     <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
-                    <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} />
+                    <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} useTemp />
                     <div className={`${count !== 0 ? 'd-none' : ''}`}>
                         <div className="row mb-4">
                             <div className="col">
-                                <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { console.log(data); }}></FileSelectCard>
+                                <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { updateMeasurementData(data);  console.log(data); }}></FileSelectCard>
                             </div>
                             <div className="col">
                                 <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"

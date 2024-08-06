@@ -1,4 +1,5 @@
 ﻿using System;
+using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Models;
 
@@ -66,6 +67,23 @@ namespace SiPMTesterInterface.Classes
                 CoolerSettings[i] = new CoolerSettingsModel();
                 CoolerSettings[i].Block = i / modules;
                 CoolerSettings[i].Module = i % modules;
+            }
+        }
+
+        public CoolerStateHandler(MeasurementServiceSettings s) : this(s.BlockCount, s.ModuleCount)
+        {
+            for (int i = 0; i < CoolerSettings.Length; i++)
+            {
+                if (CoolerSettings[i].Block == 4)
+                {
+                    CoolerSettings[i].TargetTemperature = s.FridgeTemperature;
+                    CoolerSettings[i].FanSpeed = s.FridgeFanSpeedPercentage;
+                }
+                else
+                {
+                    CoolerSettings[i].TargetTemperature = s.BoxTemperature;
+                    CoolerSettings[i].FanSpeed = s.BoxFanSpeedPercentage;
+                }
             }
         }
 

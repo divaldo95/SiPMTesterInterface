@@ -23,6 +23,10 @@ namespace SiPMTesterInterface.ClientApp.Services
         public int ArrayCount { get; set; } = 4;
         public int SiPMCount { get; set; } = 16;
         public bool WaitForTemperatureStabilisation { get; set; } = true;
+        public double FridgeTemperature { get; set; } = -30.0;
+        public int FridgeFanSpeedPercentage { get; set; } = 50;
+        public double BoxTemperature { get; set; } = 25.0;
+        public int BoxFanSpeedPercentage { get; set; } = 50;
 
         public MeasurementServiceSettings(IConfiguration config)
         {
@@ -31,6 +35,11 @@ namespace SiPMTesterInterface.ClientApp.Services
             var arrayCount = config["MeasurementService:ArrayCount"];
             var sipmCount = config["MeasurementService:SiPMCount"];
             var waitForTemperatureStabilisation = config["MeasurementService:WaitForTemperatureStabilisation"];
+
+            var fridgeTemperature = config["MeasurementService:FridgeTemperature"];
+            var fridgeFanSpeedPercentage = config["MeasurementService:FridgeFanSpeedPercentage"];
+            var boxTemperature = config["MeasurementService:BoxTemperature"];
+            var boxFanSpeedPercentage = config["MeasurementService:BoxFanSpeedPercentage"];
 
             if (blockCount != null)
             {
@@ -61,6 +70,35 @@ namespace SiPMTesterInterface.ClientApp.Services
                 bool val;
                 bool.TryParse(waitForTemperatureStabilisation, out val);
                 WaitForTemperatureStabilisation = val;
+            }
+
+            if (fridgeTemperature != null)
+            {
+                double val;
+                double.TryParse(fridgeTemperature, out val);
+                FridgeTemperature = val;
+                Console.WriteLine($"Fridge temperature set to {FridgeTemperature}");
+            }
+            if (fridgeFanSpeedPercentage != null)
+            {
+                int val;
+                int.TryParse(fridgeFanSpeedPercentage, out val);
+                FridgeFanSpeedPercentage = val;
+                Console.WriteLine($"Fridge Fan set to {FridgeFanSpeedPercentage}");
+            }
+            if (boxTemperature != null)
+            {
+                double val;
+                double.TryParse(boxTemperature, out val);
+                BoxTemperature = val;
+                Console.WriteLine($"Box temperature set to {BoxTemperature}");
+            }
+            if (boxFanSpeedPercentage != null)
+            {
+                int val;
+                int.TryParse(boxFanSpeedPercentage, out val);
+                BoxFanSpeedPercentage = val;
+                Console.WriteLine($"Box Fan set to {BoxFanSpeedPercentage}");
             }
         }
     }
@@ -173,6 +211,10 @@ namespace SiPMTesterInterface.ClientApp.Services
         public IVMeasurementSettings ivMeasurementSettings { get; private set; }
         public DMMMeasurementSettings dmmMeasurementSettings { get; private set; }
 
+
+        private bool taskIsRunning = false;
+        private TaskTypes taskTypeWaitingForFinish = TaskTypes.Idle;
+
         private DeviceStatesModel DeviceStates;
         public LEDPulserData PulserValues;
         private ServiceStateHandler serviceState;
@@ -187,11 +229,9 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private int actualBlock = -1;
         private int actualModule = -1;
-        private MeasurementType actualMeasurementType = MeasurementType.Unknown;
+
         private bool waitForTemperatureStabilisation = false;
         private bool currentlyWaitingForTemperatureStabilisation = false;
-
-        private bool needToChangeBlock = true;
 
         private readonly IConfiguration Configuration;
 
@@ -293,6 +333,26 @@ namespace SiPMTesterInterface.ClientApp.Services
             {
                 CurrentTask = TaskTypes.Waiting;
             }
+            if (logType == LogMessageType.Debug)
+            {
+                _logger.LogDebug($"{sender} - {message}");
+            }
+            else if (logType == LogMessageType.Error)
+            {
+                _logger.LogError($"{sender} - {message}");
+            }
+            else if (logType == LogMessageType.Info)
+            {
+                _logger.LogInformation($"{sender} - {message}");
+            }
+            else if (logType == LogMessageType.Warning)
+            {
+                _logger.LogWarning($"{sender} - {message}");
+            }
+            else if (logType == LogMessageType.Fatal)
+            {
+                _logger.LogCritical($"{sender} - {message}");
+            }
             return logMessage;
         }
 
@@ -311,73 +371,25 @@ namespace SiPMTesterInterface.ClientApp.Services
             });
         }
 
-        public void CheckBlockStatus(int previousBlock, int nextBlock)
-        {
-            //if (actualBlock != sipms[0].Block && actualBlock > -1 && coolerState.GetAPSUState(actualBlock))
-            if (previousBlock != nextBlock && previousBlock > -1)
-            {
-                double voltage;
-                double current;
-                SetPSU(previousBlock, PSUs.PSU_A, false);
-                SetPSU(nextBlock, PSUs.PSU_A, true);
-            }
-        }
-
-        public double GetCompensatedOperatingVoltage(MeasurementType type)
+        public double GetCompensatedOperatingVoltage(MeasurementOrderModel next)
         {
             double Vop = 0.0;
-            Models.Array arr;
-            SiPM sipm;
+
             List<double> temps;
 
-            int Block;
-            int Module;
-            int Arr;
-            int SiPM;
+            Models.Array arr = globalState.CurrentRun.Blocks[next.SiPM.Block]
+                                .Modules[next.SiPM.Module]
+                                .Arrays[next.SiPM.Array];
 
-            if (type == MeasurementType.IVMeasurement)
+            SiPM sipm = arr.SiPMs[next.SiPM.SiPM];
+
+            if (next.Type == MeasurementType.IVMeasurement || next.Type == MeasurementType.ForwardResistanceMeasurement || next.Type == MeasurementType.DarkCurrentMeasurement)
             {
-                Block = ivSiPMs[0].Block;
-                Module = ivSiPMs[0].Module;
-                Arr = ivSiPMs[0].Array;
-                SiPM = ivSiPMs[0].SiPM;
-                arr = globalState.CurrentRun.Blocks[Block]
-                                .Modules[Module]
-                                .Arrays[Arr];
-                sipm = arr.SiPMs[SiPM];
-
-                temps = TemperatureSelectHelper.GetTemperatures(Temperatures, ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, lastMeasurementStartTimestamp);
-            }
-            else if (type == MeasurementType.DarkCurrentMeasurement)
-            {
-                Block = dcSiPMs[0].Block;
-                Module = dcSiPMs[0].Module;
-                Arr = dcSiPMs[0].Array;
-                SiPM = dcSiPMs[0].SiPM;
-                arr = globalState.CurrentRun.Blocks[Block]
-                                .Modules[Module]
-                                .Arrays[Arr];
-                sipm = arr.SiPMs[SiPM];
-
-                temps = TemperatureSelectHelper.GetTemperatures(Temperatures, dcSiPMs[0].Block, dcSiPMs[0].Module, dcSiPMs[0].Array, dcSiPMs[0].SiPM, lastMeasurementStartTimestamp);
-            }
-            else if (type == MeasurementType.ForwardResistanceMeasurement)
-            {
-                Block = frSiPMs[0].Block;
-                Module = frSiPMs[0].Module;
-                Arr = frSiPMs[0].Array;
-                SiPM = frSiPMs[0].SiPM;
-
-                arr = globalState.CurrentRun.Blocks[Block]
-                                .Modules[Module]
-                                .Arrays[Arr];
-                sipm = arr.SiPMs[SiPM];
-
-                temps = TemperatureSelectHelper.GetTemperatures(Temperatures, frSiPMs[0].Block, frSiPMs[0].Module, frSiPMs[0].Array, frSiPMs[0].SiPM, lastMeasurementStartTimestamp);
+                temps = TemperatureSelectHelper.GetTemperatures(Temperatures, next.SiPM.Block, next.SiPM.Module, next.SiPM.Array, next.SiPM.SiPM, lastMeasurementStartTimestamp);
             }
             else
             {
-                throw new ArgumentException($"Unknown measurement type {type} to get compensated operating voltage");
+                throw new ArgumentException($"Unknown measurement type {next.Type} to get compensated operating voltage");
             }
 
             double toTemperature;
@@ -386,9 +398,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                 toTemperature = temps.Average();
                 _logger.LogInformation($"Using average of measured temperatures for compensation: {toTemperature}C");
             }
-            else if (coolerState.GetCoolerSettings(Block, Module).Enabled)
+            else if (coolerState.GetCoolerSettings(next.SiPM.Block, next.SiPM.Module).Enabled)
             {
-                toTemperature = coolerState.GetCoolerSettings(Block, Module).TargetTemperature;
+                toTemperature = coolerState.GetCoolerSettings(next.SiPM.Block, next.SiPM.Module).TargetTemperature;
                 _logger.LogInformation($"Using cooler target temperature for compensation: {toTemperature}C");
             }
             else
@@ -397,7 +409,12 @@ namespace SiPMTesterInterface.ClientApp.Services
                 _logger.LogInformation($"Using preset temperature for compensation: {toTemperature}C");
             }
 
-            _logger.LogInformation($"SiPM ({Block},{Module},{Arr},{SiPM}) temperature to compensate Vop to is {toTemperature}");
+            _logger.LogInformation($"SiPM ({next.SiPM.Block},{next.SiPM.Module},{next.SiPM.Array},{next.SiPM.SiPM}) temperature to compensate Vop to is {toTemperature}");
+
+            if (toTemperature < 20 || toTemperature > 30)
+            {
+                throw new InvalidDataException($"SiPM ({next.SiPM.Block},{next.SiPM.Module},{next.SiPM.Array},{next.SiPM.SiPM}) temperature to compensate Vop to is {toTemperature} which is out of bounds (20 < T < 30)");
+            }
 
             if (sipm.OperatingVoltage > 0)
             {
@@ -405,7 +422,13 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
             else
             {
-                Vop = SiPMDatasheetHandler.GetCompensatedOperatingVoltage(SiPMDatasheetHandler.GetSiPMVop(arr.Barcode, dcSiPMs[0].SiPM), toTemperature); //backend added later
+                Vop = SiPMDatasheetHandler.GetCompensatedOperatingVoltage(SiPMDatasheetHandler.GetSiPMVop(arr.Barcode, next.SiPM.SiPM), toTemperature); //backend added later
+            }
+
+            double VopDiff = Math.Abs(Vop - sipm.OperatingVoltage);
+            if (VopDiff > 5.0) //difference larger than 5V (too much?)
+            {
+                throw new InvalidDataException($"SiPM ({next.SiPM.Block},{next.SiPM.Module},{next.SiPM.Array},{next.SiPM.SiPM}) compensated Vop differs from the given one by {VopDiff} which is out of bounds (VopDiff < 5.0)");
             }
 
             return Math.Round(Vop, 2, MidpointRounding.AwayFromZero);
@@ -419,17 +442,15 @@ namespace SiPMTesterInterface.ClientApp.Services
             //turn off previous modules and block
             if (currentlyUsedBlock >= 0)
             {
-                var FirstPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(currentlyUsedBlock, 0);
-                var SecondPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(currentlyUsedBlock, 1);
-
-                FirstPrevModuleCooler.Enabled = false;
-                SetCooler(FirstPrevModuleCooler);
-
-                SecondPrevModuleCooler.Enabled = false;
-                SetCooler(SecondPrevModuleCooler);
+                DisableBlockWithModules(currentlyUsedBlock);
             }
 
-            var FirstModuleCooler = coolerState.GetCopyOfCoolerSettings(nextUsedBlock, 0);
+            EnableBlockWithModules(nextUsedBlock);
+        }
+
+        private void EnableBlockWithModules(int block)
+        {
+            var FirstModuleCooler = coolerState.GetCopyOfCoolerSettings(block, 0);
             if (!FirstModuleCooler.Enabled)
             {
                 // enable next
@@ -437,7 +458,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 SetCooler(FirstModuleCooler);
             }
 
-            var SecondModuleCooler = coolerState.GetCopyOfCoolerSettings(nextUsedBlock, 1);
+            var SecondModuleCooler = coolerState.GetCopyOfCoolerSettings(block, 1);
             if (!SecondModuleCooler.Enabled)
             {
                 // enable next
@@ -446,11 +467,21 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
+        private void DisableBlockWithModules(int block)
+        {
+            var FirstPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(block, 0);
+            var SecondPrevModuleCooler = coolerState.GetCopyOfCoolerSettings(block, 1);
+
+            FirstPrevModuleCooler.Enabled = false;
+            SetCooler(FirstPrevModuleCooler);
+
+            SecondPrevModuleCooler.Enabled = false;
+            SetCooler(SecondPrevModuleCooler);
+        }
+
         public void CheckAndRunNext()
         {
-            MeasurementType Type;
-            object nextMeasurementData;
-            List<CurrentSiPMModel> sipms;
+            MeasurementOrderModel nextMeasurement;
 
             //Store the last timestamp a measurement starts to get the right temperature values
             //Make sure to have at least one measurement
@@ -476,113 +507,107 @@ namespace SiPMTesterInterface.ClientApp.Services
                 return;
             }
 
-            bool isBlockChanging;
-            try
+            if (taskIsRunning)
             {
-                if (GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out isBlockChanging, false))
+                _logger.LogWarning("Another task is running, but CheckAndRunNext() is called");
+                return;
+            }
+            
+            Console.WriteLine("Checking new iteration...");
+            if (GetNextTask(out nextMeasurement))
+            {
+                serviceState.ActiveSiPMs = new List<CurrentSiPMModel>()
                 {
-                    if (isBlockChanging && needToChangeBlock)
-                    {
-                        _logger.LogInformation("Block is changing");
-                        actualMeasurementType = Type;
-                        if (Type == MeasurementType.DMMResistanceMeasurement)
-                        {
-                            HandleBlockChanges(actualBlock, 0); //DMM resistance at Block 0
-                            actualBlock = 0;
-                            actualModule = 0;
-                        }
-                        else
-                        {
-                            HandleBlockChanges(actualBlock, sipms[0].Block);
-                            actualBlock = sipms[0].Block;
-                            actualModule = sipms[0].Module;
-                        }
-                        needToChangeBlock = false;
-                    }
-                    else
-                    {
-                        if (isBlockChanging && !needToChangeBlock)
-                        {
-                            _logger.LogInformation("Block changing prevented because it is already changed");
-                        }
-                        if (Type == MeasurementType.DMMResistanceMeasurement)
-                        {
-                            actualBlock = 0;
-                            actualModule = 0;
-                        }
-                        else
-                        {
-                            actualBlock = sipms[0].Block;
-                            actualModule = sipms[0].Module;
-                        }
-                    }
-                }
+                    nextMeasurement.SiPM
+                };
+                Console.WriteLine($"Next task is {nextMeasurement.Task}");
+                Console.WriteLine($"Next measurement type is {nextMeasurement.Type}");
+                _logger.LogDebug($"(Block={nextMeasurement.SiPM.Block}, Module={nextMeasurement.SiPM.Module}, TempStable={coolerState.GetCoolerSettings(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module).State.IsTemperatureStable})");
 
-                if (Type != MeasurementType.DMMResistanceMeasurement && MeasurementServiceSettings.WaitForTemperatureStabilisation)
-                {
-                    _logger.LogDebug($"Let's wait for temperature stabilisation ({actualMeasurementType})");
-                    waitForTemperatureStabilisation = true;
-                }
-                else
+                //It will be marked as done when received the data
+                actualBlock = nextMeasurement.SiPM.Block;
+                actualModule = nextMeasurement.SiPM.Module;
+
+                if (nextMeasurement.Type != MeasurementType.Unknown && nextMeasurement.Type != MeasurementType.DMMResistanceMeasurement &&
+                    (nextMeasurement.Task == TaskTypes.DarkCurrent || nextMeasurement.Task == TaskTypes.ForwardResistance || nextMeasurement.Task == TaskTypes.IV))
                 {
                     if (MeasurementServiceSettings.WaitForTemperatureStabilisation)
                     {
-                        _logger.LogInformation($"Waiting for temperature stabilisation is disabled by app settings.");
+                        waitForTemperatureStabilisation = true;
                     }
-                    else
-                    {
-                        _logger.LogDebug($"Do not wait for temperature stabilisation ({actualMeasurementType})");
-                    }
-                    waitForTemperatureStabilisation = false;
-                }
-            }
-            catch (SerialTimeoutLimitReachedException ex)
-            {
-                CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                return;
-            }
-            catch (Exception ex)
-            {
-                CreateAndSendLogMessage("Measurement Service - Check and Run next - APSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.APSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
-                return;
-            }
-
-
-            //wait for temperature stabilisation
-            if (Pulser != null && Pulser.Enabled)
-            {
-                bool isStable = coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable;
-                _logger.LogDebug($"WaitForTemperatureStabilisation={waitForTemperatureStabilisation}, Block={actualBlock}, Module={actualModule}, TempStable={isStable}");
-                if (waitForTemperatureStabilisation && !isStable)
-                {
-                    currentlyWaitingForTemperatureStabilisation = true;
-                    _logger.LogDebug($"Waiting for temperature stabilisation... (Block={actualBlock}, Module={actualModule}, TempStable={isStable})");
-                    CurrentTask = TaskTypes.TemperatureStabilisation;
-                    return;
                 }
                 else
                 {
-                    _logger.LogDebug($"Temperature stabilised (Block={actualBlock}, Module={actualModule}, TempStable={isStable}, WaitForStabilisation={waitForTemperatureStabilisation})");
-                    currentlyWaitingForTemperatureStabilisation = false;
+                    waitForTemperatureStabilisation = false;
                 }
-            }
 
-            Console.WriteLine("Checking new iteration...");
-            if (GetNextIterationDataNewOrderSE(out Type, out nextMeasurementData, out sipms, out _, true))
-            {
-                needToChangeBlock = true; //if it is necessary at next steps
-                serviceState.ActiveSiPMs = sipms;
-                Console.WriteLine($"Next measurement type is {Type}");
-                if (sipms.Count > 0)
+                //wait for temperature stabilisation
+                if (Pulser != null && Pulser.Enabled)
                 {
-                    _logger.LogDebug($"(Block={sipms[0].Block}, Module={sipms[0].Module}, TempStable={coolerState.GetCoolerSettings(sipms[0].Block, sipms[0].Module).State.IsTemperatureStable})");
+                    bool isStable = coolerState.GetCoolerSettings(actualBlock, actualModule).State.IsTemperatureStable;
+                    _logger.LogDebug($"WaitForTemperatureStabilisation={waitForTemperatureStabilisation}, Block={actualBlock}, Module={actualModule}, TempStable={isStable}");
+                    if (waitForTemperatureStabilisation && !isStable)
+                    {
+                        currentlyWaitingForTemperatureStabilisation = true;
+                        _logger.LogDebug($"Waiting for temperature stabilisation... (Block={actualBlock}, Module={actualModule}, TempStable={isStable})");
+                        CurrentTask = TaskTypes.TemperatureStabilisation;
+                        return;
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Temperature stabilised (Block={actualBlock}, Module={actualModule}, TempStable={isStable}, WaitForStabilisation={waitForTemperatureStabilisation})");
+                        currentlyWaitingForTemperatureStabilisation = false;
+                    }
                 }
-                if (Type == MeasurementType.DMMResistanceMeasurement)
+
+                if (nextMeasurement.Task == TaskTypes.BlockDisable)
+                {
+                    try
+                    {
+                        _logger.LogDebug($"Disabling block {nextMeasurement.SiPM.Block}...");
+                        taskIsRunning = true;
+                        taskTypeWaitingForFinish = nextMeasurement.Task;
+                        DisableBlockWithModules(nextMeasurement.SiPM.Block);
+                        MarkCurrentTaskDone();
+                        taskIsRunning = false;
+                        taskTypeWaitingForFinish = TaskTypes.Idle;
+                        _logger.LogDebug($"Block {nextMeasurement.SiPM.Block} disabled");
+                    }
+                    catch (Exception ex)
+                    {
+                        CreateAndSendLogMessage("Measurement Service - Disable Block", ex.Message + " - Try again?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                    }
+                    //check and run next, it will go to next step if it is done properly
+                    CheckAndRunNextAsync();
+                    return;
+                    
+                }
+                else if (nextMeasurement.Task == TaskTypes.BlockEnable)
+                {
+                    try
+                    {
+                        _logger.LogDebug($"Enabling block {nextMeasurement.SiPM.Block}...");
+                        taskIsRunning = true;
+                        taskTypeWaitingForFinish = nextMeasurement.Task;
+                        EnableBlockWithModules(nextMeasurement.SiPM.Block);
+                        MarkCurrentTaskDone();
+                        taskIsRunning = false;
+                        taskTypeWaitingForFinish = TaskTypes.Idle;
+                        _logger.LogDebug($"Block {nextMeasurement.SiPM.Block} enabled");
+                    }
+                    catch (Exception ex)
+                    {
+                        CreateAndSendLogMessage("Measurement Service - Enable Block", ex.Message + " - Try again?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+                    }
+                    //check and run next, it will go to next step if it is done properly
+                    CheckAndRunNextAsync();
+                    return;
+                }
+
+                else if (nextMeasurement.Type == MeasurementType.DMMResistanceMeasurement)
                 {
                     CurrentTask = TaskTypes.DMMResistance;
-                    NIDMMStartModel? niDMMStart = nextMeasurementData as NIDMMStartModel;
+                    NIDMMStartModel? niDMMStart = nextMeasurement.StartModel as NIDMMStartModel;
                     if (niDMMStart == null)
                     {
                         throw new NullReferenceException("NIDMMStartModel can not be null");
@@ -590,40 +615,51 @@ namespace SiPMTesterInterface.ClientApp.Services
                     niDMMStart.DMMResistance = globalState.CurrentRun.DMMResistance;
                     try
                     {
-                        Pulser.SetMode(0, 0, 0, 0, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
+                        Pulser.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
                     }
                     catch (SerialTimeoutLimitReachedException ex)
                     {
-                        CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                        _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                        CreateAndSendLogMessage("Measurement Service - DMM Resistance - Pulser", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
                         return;
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error on DMM CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
-                        CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
+                        CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance - Pulser", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.DMMResistanceMeasurement);
                         return;
                     }
                     niDMMStart.DMMResistance.Iterations = dmmMeasurementSettings.Iterations;
                     niDMMStart.DMMResistance.Voltage = dmmMeasurementSettings.Voltage;
                     niDMMStart.DMMResistance.CorrectionPercentage = dmmMeasurementSettings.CorrectionPercentage;
+                    taskTypeWaitingForFinish = TaskTypes.DMMResistance;
                     niMachine?.StartDMMResistanceMeasurement(niDMMStart);
                 }
 
-                else if (Type == MeasurementType.DarkCurrentMeasurement)
+                else if (nextMeasurement.Type == MeasurementType.DarkCurrentMeasurement)
                 {
-                    dcSiPMs = sipms;
                     CurrentTask = TaskTypes.DarkCurrent;
-                    NIVoltageAndCurrentStartModel? niVIStart = nextMeasurementData as NIVoltageAndCurrentStartModel;
-                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(dcSiPMs[0].Block, dcSiPMs[0].Module, dcSiPMs[0].Array, dcSiPMs[0].SiPM);
+                    NIVoltageAndCurrentStartModel? niVIStart = nextMeasurement.StartModel as NIVoltageAndCurrentStartModel;
+                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
                     if (niVIStart == null)
                     {
                         throw new NullReferenceException("NIVoltageAndCurrentStartModel can not be null on DC");
                     }
                     if (niVIStart.MeasurementType == VoltageAndCurrentMeasurementTypes.LeakageCurrent)
                     {
-                        double Vop = GetCompensatedOperatingVoltage(MeasurementType.DarkCurrentMeasurement);
+                        double Vop;
+                        try
+                        {
+                            Vop = GetCompensatedOperatingVoltage(nextMeasurement);
+                        }
+                        catch (InvalidDataException ex)
+                        {
+                            CreateAndSendLogMessage("Temperature Compensator",
+                                $"{ex.Message}. Waiting for new temperature measurements...",
+                                LogMessageType.Error, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                            Thread.Sleep(PulserReadingInterval);
+                            CheckAndRunNextAsync();
+                            return;
+                        }
 
                         niVIStart.FirstIteration.CurrentLimit = darkCurrentConfig.LeakageCurrent.FirstCurrentLimit;
                         niVIStart.FirstIteration.CurrentLimitRange = darkCurrentConfig.LeakageCurrent.FirstCurrentLimitRange;
@@ -642,7 +678,20 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     else if (niVIStart.MeasurementType == VoltageAndCurrentMeasurementTypes.DarkCurrent)
                     {
-                        double Vop = GetCompensatedOperatingVoltage(MeasurementType.DarkCurrentMeasurement);
+                        double Vop;
+                        try
+                        {
+                            Vop = GetCompensatedOperatingVoltage(nextMeasurement);
+                        }
+                        catch (InvalidDataException ex)
+                        {
+                            CreateAndSendLogMessage("Temperature Compensator",
+                                $"{ex.Message}. Waiting for new temperature measurements...",
+                                LogMessageType.Error, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                            Thread.Sleep(PulserReadingInterval);
+                            CheckAndRunNextAsync();
+                            return;
+                        }
 
                         niVIStart.FirstIteration.CurrentLimit = darkCurrentConfig.DarkCurrent.FirstCurrentLimit;
                         niVIStart.FirstIteration.CurrentLimitRange = darkCurrentConfig.DarkCurrent.FirstCurrentLimitRange;
@@ -664,33 +713,32 @@ namespace SiPMTesterInterface.ClientApp.Services
                     {
                         //Change modes accordingly
                         if (niVIStart.MeasurementType == VoltageAndCurrentMeasurementTypes.LeakageCurrent)
-                            Pulser.SetMode(dcSiPMs[0].Block, dcSiPMs[0].Module, dcSiPMs[0].Array, dcSiPMs[0].SiPM, MeasurementMode.MeasurementModes.LeakageCurrent, new[] { 0, 0, 0, 0 });
+                            Pulser.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.LeakageCurrent, new[] { 0, 0, 0, 0 });
                         else if (niVIStart.MeasurementType == VoltageAndCurrentMeasurementTypes.DarkCurrent)
-                            Pulser.SetMode(dcSiPMs[0].Block, dcSiPMs[0].Module, dcSiPMs[0].Array, dcSiPMs[0].SiPM, MeasurementMode.MeasurementModes.DarkCurrent, new[] { 0, 0, 0, 0 });
+                            Pulser.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.DarkCurrent, new[] { 0, 0, 0, 0 });
                     }
                     catch (SerialTimeoutLimitReachedException ex)
                     {
-                        CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                        _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                        CreateAndSendLogMessage("Measurement Service - VI Measurement - Pulser", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
                         return;
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error on DC CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
-                        CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
+                        CreateAndSendLogMessage("CheckAndRunNext - VI Measurement", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.DarkCurrentMeasurement);
                         return;
                     }
-                    
+                    taskTypeWaitingForFinish = TaskTypes.DarkCurrent;
                     niMachine?.StartVIMeasurement(niVIStart);
+                    taskIsRunning = true;
+                    return;
                 }
 
-                else if (Type == MeasurementType.ForwardResistanceMeasurement)
+                else if (nextMeasurement.Type == MeasurementType.ForwardResistanceMeasurement)
                 {
-                    frSiPMs = sipms;
                     CurrentTask = TaskTypes.ForwardResistance;
-                    NIVoltageAndCurrentStartModel? niVIStart = nextMeasurementData as NIVoltageAndCurrentStartModel;
-                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(frSiPMs[0].Block, frSiPMs[0].Module, frSiPMs[0].Array, frSiPMs[0].SiPM);
+                    NIVoltageAndCurrentStartModel? niVIStart = nextMeasurement.StartModel as NIVoltageAndCurrentStartModel;
+                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
                     if (niVIStart == null)
                     {
                         throw new NullReferenceException("NIVoltageAndCurrentStartModel can not be null on FR");
@@ -713,75 +761,77 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                     try
                     {
-                        Pulser.SetMode(frSiPMs[0].Block, frSiPMs[0].Module, frSiPMs[0].Array, frSiPMs[0].SiPM, MeasurementMode.MeasurementModes.ForwardResistance, new[] { 0, 0, 0, 0 });
+                        Pulser.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.ForwardResistance, new[] { 0, 0, 0, 0 });
                     }
                     catch (SerialTimeoutLimitReachedException ex)
                     {
-                        CreateAndSendLogMessage("Measurement Service - Check and Run next - Pulser - Init", ex.Message + " - Do you want to reinitialize Pulser?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                        _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                        CreateAndSendLogMessage("Measurement Service - Forward Resistance - Pulser", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.ForwardResistanceMeasurement);
                         return;
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error on DMM CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
-                        CreateAndSendLogMessage("CheckAndRunNext - DMM Resistance", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.DMMResistanceMeasurement);
+                        CreateAndSendLogMessage("CheckAndRunNext - Forward Resistance", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.YesNo, MeasurementType.DMMResistanceMeasurement);
                         return;
                     }
-
+                    taskTypeWaitingForFinish = TaskTypes.ForwardResistance;
                     niMachine?.StartVIMeasurement(niVIStart);
+                    taskIsRunning = true;
                 }
 
-                else if (Type == MeasurementType.IVMeasurement)
+                else if (nextMeasurement.Type == MeasurementType.IVMeasurement)
                 {
                     CurrentTask = TaskTypes.IV;
-                    ivSiPMs = sipms;
 
-                    NIIVStartModel niIVStart = nextMeasurementData as NIIVStartModel; //some settings duplicated here and in ServiceState
-                    if (sipms.Count != 1)
-                    {
-                        CreateAndSendLogMessage("CheckAndRunNext - IV", "Can not measure more than one SiPM at a time for IV", LogMessageType.Error, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
-                        _logger.LogError("Can not measure more than one SiPM at a time for IV");
-                        return;
-                    }
+                    NIIVStartModel niIVStart = nextMeasurement.StartModel as NIIVStartModel;
 
                     if (niIVStart.Voltages.Count == 0)
                     {
-                        double Vop = GetCompensatedOperatingVoltage(MeasurementType.IVMeasurement);
+                        double Vop;
+                        try
+                        {
+                            Vop = GetCompensatedOperatingVoltage(nextMeasurement);
+                        }
+                        catch (InvalidDataException ex)
+                        {
+                            CreateAndSendLogMessage("Temperature Compensator",
+                                $"{ex.Message}. Waiting for new temperature measurements...",
+                                LogMessageType.Error, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                            Thread.Sleep(PulserReadingInterval);
+                            CheckAndRunNextAsync();
+                            return;
+                        }
                         niIVStart.Voltages = SiPMDatasheetHandler.GenerateIVVoltageList(Vop); //compensates to target temperature and generates IV list
                         _logger.LogInformation($"IV voltages generated from operating voltage ({niIVStart.OperatingVoltage}): {string.Join(',', niIVStart.Voltages)}");
                     }
-
-                    //TODO: Get the right led pulser values here
-                    //set IV settings
-                    //change SiPM relays
                     int[] pulserLEDValues = new[]
                     {
                         //LEDValueHelper.GetPulserValueForSiPM(ivSiPMs[0], PulserValues).PulserValue,
-                        PulserValues.GetPulserValue(ivSiPMs[0]),
+                        PulserValues.GetPulserValue(nextMeasurement.SiPM),
                         0,
                         0,
                         0,
                     };
                     try
                     {
-                        Pulser?.SetMode(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM, MeasurementMode.MeasurementModes.IV,
+                        Pulser?.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.IV,
                             new[] { pulserLEDValues[0], pulserLEDValues[1], pulserLEDValues[2], pulserLEDValues[3] });
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Error on IV CheckAndRunNext(): {ex.Message}");
                         globalState.GlobalIVMeasurementState = MeasurementState.Error;
                         CreateAndSendLogMessage("CheckAndRunNext - IV", ex.Message, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.IVMeasurement);
                         return;
                     }
-                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(ivSiPMs[0].Block, ivSiPMs[0].Module, ivSiPMs[0].Array, ivSiPMs[0].SiPM);
+                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
                     c.IVMeasurementID = niIVStart.Identifier;
+                    taskTypeWaitingForFinish = TaskTypes.IV;
                     niMachine?.StartIVMeasurement(niIVStart);
+                    taskIsRunning = true;
                 }
 
                 //WIP
-                else if (Type == MeasurementType.SPSMeasurement)
+                else if (nextMeasurement.Type == MeasurementType.SPSMeasurement)
                 {
                     CurrentTask = TaskTypes.SPS;
                     /* SPS - 0. element pulser
@@ -816,7 +866,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                      * (Next HV level -> Set HVs -> SPS V measure for all channels -> Measurement) x N V level
                      * HVs off -> Off
                      */
-                    spsSiPMs = sipms;
+                    //spsSiPMs = sipms;
                     int[] sipmCounts = GetSiPMCountPerBlock(spsSiPMs);
 
                     for (int i = 0; i < sipmCounts.Count(); i++)
@@ -834,9 +884,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                                 mode = MeasurementMode.MeasurementModes.DualSPS;
                                 break;
                             //can not do this!
-                            case 3:
-                                mode = MeasurementMode.MeasurementModes.QuadSPS;
-                                break;
+                            //case 3:
+                            //    mode = MeasurementMode.MeasurementModes.QuadSPS;
+                            //    break;
                             case 4:
                                 mode = MeasurementMode.MeasurementModes.QuadSPS;
                                 break;
@@ -892,6 +942,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 actualModule = -1;
                 CurrentTask = TaskTypes.Finished;
                 EndTimestamp = TimestampHelper.GetUTCTimestamp();
+                taskIsRunning = false;
             }
             catch (SerialTimeoutLimitReachedException ex)
             {
@@ -936,13 +987,27 @@ namespace SiPMTesterInterface.ClientApp.Services
                 try
                 {
                     _logger.LogInformation("Starting analysis task...");
+                    bool voltageCheck = data.IVResult.DMMVoltage.Count > 0;
+                    bool currentCheck = false;
+
+                    for (int i = 0; i < data.IVResult.DMMVoltage.Count; i++)
+                    {
+                        if (data.IVResult.DMMVoltage[i] < 25.0)
+                        {
+                            voltageCheck = false;
+                        }
+                    }
+
                     for (int i = 0; i < data.IVResult.SMUCurrent.Count; i++)
                     {
                         if (data.IVResult.SMUCurrent[i] > 10E-6)
                         {
-                            data.IVResult.AnalysationResult.IsCurrentCheckOK = true;
+                            currentCheck = true;
                         }
                     }
+
+                    data.IVResult.AnalysationResult.IsCurrentCheckOK = voltageCheck && currentCheck;
+
                     data.IVResult.AnalysationResult.Analysed = true;
 
                     if (data.IVResult.AnalysationResult.IsCurrentCheckOK)
@@ -1009,10 +1074,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public void StartMeasurement(MeasurementStartModel measurementData)
         {
-            needToChangeBlock = true; 
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
             CreateAndSendLogMessage("StartMeasurement", "Measurement is starting...", LogMessageType.Info, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
+            taskIsRunning = false;
+            taskTypeWaitingForFinish = TaskTypes.Idle;
             MeasurementStopped = false;
             CheckAndRunNextAsync();
             StartTimestamp = TimestampHelper.GetUTCTimestamp();
@@ -1072,6 +1138,11 @@ namespace SiPMTesterInterface.ClientApp.Services
                     c.DarkCurrentResult.DarkCurrentResult = e.Data;
                     c.DarkCurrentResult.DarkCurrentResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.DarkCurrentResult.DarkCurrentResult.StartTimestamp - Pulser.UpdatePeriod.TotalSeconds && item.Timestamp <= c.DarkCurrentResult.DarkCurrentResult.EndTimestamp).ToList();
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
+                    if (taskTypeWaitingForFinish == TaskTypes.DarkCurrent)
+                    {
+                        taskIsRunning = false;
+                        MarkCurrentTaskDone();
+                    }
                 }
                 else
                 {
@@ -1089,6 +1160,11 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     c.DarkCurrentResult.LeakageCurrentResult = e.Data;
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
+                    if (taskTypeWaitingForFinish == TaskTypes.DarkCurrent)
+                    {
+                        taskIsRunning = false;
+                        MarkCurrentTaskDone();
+                    }
                 }
                 else
                 {
@@ -1107,6 +1183,11 @@ namespace SiPMTesterInterface.ClientApp.Services
                     c.ForwardResistanceResult.Result = e.Data;
                     c.ForwardResistanceResult.Result.Temperatures = Temperatures.Where(item => item.Timestamp >= c.ForwardResistanceResult.Result.StartTimestamp - Pulser.UpdatePeriod.TotalSeconds && item.Timestamp <= c.ForwardResistanceResult.Result.EndTimestamp).ToList();
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
+                    if (taskTypeWaitingForFinish == TaskTypes.ForwardResistance)
+                    {
+                        taskIsRunning = false;
+                        MarkCurrentTaskDone();
+                    }
                 }
                 else
                 {
@@ -1213,24 +1294,24 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (!e.IsError)
             {
                 CreateAndSendLogMessage("Measurement Service - Pulser", e.ReceivedMessage, LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.Unknown);
-                _logger.LogError($"Invalid state of Pulser: {e.ReceivedMessage}");
+                //_logger.LogError($"Invalid state of Pulser: {e.ReceivedMessage}");
                 return;
             }
             if (e.ReceivedMessage.Contains("A_PSU_disabled!!", StringComparison.InvariantCultureIgnoreCase))
             {
                 CreateAndSendLogMessage("Measurement Service - Pulser", "A_PSU is disabled. Trying to enable...", LogMessageType.Info, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
-                _logger.LogError($"A_PSU is disabled. Trying to enable...");
-                if (CurrentTask == TaskTypes.IV)
-                {
-                    SetRetryFailedMeasurement(MeasurementType.IVMeasurement);
-                }
+                //_logger.LogError($"A_PSU is disabled. Trying to enable...");
+                //if (CurrentTask == TaskTypes.IV)
+                //{
+                //    SetRetryFailedMeasurement(MeasurementType.IVMeasurement);
+                //}
                 CheckAndRunNextAsync();
             }
 
             else
             {
                 CreateAndSendLogMessage("Measurement Service - Pulser", $"{e.ReceivedMessage}", LogMessageType.Error, Devices.Pulser, true, ResponseButtons.StopRetryContinue, MeasurementType.Unknown);
-                _logger.LogError($"A_PSU is disabled. Trying to enable...");
+                //_logger.LogError($"A_PSU is disabled. Trying to enable...");
             }
         }
 
@@ -1257,13 +1338,13 @@ namespace SiPMTesterInterface.ClientApp.Services
             catch (SerialTimeoutLimitReachedException ex)
             {
                 CreateAndSendLogMessage("Measurement Service - Init - HVPSU", ex.Message + " - Do you want to reinitialize HVPSU?", LogMessageType.Error, Devices.HVPSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                //_logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
                 return;
             }
             catch (Exception ex)
             {
                 CreateAndSendLogMessage("Measurement Service - Init - HVPSU", ex.Message + " - Do you want to retry?", LogMessageType.Error, Devices.HVPSU, true, ResponseButtons.YesNo, MeasurementType.Unknown);
-                _logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
+                //_logger.LogError($"Measurement service is unavailable because of an error: {ex.Message}");
             }
         }
 
@@ -1319,7 +1400,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             catch (Exception ex)
             {
                 CreateAndSendLogMessage("Measurement Service - Settings", ex.Message, LogMessageType.Error, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
-                _logger.LogError($"Measurement servicse is unavailable because of an error: {ex.Message}");
+                //_logger.LogError($"Measurement servicse is unavailable because of an error: {ex.Message}");
             }
 
             try
@@ -1347,7 +1428,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             DeviceStates = new DeviceStatesModel();
 
-            coolerState = new CoolerStateHandler(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount);
+            coolerState = new CoolerStateHandler(MeasurementServiceSettings);
             coolerState.OnCoolerTemperatureStabilizationChanged += CoolerState_OnCoolerTemperatureStabilizationChanged;
 
             MeasurementStartModel startModel = new MeasurementStartModel();
@@ -1441,7 +1522,12 @@ namespace SiPMTesterInterface.ClientApp.Services
         private void OnDMMMeasurementDataReceived(object? sender, DMMMeasurementDataReceivedEventArgs e)
         {
             _logger.LogInformation("DMMMeasurementReceived");
-            CheckAndRunNext();
+            if (taskTypeWaitingForFinish == TaskTypes.DMMResistance)
+            {
+                taskIsRunning = false;
+                MarkCurrentTaskDone();
+            }
+            CheckAndRunNextAsync();
             //save data here
             serviceState.AppendDMMResistanceMeasurement(e.Data);
             try
@@ -1475,7 +1561,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             if (c.IVResult.ErrorHappened)
             {
-                CreateAndSendLogMessage("Failed IV measurement", $"IV measurement for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.IVMeasurement);
+                CreateAndSendLogMessage("Failed IV measurement", $"IV measurement for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Do you want to retry?", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.YesNo, MeasurementType.IVMeasurement);
                 return;
             }
             else if (e.Data.ErrorHappened)
@@ -1489,7 +1575,12 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation);
 
-            CheckAndRunNext();
+            if (taskTypeWaitingForFinish == TaskTypes.IV)
+            {
+                taskIsRunning = false;
+                MarkCurrentTaskDone();
+            }
+            CheckAndRunNextAsync();
         }
 
         private void Pulser_OnDataReadout(object? sender, PSoCCommuicatorDataReadEventArgs e)
@@ -1507,7 +1598,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 0).Enabled = false; //set explicitly to false, so it can try to restart
                 //SetCooler(m0State);
 
-                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {0} fan failed. Error code: {m0.ActualState}", LogMessageType.Warning, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {0} fan failed. Error code: {m0.ActualState}", LogMessageType.Warning, Devices.Pulser, true, ResponseButtons.OK, MeasurementType.Unknown);
             }
 
             if (m1.ActualState != Enums.CoolerStates.On && m1.ActualState != Enums.CoolerStates.Off)
@@ -1517,7 +1608,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 1).Enabled = false; //set explicitly to false, so it can try to restart
                 //SetCooler(m1State);
 
-                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {1} fan failed. Error code: {m1.ActualState}", LogMessageType.Warning, Devices.Pulser, false, ResponseButtons.OK, MeasurementType.Unknown);
+                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {1} fan failed. Error code: {m1.ActualState}", LogMessageType.Warning, Devices.Pulser, true, ResponseButtons.OK, MeasurementType.Unknown);
             }
 
             _hubContext.Clients.All.ReceivePulserTempCoolerData(e);
@@ -1642,9 +1733,20 @@ namespace SiPMTesterInterface.ClientApp.Services
                                 log.NextStep = ErrorNextStep.Continue; //it will call enable psu until it is done, then proceed with measurement
                             }
                         }
+                        else
+                        {
+                            log.NextStep = ErrorNextStep.Retry;
+                        }
                         break;
                     case ResponseButtons.No:
-                        log.NextStep = ErrorNextStep.Stop;
+                        if (log.Sender.ToLower().Contains("Init".ToLower()))
+                        {
+                            log.NextStep = ErrorNextStep.Stop;
+                        }
+                        else
+                        {
+                            log.NextStep = ErrorNextStep.Continue;
+                        }
                         break;
                     default:
                         _logger.LogError($"Unknown or invalid response button received: {log.UserResponse.ToString()}");
@@ -1656,10 +1758,13 @@ namespace SiPMTesterInterface.ClientApp.Services
             switch (log.NextStep)
             {
                 case ErrorNextStep.Continue:
+                    taskIsRunning = false;
+                    MarkCurrentTaskDone();
                     CheckAndRunNextAsync();
                     break;
                 case ErrorNextStep.Retry:
-                    SetRetryFailedMeasurement(log.MeasurementType);
+                    //SetRetryFailedMeasurement(log.MeasurementType);
+                    taskIsRunning = false;
                     CheckAndRunNextAsync();
                     break;
                 case ErrorNextStep.Stop:

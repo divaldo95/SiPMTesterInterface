@@ -77,7 +77,7 @@ namespace SiPMTesterInterface.Models
                 {
                     throw new NullReferenceException("DarkCurrentResult or LeakageCurrentResult is null");
                 }
-                return DarkCurrentResult.SecondIterationCurrentAverage - LeakageCurrentResult.FirstIterationCurrentAverage;
+                return DarkCurrentResult.SecondIterationCurrentAverage - LeakageCurrentResult.SecondIterationCurrentAverage;
             }
         }
 

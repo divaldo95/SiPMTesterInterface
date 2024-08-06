@@ -12,7 +12,11 @@ namespace SiPMTesterInterface.Enums
         Idle = 6,
         TemperatureStabilisation = 7,
         DarkCurrent = 8,
-        ForwardResistance = 9
+        ForwardResistance = 9,
+        BlockDisable = 10,
+        BlockEnable = 11,
+        TemperatureMeasurement = 12,
+        PulserChange = 13
     }
 }
 

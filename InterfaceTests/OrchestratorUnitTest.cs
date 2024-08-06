@@ -16,12 +16,37 @@ namespace InterfaceTests;
 public class OrchestratorUnitTest
 {
     [TestMethod]
+    public void FinalMeasurementOrderTest()
+    {
+        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
+        ILogger<MeasurementOrchestrator> logger = factory.CreateLogger<MeasurementOrchestrator>();
+
+        string inJson = InputJSONs.inputJSON3;
+        MeasurementStartModel? startModel;
+        bool success = Parser.String2JSON(inJson, out startModel);
+        MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(logger);
+        if (!success || startModel == null)
+        {
+            Debug.Fail("Invalid input json string");
+        }
+        orchestrator.PrepareMeasurement(startModel);
+
+        MeasurementOrderModel m;
+
+        while (orchestrator.GetNextTask(out m))
+        {
+            Console.WriteLine(m);
+            orchestrator.MarkCurrentTaskDone();
+        }
+    }
+
+    [TestMethod]
     public void SPSOutputTest()
     {
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
         ILogger<MeasurementOrchestrator> logger = factory.CreateLogger<MeasurementOrchestrator>();
 
-        string inJson = InputJSONs.inputJSON2;
+        string inJson = InputJSONs.inputJSON1;
         MeasurementStartModel? startModel;
         bool success = Parser.String2JSON(inJson, out startModel);
         MeasurementOrchestrator orchestrator = new MeasurementOrchestrator(logger);
@@ -83,7 +108,10 @@ public class OrchestratorUnitTest
                 if (Type == MeasurementType.DMMResistanceMeasurement)
                 {
                     Console.WriteLine("DMM Measurement");
-                    continue;
+                    if (sipms.Count != 1)
+                    {
+                        Debug.Fail($"Can not measure more than one block resistance a time");
+                    }
                 }
 
                 else if (Type == MeasurementType.IVMeasurement)

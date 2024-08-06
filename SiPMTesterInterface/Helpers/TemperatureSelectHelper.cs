@@ -21,12 +21,27 @@ namespace SiPMTesterInterface.Helpers
                 if (c.SiPMLocation.Module == 0)
                 {
                     double temp = c.IVResult.Temperatures[i].Module1[index];
-                    temperatures.Add(temp);
+                    if (temp < -60)
+                    {
+                        Console.WriteLine($"Temperature exluded because it is too low ({temp})");
+                    }
+                    else
+                    {
+                        temperatures.Add(temp);
+                    }
+                    
                 }
                 else
                 {
                     double temp = c.IVResult.Temperatures[i].Module2[index];
-                    temperatures.Add(temp);
+                    if (temp < -60)
+                    {
+                        Console.WriteLine($"Temperature exluded because it is too low ({temp})");
+                    }
+                    else
+                    {
+                        temperatures.Add(temp);
+                    }
                 }
             }
             return temperatures;

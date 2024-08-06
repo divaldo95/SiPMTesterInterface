@@ -110,6 +110,7 @@ const initialToasts = [
 
 export const MeasurementProvider = ({ children }) => {
     const [measurementData, setMeasurementData] = useState(initialState);
+    const [tempMeasurementData, setTempMeasurementData] = useState(initialState);
     const [measurementStates, setMeasurementStates] = useState(initialMeasurementState);
     const [isIVMeasurementRunning, setIsIVMeasurementRunning] = useState(true);
     const [isSPSMeasurementRunning, setIsSPSMeasurementRunning] = useState(false);
@@ -133,8 +134,27 @@ export const MeasurementProvider = ({ children }) => {
 
     const [showMeasurementWizard, setShowMeasurementWizard] = useState(false);
 
-    const handleShowMeasurementWizard = () => setShowMeasurementWizard(true);
-    const handleCloseMeasurementWizard = () => setShowMeasurementWizard(false);
+    const handleShowMeasurementWizard = () => {
+        const blankedOutData = JSON.parse(JSON.stringify(measurementData));
+        blankedOutData.Blocks.forEach(block => {
+            block.Modules.forEach(module => {
+                module.Arrays.forEach(array => {
+                    array.Barcode = "";
+                });
+            });
+        });
+
+        setMeasurementData(blankedOutData);
+        setShowMeasurementWizard(true);
+    };
+
+    const handleCloseMeasurementWizard = () => {
+        setShowMeasurementWizard(false);
+    };
+
+    const handleSaveBarcodeChanges = () => {
+        setShowMeasurementWizard(false);
+    };
 
     const updateCoolerStateHandler = (newState) => {
         setCoolerStateHandler(newState);
@@ -301,6 +321,7 @@ export const MeasurementProvider = ({ children }) => {
     };
 
     const updateVopData = (BlockIndex, ModuleIndex, ArrayIndex, index, Vop) => {
+        console.log(BlockIndex, ModuleIndex, ArrayIndex, index, Vop);
         setMeasurementData(prevMeasurementState => {
             const updatedState = { ...prevMeasurementState };
             updatedState.Blocks = [...prevMeasurementState.Blocks];
@@ -321,32 +342,34 @@ export const MeasurementProvider = ({ children }) => {
                 OperatingVoltage: Vop,
                 IV: (Vop > 20.0 ? 1 : 0)
             };
-
-            //console.log(updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index]);
             return updatedState;
         });
-        /*
-        setMeasurementData(prevMeasurementState => {
-            const updatedState = prevMeasurementState;
-            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index].OperatingVoltage = Vop;
-            console.log(updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index]);
-            return updatedState;
-        });
-        */
     };
 
-    /*
-    const addToast = (messageType, messageText) => {
-        setMessages(prevMessages => [
-            ...prevMessages,
-            {
-                MessageType: messageType,
-                Message: messageText,
-                Dismissed: false
-            }
-        ]);
+    const updateVopDataTemp = (BlockIndex, ModuleIndex, ArrayIndex, index, Vop) => {
+        setTempMeasurementData(prevMeasurementState => {
+            const updatedState = { ...prevMeasurementState };
+            updatedState.Blocks = [...prevMeasurementState.Blocks];
+            updatedState.Blocks[BlockIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex],
+                Modules: [...prevMeasurementState.Blocks[BlockIndex].Modules]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex],
+                Arrays: [...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex],
+                SiPMs: [...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs]
+            };
+            updatedState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index] = {
+                ...prevMeasurementState.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[index],
+                OperatingVoltage: Vop,
+                IV: (Vop > 20.0 ? 1 : 0)
+            };
+            return updatedState;
+        });
     };
-    */
 
     const updateMeasurementData = (newData) => {
         setMeasurementData({ ...measurementData, ...newData });
@@ -502,6 +525,13 @@ export const MeasurementProvider = ({ children }) => {
         setMeasurementData({ ...measurementData, Blocks: updatedBlocks });
     };
 
+    const updateBarcodeTemp = (blockIndex, moduleIndex, arrayIndex, newBarcode) => {
+        const updatedBlocks = [...tempMeasurementData.Blocks];
+        updatedBlocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].Barcode = newBarcode;
+
+        setTempMeasurementData({ ...tempMeasurementData, Blocks: updatedBlocks });
+    };
+
     const isAnyMeasurementRunning = () => {
         if (instrumentStatuses.CurrentTask === TaskTypes.Finished || instrumentStatuses.CurrentTask === TaskTypes.Idle) {
             return false;
@@ -541,7 +571,7 @@ export const MeasurementProvider = ({ children }) => {
                 coolerStateHandler, updateCoolerStateHandler, updateCoolerData,
                 handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun,
                 canMeasurementStart, updateActiveSiPMs, activeSiPMs, showMeasurementWizard, handleCloseMeasurementWizard,
-                handleShowMeasurementWizard, updateVopData
+                handleShowMeasurementWizard, updateVopData, updateVopDataTemp, updateBarcodeTemp, handleSaveBarcodeChanges
             }}>
             {children}
         </MeasurementContext.Provider>

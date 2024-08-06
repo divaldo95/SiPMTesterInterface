@@ -9,7 +9,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace SiPMTesterInterface.Classes
 {
     public enum MeasurementOrder
-    { 
+    {
         DCLC = 0,
         DCDC = 1,
         FR = 2,
@@ -18,6 +18,10 @@ namespace SiPMTesterInterface.Classes
 
 	public class MeasurementOrchestrator
 	{
+        //Final measurement order - Contains all steps
+        private int CurrentMeasurementIndex = -1;
+        public List<MeasurementOrderModel> FinalMeasurementOrder { get; private set; } = new List<MeasurementOrderModel>();
+
         private bool MeasureDMMResistanceAtBegining = true;
 
         //Only one IV measurement at a time
@@ -86,9 +90,6 @@ namespace SiPMTesterInterface.Classes
                 );
             var iv = filteredSiPMs.Where(item => item.SiPM.IV == 1).ToList();
 
-            var dc = filteredSiPMs.Where(item => item.SiPM.IV == 1).ToList(); //only for testing
-            var fr = filteredSiPMs.Where(item => item.SiPM.IV == 1).ToList(); //only for testing
-
             // Output the filtered SiPMs
             //do some shufflin'
             IVMeasurementOrder.Clear(); //empty list if everything went fine until this point
@@ -114,35 +115,86 @@ namespace SiPMTesterInterface.Classes
             {
                 CurrentIVMeasurementIndex = 0; //reset the index counter
                 ShuffleIVList(IVMeasurementOrder);
+                FinalMeasurementOrder.Clear();
             }
 
-            DCMeasurementOrder.Clear();
-            foreach (var item in dc)
-            {
-                DCMeasurementOrder.Add(new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex));
-                Console.WriteLine($"BlockIndex: {item.BlockIndex}, ModuleIndex: {item.ModuleIndex}, ArrayIndex: {item.ArrayIndex}, SiPMIndex: {item.SiPMIndex}, DMMResistance: {item.SiPM.DMMResistance}, IV: {item.SiPM.IV}, SPS: {item.SiPM.SPS}");
+            TaskTypes taskType;
+            MeasurementType t;
+            object d;
+            List<CurrentSiPMModel> s;
+            bool b;
 
+            bool prevBlockChangeState = false;
+            while (GetNextIterationDataNewOrderSE(out t, out d, out s, out b, true))
+            {
+                MeasurementOrderModel m;
+                if (b && !prevBlockChangeState)
+                {
+                    if (CurrentIVMeasurementIndex > 0)
+                    {
+                        m = new MeasurementOrderModel
+                        {
+                            Task = TaskTypes.BlockDisable,
+                            Type = MeasurementType.Unknown,
+                            SiPM = IVMeasurementOrder[CurrentIVMeasurementIndex - 1],
+                            StartModel = d
+                        };
+                        FinalMeasurementOrder.Add(m);
+                    }
+                    m = new MeasurementOrderModel
+                    {
+                        Task = TaskTypes.BlockEnable,
+                        Type = MeasurementType.Unknown,
+                        SiPM = s[0],
+                        StartModel = d
+                    };
+                    FinalMeasurementOrder.Add(m);
+                    
+                }
+
+                switch (t)
+                {
+                    case MeasurementType.IVMeasurement:
+                        taskType = TaskTypes.IV;
+                        break;
+                    case MeasurementType.ForwardResistanceMeasurement:
+                        taskType = TaskTypes.ForwardResistance;
+                        break;
+                    case MeasurementType.DarkCurrentMeasurement:
+                        taskType = TaskTypes.DarkCurrent;
+                        break;
+                    case MeasurementType.SPSMeasurement:
+                        taskType = TaskTypes.SPS;
+                        break;
+                    case MeasurementType.DMMResistanceMeasurement:
+                        taskType = TaskTypes.DMMResistance;
+                        break;
+                    default:
+                        taskType = TaskTypes.Waiting;
+                        break;
+                }
+                m = new MeasurementOrderModel
+                {
+                    Task = taskType,
+                    Type = t,
+                    SiPM = s[0],
+                    StartModel = d
+                };
+                FinalMeasurementOrder.Add(m);
+                prevBlockChangeState = b;
             }
 
-            if (DCMeasurementOrder.Count > 0)
+            if (FinalMeasurementOrder.Count > 0)
             {
-                CurrentDCLCMeasurementIndex = 0; //reset the index counter
-                CurrentDCDCMeasurementIndex = 0;
-                ShuffleIVList(DCMeasurementOrder);
-            }
-
-            FRMeasurementOrder.Clear();
-            foreach (var item in fr)
-            {
-                FRMeasurementOrder.Add(new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex));
-                Console.WriteLine($"BlockIndex: {item.BlockIndex}, ModuleIndex: {item.ModuleIndex}, ArrayIndex: {item.ArrayIndex}, SiPMIndex: {item.SiPMIndex}, DMMResistance: {item.SiPM.DMMResistance}, IV: {item.SiPM.IV}, SPS: {item.SiPM.SPS}");
-
-            }
-
-            if (FRMeasurementOrder.Count > 0)
-            {
-                CurrentFRMeasurementIndex = 0; //reset the index counter
-                ShuffleIVList(FRMeasurementOrder);
+                MeasurementOrderModel m = new MeasurementOrderModel
+                {
+                    Task = TaskTypes.BlockDisable,
+                    Type = MeasurementType.Unknown,
+                    SiPM = FinalMeasurementOrder.Last().SiPM,
+                    StartModel = d
+                };
+                FinalMeasurementOrder.Add(m);
+                CurrentMeasurementIndex = 0;
             }
 
             // Define the valid array combinations
@@ -201,6 +253,25 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
+        public bool GetNextTask(out MeasurementOrderModel nextMeasurement)
+        {
+            if (CurrentMeasurementIndex < FinalMeasurementOrder.Count)
+            {
+                nextMeasurement = FinalMeasurementOrder[CurrentMeasurementIndex];
+                return true;
+            }
+            else
+            {
+                nextMeasurement = new MeasurementOrderModel();
+                return false;
+            }
+        }
+
+        public void MarkCurrentTaskDone()
+        {
+            CurrentMeasurementIndex++;
+        }
+
         public bool IsIVIterationAvailable()
         {
             return (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && CurrentIVMeasurementIndex >= 0);
@@ -241,222 +312,6 @@ namespace SiPMTesterInterface.Classes
         }
 
 
-        public bool IsBlockChanging(out int nextBlock, out int nextModule, out MeasurementType measurementType)
-        {
-            bool retVal = false;
-            nextBlock = -1;
-            nextModule = -1;
-            measurementType = MeasurementType.Unknown;
-            if (MeasureDMMResistanceAtBegining)
-            {
-                nextBlock = 0;
-                nextModule = 0;
-                measurementType = MeasurementType.DMMResistanceMeasurement;
-                retVal = true;
-            }
-
-            //First DC/LC/FR/IV measurement
-            else if (CurrentIVMeasurementIndex == 0)
-            {
-                nextBlock = IVMeasurementOrder[0].Block;
-                nextModule = IVMeasurementOrder[0].Module;
-                if (CurrentMeasurementOrderCounter == (MeasurementOrder)0)
-                {
-                    retVal = true;
-                    measurementType = MeasurementType.DarkCurrentMeasurement; //next measurement type
-                }
-            }
-            else if (CurrentIVMeasurementIndex < IVMeasurementOrder.Count &&
-                    IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Block != IVMeasurementOrder[CurrentIVMeasurementIndex].Block)
-            {
-                nextBlock = IVMeasurementOrder[CurrentIVMeasurementIndex].Block;
-                nextModule = IVMeasurementOrder[CurrentIVMeasurementIndex].Module;
-                if (CurrentMeasurementOrderCounter == (MeasurementOrder)0)
-                {
-                    retVal = true;
-                    measurementType = MeasurementType.DarkCurrentMeasurement; //next measurement type
-                }
-                
-            }
-
-            //SPS things placeholder
-
-            return retVal;
-        }
-
-        //Second Edition
-        public bool IsBlockChangingSE(out int nextBlock, out int nextModule, out MeasurementType measurementType)
-        {
-            bool retVal = false;
-            nextBlock = -1;
-            nextModule = -1;
-            measurementType = MeasurementType.Unknown;
-            if (MeasureDMMResistanceAtBegining)
-            {
-                nextBlock = 0;
-                nextModule = 0;
-                measurementType = MeasurementType.DMMResistanceMeasurement;
-                retVal = true;
-            }
-
-            //First DC/LC/FR/IV measurement
-            else if (CurrentIVMeasurementIndex == 0 && CurrentMeasurementOrderCounter == 0)
-            {
-                nextBlock = IVMeasurementOrder[0].Block;
-                nextModule = IVMeasurementOrder[0].Module;
-                retVal = true;
-                measurementType = MeasurementType.DarkCurrentMeasurement; //next measurement type
-            }
-            else if (CurrentIVMeasurementIndex == 0 && CurrentMeasurementOrderCounter > 0)
-            {
-                nextBlock = IVMeasurementOrder[0].Block;
-                nextModule = IVMeasurementOrder[0].Module;
-                if (CurrentMeasurementOrderCounter == MeasurementOrder.IV)
-                {
-                    retVal = true;
-                    measurementType = MeasurementType.IVMeasurement; //next measurement type
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCDC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCLC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.FR)
-                {
-                    measurementType = MeasurementType.ForwardResistanceMeasurement;
-                }
-            }
-            else if (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && CurrentIVMeasurementIndex > 0 && IVMeasurementOrder[CurrentIVMeasurementIndex].Block != IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Block)
-            {
-                nextBlock = IVMeasurementOrder[CurrentIVMeasurementIndex].Block;
-                nextModule = IVMeasurementOrder[CurrentIVMeasurementIndex].Module;
-                if (CurrentMeasurementOrderCounter == MeasurementOrder.IV)
-                {
-                    //finished all DC FR IV measurement
-                    retVal = true;
-                    measurementType = MeasurementType.IVMeasurement; //next measurement type
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCDC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                    retVal = false;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCLC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                    retVal = false;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.FR)
-                {
-                    measurementType = MeasurementType.ForwardResistanceMeasurement;
-                    retVal = false;
-                }
-            }
-            else if (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && CurrentIVMeasurementIndex > 0)
-            {
-                if (CurrentMeasurementOrderCounter == MeasurementOrder.IV)
-                {
-                    measurementType = MeasurementType.IVMeasurement; //next measurement type
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCDC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCLC)
-                {
-                    measurementType = MeasurementType.DarkCurrentMeasurement;
-                }
-                else if (CurrentMeasurementOrderCounter == MeasurementOrder.FR)
-                {
-                    measurementType = MeasurementType.ForwardResistanceMeasurement;
-                }
-                nextBlock = IVMeasurementOrder[CurrentIVMeasurementIndex].Block;
-                nextModule = IVMeasurementOrder[CurrentIVMeasurementIndex].Module;
-                retVal = false;
-            }
-
-            //SPS things placeholder
-
-            return retVal;
-        }
-
-        public bool IsBlockOrModuleChanging(out int nextBlock, out int nextModule, out MeasurementType measurementType)
-        {
-            bool retVal = false;
-            nextBlock = -1;
-            nextModule = -1;
-            measurementType = MeasurementType.Unknown;
-            if (MeasureDMMResistanceAtBegining)
-            {
-                nextBlock = 0;
-                nextModule = 0;
-                measurementType = MeasurementType.DMMResistanceMeasurement;
-                retVal = true;
-            }
-
-            // First DC
-            else if (CurrentDCLCMeasurementIndex == 0 && CurrentDCDCMeasurementIndex == 0)
-            {
-                nextBlock = DCMeasurementOrder[0].Block;
-                nextModule = DCMeasurementOrder[0].Module;
-                measurementType = MeasurementType.DarkCurrentMeasurement;
-                retVal = true;
-            }
-            else if (CurrentDCLCMeasurementIndex > CurrentDCDCMeasurementIndex)
-            {
-                //measuring the same block and module and everything
-                nextBlock = DCMeasurementOrder[CurrentDCDCMeasurementIndex].Block;
-                nextModule = DCMeasurementOrder[CurrentDCDCMeasurementIndex].Module;
-                measurementType = MeasurementType.DarkCurrentMeasurement;
-                retVal = false;
-            }
-            // Check if there is at least one measurement left and whether it's block is matching with the current one, of not, change
-            else if (CurrentDCLCMeasurementIndex < DCMeasurementOrder.Count && (DCMeasurementOrder[CurrentDCLCMeasurementIndex - 1].Block != DCMeasurementOrder[CurrentDCLCMeasurementIndex].Block || DCMeasurementOrder[CurrentDCLCMeasurementIndex - 1].Module != DCMeasurementOrder[CurrentDCLCMeasurementIndex].Module))
-            {
-                nextBlock = DCMeasurementOrder[CurrentDCLCMeasurementIndex].Block;
-                nextModule = DCMeasurementOrder[CurrentDCLCMeasurementIndex].Module;
-                measurementType = MeasurementType.DarkCurrentMeasurement;
-                retVal = true;
-            }
-            // First Forward Resistance
-            else if (CurrentFRMeasurementIndex == 0) //might not need to change block or module
-            {
-                nextBlock = FRMeasurementOrder[0].Block;
-                nextModule = FRMeasurementOrder[0].Module;
-                measurementType = MeasurementType.ForwardResistanceMeasurement;
-                retVal = true;
-            }
-            // Check if there is at least one measurement left and whether it's block is matching with the current one, of not, change
-            else if (CurrentFRMeasurementIndex < FRMeasurementOrder.Count && (FRMeasurementOrder[CurrentFRMeasurementIndex - 1].Block != FRMeasurementOrder[CurrentFRMeasurementIndex].Block || FRMeasurementOrder[CurrentFRMeasurementIndex - 1].Module != FRMeasurementOrder[CurrentFRMeasurementIndex].Module))
-            {
-                nextBlock = FRMeasurementOrder[CurrentFRMeasurementIndex].Block;
-                nextModule = FRMeasurementOrder[CurrentFRMeasurementIndex].Module;
-                measurementType = MeasurementType.ForwardResistanceMeasurement;
-                retVal = true;
-            }
-            // First IV
-            else if (CurrentIVMeasurementIndex == 0) //might not need to change block or module
-            {
-                nextBlock = IVMeasurementOrder[0].Block;
-                nextModule = IVMeasurementOrder[0].Module;
-                measurementType = MeasurementType.IVMeasurement;
-                retVal = true;
-            }
-            // Check if there is at least one measurement left and whether it's block is matching with the current one, of not, change
-            else if (CurrentIVMeasurementIndex < IVMeasurementOrder.Count && (IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Block != IVMeasurementOrder[CurrentIVMeasurementIndex].Block || IVMeasurementOrder[CurrentIVMeasurementIndex - 1].Module != IVMeasurementOrder[CurrentIVMeasurementIndex].Module))
-            {
-                nextBlock = IVMeasurementOrder[CurrentIVMeasurementIndex].Block;
-                nextModule = IVMeasurementOrder[CurrentIVMeasurementIndex].Module;
-                measurementType = MeasurementType.IVMeasurement;
-                retVal = true;
-            }
-            // sps things here
-            return retVal;
-        }
-
         /*
          * Pass back the necessary information to start the next round
          * New measurement order, second edition
@@ -472,25 +327,6 @@ namespace SiPMTesterInterface.Classes
             int currentCurrentBlockChangingIndex = CurrentBlockChangingIndex;
             MeasurementOrder currentCurrentMeasurementOrderCounter = CurrentMeasurementOrderCounter;
 
-
-            if (MeasureDMMResistanceAtBegining)
-            {
-                isBlockChanging = true;
-                MeasureDMMResistanceAtBegining = false; //run at the beginning
-                type = MeasurementType.DMMResistanceMeasurement;
-                NIDMMStartModel startModel = new NIDMMStartModel();
-                startModel.Identifier = new MeasurementIdentifier(MeasurementType.DMMResistanceMeasurement);
-                startModel.DMMResistance = globalState.CurrentRun.DMMResistance;
-                nextData = startModel;
-
-                if (!goToNext)
-                {
-                    MeasureDMMResistanceAtBegining = currentMeasureDMMResistanceAtBegining;
-                }
-
-                return true;
-            }
-
             bool retVal = IsIVIterationAvailable() || CurrentIVMeasurementIndex >= IVMeasurementOrder.Count;
             if (retVal)
             {
@@ -500,6 +336,29 @@ namespace SiPMTesterInterface.Classes
                     {
                         CurrentBlockChangingIndex = CurrentIVMeasurementIndex;
                         isBlockChanging = true;
+                        if (MeasureDMMResistanceAtBegining && isBlockChanging)
+                        {
+                            MeasureDMMResistanceAtBegining = false; //run at the beginning
+                            type = MeasurementType.DMMResistanceMeasurement;
+                            NIDMMStartModel startModel = new NIDMMStartModel();
+                            startModel.Identifier = new MeasurementIdentifier(MeasurementType.DMMResistanceMeasurement);
+                            startModel.DMMResistance = globalState.CurrentRun.DMMResistance;
+                            nextData = startModel;
+
+                            CurrentSiPMModel dmmSiPM = new CurrentSiPMModel(IVMeasurementOrder[CurrentIVMeasurementIndex].Block, 0, 0, 0);
+                            sipms.Add(dmmSiPM); //dmm meas for next block x, 0, 0, 0
+
+                            if (!goToNext)
+                            {
+                                MeasureDMMResistanceAtBegining = currentMeasureDMMResistanceAtBegining;
+                            }
+
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        MeasureDMMResistanceAtBegining = true;
                     }
                     
                 }
@@ -510,12 +369,32 @@ namespace SiPMTesterInterface.Classes
                         //finished all DC FR IV measurement
                         CurrentBlockChangingIndex = CurrentIVMeasurementIndex;
                         isBlockChanging = true;
+                        if (MeasureDMMResistanceAtBegining && isBlockChanging)
+                        {
+                            MeasureDMMResistanceAtBegining = false; //run at the beginning
+                            type = MeasurementType.DMMResistanceMeasurement;
+                            NIDMMStartModel startModel = new NIDMMStartModel();
+                            startModel.Identifier = new MeasurementIdentifier(MeasurementType.DMMResistanceMeasurement);
+                            startModel.DMMResistance = globalState.CurrentRun.DMMResistance;
+                            nextData = startModel;
+
+                            CurrentSiPMModel dmmSiPM = new CurrentSiPMModel(IVMeasurementOrder[CurrentIVMeasurementIndex].Block, 0, 0, 0);
+                            sipms.Add(dmmSiPM); //dmm meas for next block x, 0, 0, 0
+
+                            if (!goToNext)
+                            {
+                                MeasureDMMResistanceAtBegining = currentMeasureDMMResistanceAtBegining;
+                            }
+
+                            return true;
+                        }
                         CurrentMeasurementOrderCounter = MeasurementOrder.DCLC;
                     }
                     else if (CurrentMeasurementOrderCounter == MeasurementOrder.DCLC)
                     {
                         CurrentIVMeasurementIndex = CurrentBlockChangingIndex;
                         CurrentMeasurementOrderCounter = MeasurementOrder.FR;
+                        MeasureDMMResistanceAtBegining = true;
                     }
                     else if (CurrentMeasurementOrderCounter == MeasurementOrder.FR)
                     {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using SiPMTesterInterface.AnalysisModels;
+using SiPMTesterInterface.Classes;
 using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
 
@@ -126,7 +127,7 @@ namespace SiPMTesterInterface.Libraries
             GCHandle currentsHandle = GCHandle.Alloc(currentsArray, GCHandleType.Pinned);
 
             double usedTemp = 25.0;
-            List<double> temperatures = GetTemperatures(c);
+            List<double> temperatures = GetTemperatures(c, true);
             if (temperatures.Count > 0)
             {
                 usedTemp = temperatures.Average();
@@ -175,28 +176,115 @@ namespace SiPMTesterInterface.Libraries
             return sipmIndexOffset;
         }
 
-        public static List<double> GetTemperatures(CurrentMeasurementDataModel c)
+        public static List<double> GetTemperatures(CurrentMeasurementDataModel c, bool gradientCompensation = false)
         {
             List<double> temperatures = new List<double>();
-            int index = GetUsedTemperatureIndex(c.SiPMLocation.Array, c.SiPMLocation.SiPM);
-            for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
+
+            if (gradientCompensation)
             {
-                if (c.SiPMLocation.Block != c.IVResult.Temperatures[i].Block)
-                {
-                    continue;
-                }
+
+                double temp = 0;
+                double[] averageTemp = new double[8];
+                double T0, T1;  //T0 near sipm 0 T1 near sipm 15
+
+                double[] sipmTempArray = new double[16];
+
+                double[] InitialTemp;
+                double[] FinalTemp;
 
                 if (c.SiPMLocation.Module == 0)
                 {
-                    double temp = c.IVResult.Temperatures[i].Module1[index];
-                    temperatures.Add(temp);
+                    InitialTemp = c.IVResult.Temperatures.FirstOrDefault(new TemperaturesArray()).Module1;
+                    FinalTemp = c.IVResult.Temperatures.LastOrDefault(new TemperaturesArray()).Module1;
                 }
                 else
                 {
-                    double temp = c.IVResult.Temperatures[i].Module2[index];
-                    temperatures.Add(temp);
+                    InitialTemp = c.IVResult.Temperatures.FirstOrDefault(new TemperaturesArray()).Module2;
+                    FinalTemp = c.IVResult.Temperatures.LastOrDefault(new TemperaturesArray()).Module2;
+                }
+
+                if (InitialTemp.Length != 8)
+                {
+                    Console.WriteLine("Probably empty initial temperatures list");
+                    InitialTemp = new double[8];
+                    for (int i = 0; i < 8; i++)
+                    {
+                        InitialTemp[0] = 25.0;
+                    }
+                }
+
+                if (FinalTemp.Length != 8)
+                {
+                    Console.WriteLine("Probably empty final temperatures list");
+                    FinalTemp = new double[8];
+                    for (int i = 0; i < 8; i++)
+                    {
+                        FinalTemp[0] = 25.0;
+                    }
+                }
+
+                for (int i = 0; i < 8; i++)
+                {
+                    averageTemp[i] = (InitialTemp[i] + FinalTemp[i]) / 2;
+                }
+
+                if (c.SiPMLocation.Array == 0)
+                {
+                    T0 = averageTemp[0];
+                    T1 = averageTemp[1];
+                }
+                else if (c.SiPMLocation.Array == 1)
+                {
+                    T0 = averageTemp[2];
+                    T1 = averageTemp[3];
+                }
+                else if (c.SiPMLocation.Array == 2)
+                {
+                    T0 = averageTemp[5];
+                    T1 = averageTemp[4];
+                }
+                else if (c.SiPMLocation.Array == 3)
+                {
+                    T0 = averageTemp[7];
+                    T1 = averageTemp[6];
+                }
+                else
+                {
+                    throw new InvalidDataException("Array can not be larger than 3");
+                }
+
+                double delta = T0 - T1;
+                double step_size = delta / 13;
+
+                for (int i = 0; i < 14; i++)
+                {
+                    sipmTempArray[1 + i] = T0 - i * step_size;
+                }
+                sipmTempArray[15] = sipmTempArray[14] - step_size;
+                sipmTempArray[0] = sipmTempArray[1] + step_size;
+
+                temp = sipmTempArray[c.SiPMLocation.SiPM];
+                temperatures.Add(temp);
+            }
+
+            else
+            {
+                int index = GetUsedTemperatureIndex(c.SiPMLocation.Array, c.SiPMLocation.SiPM);
+                for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
+                {
+                    if (c.SiPMLocation.Module == 0)
+                    {
+                        double temp = c.IVResult.Temperatures[i].Module1[index];
+                        temperatures.Add(temp);
+                    }
+                    else
+                    {
+                        double temp = c.IVResult.Temperatures[i].Module2[index];
+                        temperatures.Add(temp);
+                    }
                 }
             }
+
             return temperatures;
         }
     }
