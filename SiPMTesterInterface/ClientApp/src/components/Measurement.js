@@ -15,7 +15,7 @@ import StatesCard from './StatesCard';
 import SerialStateCard from './SerialStateCard';
 import LogModal from './LogModal';
 import ErrorMessageModal from './ErrorMessageModal';
-import { Accordion } from 'react-bootstrap';
+import { Accordion, Container } from 'react-bootstrap';
 import PulserValuesModal from './PulserValuesModal';
 import { BarcodeScanner } from 'react-barcode-scanner'
 import "react-barcode-scanner/polyfill"
@@ -288,73 +288,70 @@ function Measurement() {
     };
 
     return (
-        <>
-            <div style={{ display: 'flex' }}>
-                { /*<BarcodeScanner onCapture={onCapture} options={{ formats: ['code_39', 'code_93', 'qr_code'] }} /> */ }
-                { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
-                <div className="m-3">
-                    <ToastComponent></ToastComponent>
-                    <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
-                    <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
-                    <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
-                    <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} useTemp />
-                    <div className={`${count !== 0 ? 'd-none' : ''}`}>
-                        <div className="row mb-4">
-                            <div className="col">
-                                <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { updateMeasurementData(data);  console.log(data); }}></FileSelectCard>
-                            </div>
-                            <div className="col">
-                                <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"
-                                    clickFunction={stopMeasurement} tooltipMessage="Stop all running measurements" buttonIcon="bi-sign-stop">
-                                </OneButtonCard>
-                            </div>
-                            <div className="col">
-                                <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
-                                    clickFunction={downloadMeasurementDataJson} tooltipMessage="Export current settings" buttonIcon="bi-download">
-                                </OneButtonCard>
-                            </div>
+        <Container fluid>
+            { /*<BarcodeScanner onCapture={onCapture} options={{ formats: ['code_39', 'code_93', 'qr_code'] }} /> */ }
+            { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
+            <div className="m-3">
+                <ToastComponent></ToastComponent>
+                <LogModal show={showLogModal} handleClose={handleCloseLogModal}></LogModal>
+                <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
+                <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
+                <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} useTemp />
+                <div className={`${count !== 0 ? 'd-none' : ''}`}>
+                    <div className="row mb-4">
+                        <div className="col">
+                            <FileSelectCard className="h-100" inputText="Measurement Settings" handleFileResult={(data) => { updateMeasurementData(data);  console.log(data); }}></FileSelectCard>
                         </div>
-
-                        <div className="row mb-4">
-                            <div className="col">
-                                <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.IVConnectionState} MeasurementState={instrumentStatuses.IVState}></StatesCard>
-                            </div>
-                            <div className="col">
-                                <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.SPSConnectionState} MeasurementState={instrumentStatuses.SPSState}></StatesCard>
-                            </div>
-                            <div className="col">
-                                <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>
-                            </div>
+                        <div className="col">
+                            <OneButtonCard className="h-100" title="STOP MEASUREMENT" buttonText="STOP" buttonColor="bg-danger" textColor="text-white"
+                                clickFunction={stopMeasurement} tooltipMessage="Stop all running measurements" buttonIcon="bi-sign-stop">
+                            </OneButtonCard>
                         </div>
+                        <div className="col">
+                            <OneButtonCard className="h-100" title="Export settings" buttonText="Export" buttonColor="bg-secondary" textColor="text-white"
+                                clickFunction={downloadMeasurementDataJson} tooltipMessage="Export current settings" buttonIcon="bi-download">
+                            </OneButtonCard>
+                        </div>
+                    </div>
 
-                        <Accordion defaultActiveKey="0" className="mb-3">
-                            {measurementData.Blocks.map((block, index) => (
-                                <Accordion.Item key={index} eventKey={index}>
-                                    <Accordion.Header>
-                                        <span className="me-3"><BlockLocation blockLocation={index} /></span>
-                                        <span>Block {index}</span>
-                                    </Accordion.Header>
-                                    <Accordion.Body>
-                                        <SiPMBlock BlockIndex={index} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
-                                        </SiPMBlock>
-                                    </Accordion.Body>
-                                </Accordion.Item>
-                            ))}
-                        </Accordion>
+                    <div className="row mb-4">
+                        <div className="col">
+                            <StatesCard className="h-100" MeasurementType="IV" ConnectionState={instrumentStatuses.IVConnectionState} MeasurementState={instrumentStatuses.IVState}></StatesCard>
+                        </div>
+                        <div className="col">
+                            <StatesCard className="h-100" MeasurementType="SPS" ConnectionState={instrumentStatuses.SPSConnectionState} MeasurementState={instrumentStatuses.SPSState}></StatesCard>
+                        </div>
+                        <div className="col">
+                            <SerialStateCard className="h-100" SerialInstrumentName="Pulser" ConnectionState={pulserState}></SerialStateCard>
+                        </div>
+                    </div>
+
+                    <Accordion defaultActiveKey="0" className="mb-3">
+                        {measurementData.Blocks.map((block, index) => (
+                            <Accordion.Item key={index} eventKey={index}>
+                                <Accordion.Header>
+                                    <span className="me-3"><BlockLocation blockLocation={index} /></span>
+                                    <span>Block {index}</span>
+                                </Accordion.Header>
+                                <Accordion.Body>
+                                    <SiPMBlock BlockIndex={index} ModuleCount={2} ArrayCount={4} SiPMCount={16}>
+                                    </SiPMBlock>
+                                </Accordion.Body>
+                            </Accordion.Item>
+                        ))}
+                    </Accordion>
 
                         
-                    </div>
-
-                    <div className={`${measurementDataView === true ? 'd-none' : 'd-none'}`}> {/* Do not need it */ }
-                        <VoltageListComponent className="" MeasurementMode="IV" handleNewList={handleVoltageList}></VoltageListComponent>
-                    </div>
-
-
-                    <ButtonsComponent className="mb-2" buttons={buttons}></ButtonsComponent>
                 </div>
+
+                <div className={`${measurementDataView === true ? 'd-none' : 'd-none'}`}> {/* Do not need it */ }
+                    <VoltageListComponent className="" MeasurementMode="IV" handleNewList={handleVoltageList}></VoltageListComponent>
+                </div>
+
+
+                <ButtonsComponent className="mb-2" buttons={buttons}></ButtonsComponent>
             </div>
-            
-        </>
+        </Container>
     );
 }
 

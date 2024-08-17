@@ -1359,6 +1359,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             Configuration = configuration;
             _loggerFactory = loggerFactory;
+
             _logger = _loggerFactory.CreateLogger<MeasurementService>();
             _hubContext = hubContext;
 
@@ -1430,6 +1431,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             coolerState = new CoolerStateHandler(MeasurementServiceSettings);
             coolerState.OnCoolerTemperatureStabilizationChanged += CoolerState_OnCoolerTemperatureStabilizationChanged;
+            coolerState.OnCoolerFail += CoolerState_OnCoolerFail;
 
             MeasurementStartModel startModel = new MeasurementStartModel();
             startModel.MeasureDMMResistance = true;
@@ -1476,6 +1478,17 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
 
             Console.WriteLine($"TestQuery: {JsonConvert.SerializeObject(startModel)}");
+        }
+
+        private void CoolerState_OnCoolerFail(object? sender, CoolerFailEventArgs e)
+        {
+            CreateAndSendLogMessage("Cooler Error",
+                $"Block {e.Block}, Module {e.Module} cooler failed. Error: {e.CurrentState}. Check and manually restart cooler from Pulser state - Details, measurement will continue when temperature stabilised.",
+                LogMessageType.Warning,
+                Devices.Pulser,
+                true,
+                ResponseButtons.OK,
+                MeasurementType.Unknown);
         }
 
         private void ServiceState_OnActiveSiPMsChanged(object? sender, ActiveSiPMsChangedEventArgs e)
@@ -1590,26 +1603,6 @@ namespace SiPMTesterInterface.ClientApp.Services
             coolerState.SetModuleCoolerState(m0);
             coolerState.SetModuleCoolerState(m1);
             coolerState.SetModuleTemperatures(e.Data.Temperature);
-
-            if (m0.ActualState != Enums.CoolerStates.On && m0.ActualState != Enums.CoolerStates.Off)
-            {
-                //var m0State = coolerState.GetCopyOfCoolerSettings(e.Data.CoolerState.Block, 0);
-                //m0State.Enabled = true;
-                //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 0).Enabled = false; //set explicitly to false, so it can try to restart
-                //SetCooler(m0State);
-
-                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {0} fan failed. Error code: {m0.ActualState}", LogMessageType.Warning, Devices.Pulser, true, ResponseButtons.OK, MeasurementType.Unknown);
-            }
-
-            if (m1.ActualState != Enums.CoolerStates.On && m1.ActualState != Enums.CoolerStates.Off)
-            {
-                //var m1State = coolerState.GetCopyOfCoolerSettings(e.Data.CoolerState.Block, 1);
-                //m1State.Enabled = true;
-                //coolerState.GetCoolerSettings(e.Data.CoolerState.Block, 1).Enabled = false; //set explicitly to false, so it can try to restart
-                //SetCooler(m1State);
-
-                CreateAndSendLogMessage("Cooler FAN Error", $"Block {e.Data.CoolerState.Block}, Module {1} fan failed. Error code: {m1.ActualState}", LogMessageType.Warning, Devices.Pulser, true, ResponseButtons.OK, MeasurementType.Unknown);
-            }
 
             _hubContext.Clients.All.ReceivePulserTempCoolerData(e);
         }
