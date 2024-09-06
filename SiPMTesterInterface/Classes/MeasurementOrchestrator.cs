@@ -169,9 +169,23 @@ namespace SiPMTesterInterface.Classes
                     case MeasurementType.DMMResistanceMeasurement:
                         taskType = TaskTypes.DMMResistance;
                         break;
+                    case MeasurementType.TemperatureMeasurement:
+                        taskType = TaskTypes.TemperatureMeasurement;
+                        break;
                     default:
                         taskType = TaskTypes.Waiting;
                         break;
+                }
+                if (taskType == TaskTypes.IV)
+                {
+                    m = new MeasurementOrderModel
+                    {
+                        Task = TaskTypes.TemperatureMeasurement,
+                        Type = MeasurementType.TemperatureMeasurement,
+                        SiPM = s[0],
+                        StartModel = d
+                    };
+                    FinalMeasurementOrder.Add(m);
                 }
                 m = new MeasurementOrderModel
                 {
@@ -181,6 +195,17 @@ namespace SiPMTesterInterface.Classes
                     StartModel = d
                 };
                 FinalMeasurementOrder.Add(m);
+                if (taskType == TaskTypes.IV)
+                {
+                    m = new MeasurementOrderModel
+                    {
+                        Task = TaskTypes.TemperatureMeasurement,
+                        Type = MeasurementType.TemperatureMeasurement,
+                        SiPM = s[0],
+                        StartModel = d
+                    };
+                    FinalMeasurementOrder.Add(m);
+                }
                 prevBlockChangeState = b;
             }
 
@@ -265,6 +290,22 @@ namespace SiPMTesterInterface.Classes
                 nextMeasurement = new MeasurementOrderModel();
                 return false;
             }
+        }
+
+        /*
+         * From the current index skip all those which belongs to the same block
+         * This can be useful if DMM resistance measurement fails
+         */
+        public void SkipCurrentBlock()
+        {
+            MeasurementOrderModel current = FinalMeasurementOrder[CurrentMeasurementIndex];
+            // Last measurement is a temperature measurement
+            int lastIndex = FinalMeasurementOrder.FindLastIndex(m => m.SiPM.Block == current.SiPM.Block && m.Type == MeasurementType.TemperatureMeasurement);
+            if (lastIndex < 0)
+            {
+                throw new IndexOutOfRangeException("Can not skip block");
+            }
+            CurrentMeasurementIndex = lastIndex + 1;
         }
 
         public void MarkCurrentTaskDone()

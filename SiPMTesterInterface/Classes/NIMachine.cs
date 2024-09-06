@@ -111,6 +111,20 @@ namespace SiPMTesterInterface.Classes
         public MeasurementStartResponseModel Response { get; set; }
     }
 
+    public class OngoingMeasurementEventArgs : EventArgs
+    {
+        public OngoingMeasurementResponseModel OngoingMeasurement { get; set; }
+        public OngoingMeasurementEventArgs() : base()
+        {
+            OngoingMeasurement = new OngoingMeasurementResponseModel();
+        }
+
+        public OngoingMeasurementEventArgs(OngoingMeasurementResponseModel resp) : base()
+        {
+            OngoingMeasurement = resp;
+        }
+    }
+
     public class NIMachine : SiPMInstrument
 	{
         private object _lockObject = new object();
@@ -120,6 +134,7 @@ namespace SiPMTesterInterface.Classes
         public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartSuccess;
         public event EventHandler<MeasurementStartEventArgs> OnMeasurementStartFail;
         public event EventHandler<VoltageAndCurrenteasurementDataReceivedEventArgs> OnVIMeasurementDataReceived;
+        public event EventHandler<OngoingMeasurementEventArgs> OnOngoingMeasurementDataReceived;
 
         public void StartIVMeasurement(NIIVStartModel measurementData)
         {
@@ -250,6 +265,16 @@ namespace SiPMTesterInterface.Classes
                 return;
             }
 
+            else if (e.Response.Sender == "OngoingMeasurement")
+            {
+                OngoingMeasurementResponseModel respModel;
+                if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    OnOngoingMeasurementDataReceived?.Invoke(this, new OngoingMeasurementEventArgs(respModel));
+                }
+                return;
+            }
+
             else if (e.Response.Sender == "MeasurementStart")
             {
                 MeasurementStartResponseModel respModel;
@@ -273,6 +298,45 @@ namespace SiPMTesterInterface.Classes
             else if (e.Response.Sender == "StopMeasurement")
             {
                 _logger.LogInformation("Stop measurement command ack from NI Machine");
+                return;
+            }
+
+            else if (e.Response.Sender == "NIMeasurementNotFound")
+            {
+                // It is sent out as DMMResistanceMeasurementResponse, only ID, ErrorHappened and ErrorMessage is used
+                DMMResistanceMeasurementResponseModel respModel;
+                if (Parser.JObject2JSON(e.Response.jsonObject, out respModel, out error))
+                {
+                    if (respModel.Identifier.Type == MeasurementType.IVMeasurement)
+                    {
+                        IVMeasurementResponseModel resp = new IVMeasurementResponseModel();
+                        resp.Identifier = respModel.Identifier;
+                        resp.ErrorHappened = respModel.ErrorHappened;
+                        resp.ErrorMessage = respModel.ErrorMessage;
+                        OnIVMeasurementDataReceived?.Invoke(this, new IVMeasurementDataReceivedEventArgs(resp));
+                        RemoveFromWaitingResponseData(respModel.Identifier);
+                    }
+                    else if (respModel.Identifier.Type == MeasurementType.DMMResistanceMeasurement)
+                    {
+                        OnDMMMeasurementDataReceived?.Invoke(this, new DMMMeasurementDataReceivedEventArgs(respModel));
+                        RemoveFromWaitingResponseData(respModel.Identifier); 
+                    }
+                    else if (respModel.Identifier.Type == MeasurementType.DarkCurrentMeasurement || respModel.Identifier.Type == MeasurementType.ForwardResistanceMeasurement)
+                    {
+                        VoltageAndCurrentMeasurementResponseModel resp = new VoltageAndCurrentMeasurementResponseModel();
+                        resp.Identifier = respModel.Identifier;
+                        resp.ErrorHappened = respModel.ErrorHappened;
+                        resp.ErrorMessage = respModel.ErrorMessage;
+                        OnVIMeasurementDataReceived?.Invoke(this, new VoltageAndCurrenteasurementDataReceivedEventArgs(resp));
+                        RemoveFromWaitingResponseData(respModel.Identifier);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unknown type of measurement not found received");
+                    }
+                    
+                    
+                }
                 return;
             }
         }

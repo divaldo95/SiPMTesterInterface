@@ -8,7 +8,11 @@
     Idle: 6,
     TemperatureStabilisation: 7,
     DarkCurrent: 8,
-    ForwardResistance: 9
+    ForwardResistance: 9,
+    BlockDisable: 10,
+    BlockEnable: 11,
+    TemperatureMeasurement: 12,
+    PulserChange: 13
 }  
 
 export function TaskTypesString(type) {
@@ -33,6 +37,14 @@ export function TaskTypesString(type) {
             return "Dark Current";
         case TaskTypes.ForwardResistance:
             return "Forward Resistance";
+        case TaskTypes.BlockDisable:
+            return "Block Disable";
+        case TaskTypes.BlockEnable:
+            return "Block Enable";
+        case TaskTypes.TemperatureMeasurement:
+            return "Temperature";
+        case TaskTypes.PulserChange:
+            return "Pulser Change";
         default:
             return "";
     }

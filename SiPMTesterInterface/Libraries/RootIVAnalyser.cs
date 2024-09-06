@@ -163,9 +163,10 @@ namespace SiPMTesterInterface.Libraries
             Console.WriteLine($"Vbr: {vbr}, cVbr: {cvbr}, ChiSquare: {cs}");
             c.IVResult.AnalysationResult.Analysed = true;
 
-            if (cs < 0.2) //fine tune this value
+            if (cs < 0.2 && vbr.IsBetweenLimits(35.0, 4.0) ) //fine tune this value
             {
                 c.IVResult.AnalysationResult.IsOK = true;
+                c.Checks.IVVbrOK = true;
             }
             Console.WriteLine("Analysis end");
         }

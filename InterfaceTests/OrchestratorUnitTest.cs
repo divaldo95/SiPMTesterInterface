@@ -36,7 +36,16 @@ public class OrchestratorUnitTest
         while (orchestrator.GetNextTask(out m))
         {
             Console.WriteLine(m);
-            orchestrator.MarkCurrentTaskDone();
+            // Simulate a failed DMM measurement
+            if (m.SiPM.Block == 0 && m.Type == MeasurementType.DMMResistanceMeasurement)
+            {
+                Console.WriteLine("Simulating failed DMM resistance measurement");
+                orchestrator.SkipCurrentBlock();
+            }
+            else
+            {
+                orchestrator.MarkCurrentTaskDone();
+            }
         }
     }
 

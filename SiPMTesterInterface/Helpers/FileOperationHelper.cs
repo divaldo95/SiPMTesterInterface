@@ -114,11 +114,13 @@ namespace SiPMTesterInterface.Helpers
 				Directory.CreateDirectory(folderName);
 				Console.WriteLine($"Directory ({folderName}) created");
 			}
-            using (StreamWriter file = File.CreateText(folderName + "/" + fileName))
+            string fullPath = folderName + "/" + fileName;
+            using (StreamWriter file = File.CreateText(fullPath))
             {
                 JsonSerializer serializer = new JsonSerializer();
+                data.FileLocation = fullPath;
                 serializer.Serialize(file, data);
-                Console.WriteLine($"File ({folderName + fileName}) created");
+                Console.WriteLine($"File ({fullPath}) created");
             }
         }
 

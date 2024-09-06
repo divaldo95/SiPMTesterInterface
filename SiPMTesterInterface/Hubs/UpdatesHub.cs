@@ -47,7 +47,8 @@ namespace SiPMTesterInterface.Hubs
             => await Clients.All.ReceiveActiveSiPMs(a);
 
         
-
+        public async Task SendSiPMChecksChange(CurrentSiPMModel cs, SiPMChecks ch)
+            => await Clients.All.ReceiveSiPMChecksChange(cs, ch);
 
     }
 }

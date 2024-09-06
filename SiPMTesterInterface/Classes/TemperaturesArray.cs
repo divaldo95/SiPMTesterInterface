@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using SiPMTesterInterface.Helpers;
 
 namespace SiPMTesterInterface.Classes
@@ -17,6 +18,29 @@ namespace SiPMTesterInterface.Classes
 
         }
 
+        // Return true if all the temperatures are above -100 (values less than -100 means readout or other error)
+        public bool Validate()
+        {
+            bool isValid = Validate(0) || Validate(1);
+            return isValid;
+        }
+
+        public bool Validate(int module)
+        {
+            if (module == 0)
+            {
+                return Module1.All(t => t > -100);
+            }
+            else if (module == 1)
+            {
+                return Module2.All(t => t > -100);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         public TemperaturesArray(int block, double[] psocRespArr)
         {
             Block = block;
@@ -32,6 +56,16 @@ namespace SiPMTesterInterface.Classes
             Pulser = psocRespArr[16];
             ControlTemperature = psocRespArr[17];
             Timestamp = TimestampHelper.GetUTCTimestamp();
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("Module1: ");
+            sb.AppendLine(string.Join(", ", Module1));
+            sb.Append("Module2: ");
+            sb.AppendLine(string.Join(", ", Module2));
+            return sb.ToString();
         }
     }
 }

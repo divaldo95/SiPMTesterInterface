@@ -28,7 +28,6 @@
     <None Remove="ClientApp\src\enums\" />
     <None Remove="Helpers\" />
     <None Remove="ClientApp\src\context\" />
-    <None Remove="DbModels\" />
     <None Remove="Libraries\" />
     <None Remove="AnalysisModels\" />
     <None Remove="ClientApp\src\helpers\" />
@@ -55,7 +54,6 @@
     <Folder Include="ClientApp\src\enums\" />
     <Folder Include="Helpers\" />
     <Folder Include="ClientApp\src\context\" />
-    <Folder Include="DbModels\" />
     <Folder Include="Libraries\" />
     <Folder Include="AnalysisModels\" />
     <Folder Include="ClientApp\src\helpers\" />

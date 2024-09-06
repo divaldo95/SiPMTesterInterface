@@ -7,6 +7,7 @@ namespace SiPMTesterInterface.Models
 {
 	public class ForwardResistanceMeasurementResponseModel : IEquatable<MeasurementIdentifier>
 	{
+        public double InstrumentResistance { get; set; } = 0.0;
 		public VoltageAndCurrentMeasurementResponseModel Result { get; set; } = new VoltageAndCurrentMeasurementResponseModel();
 
         public double ForwardResistance
@@ -17,7 +18,7 @@ namespace SiPMTesterInterface.Models
                 {
                     throw new NullReferenceException("Forward Resistance Result is null");
                 }
-                return (Math.Abs(Result.SecondIterationVoltageAverage) - Math.Abs(Result.FirstIterationVoltageAverage)) / (Math.Abs(Result.SecondIterationCurrentAverage) - Math.Abs(Result.FirstIterationCurrentAverage)) - 49.9;
+                return (Math.Abs(Result.SecondIterationVoltageAverage) - Math.Abs(Result.FirstIterationVoltageAverage)) / (Math.Abs(Result.SecondIterationCurrentAverage) - Math.Abs(Result.FirstIterationCurrentAverage)) - 49.9 - InstrumentResistance;
             }
         }
 

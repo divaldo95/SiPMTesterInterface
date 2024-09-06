@@ -17,7 +17,8 @@ const NavMenu = () => {
     const { logs, fetchLogs, updateLogsResolved, unresolvedLogs, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
     const { instrumentStatuses, updateCurrentTask, canToggleMeasurementView,
             toggleMeasurementView, measurementDataView, handleShowLogModal,
-        handleCloseLogModal, handleShowPulserLEDModal, activeSiPMs, handleShowMeasurementWizard } = useContext(MeasurementContext);
+            handleCloseLogModal, handleShowPulserLEDModal, activeSiPMs, handleShowMeasurementWizard,
+            handleShowExcelExportModal } = useContext(MeasurementContext);
 
 
     const renderActiveSiPMS = () => {
@@ -51,7 +52,20 @@ const NavMenu = () => {
         if (!measurementDataView) {
             return (
                 <NavItem>
-                    <NavLink onClick={handleShowMeasurementWizard} tag={Link} className="text-dark"><Badge bg="info"><i className="bi bi-magic"></i></Badge></NavLink>
+                    <NavLink onClick={handleShowMeasurementWizard} tag={Link} className="text-dark"><Badge bg="info text-dark"><i className="bi bi-magic"></i></Badge></NavLink>
+                </NavItem>
+            );
+        }
+        else {
+            return null;
+        }
+    };
+
+    const renderExcelExportButton = () => {
+        if (!measurementDataView) {
+            return (
+                <NavItem>
+                    <NavLink onClick={handleShowExcelExportModal} tag={Link} className="text-dark"><Badge bg="info text-dark"><i className="bi bi-box-arrow-up"></i></Badge></NavLink>
                 </NavItem>
             );
         }
@@ -78,6 +92,7 @@ const NavMenu = () => {
                             <NavLink tag={Link} className="text-dark" disabled={!canToggleMeasurementView()} onClick={toggleMeasurementView}>{measurementDataView ? <Badge bg="primary"><i className="bi bi-file-earmark-plus"></i></Badge> : <Badge bg="primary"><i className="bi bi-file-earmark-play"></i></Badge>}</NavLink>
                         </NavItem>
                         {renderWizardButton()}
+                        {renderExcelExportButton()}
                         <NavItem>
                             <NavLink tag={Link} className="text-dark" onClick={handleShowPulserLEDModal}><Badge bg="primary"><i className="bi bi-lightbulb"></i></Badge></NavLink>
                         </NavItem>

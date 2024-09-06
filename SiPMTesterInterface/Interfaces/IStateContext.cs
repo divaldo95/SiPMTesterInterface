@@ -17,6 +17,7 @@ namespace SiPMTesterInterface.Interfaces
         public Task ReceivePulserStateChange(SerialConnectionStateChangedEventArgs s);
         public Task ReceivePulserTempCoolerData(PSoCCommuicatorDataReadEventArgs d);
 
+        public Task ReceiveSiPMChecksChange(CurrentSiPMModel cs, SiPMChecks checks);
         public Task ReceiveIVAnalysationResult(CurrentSiPMModel cs, IVMeasurementHubUpdate res);
 
         public Task ReceiveLogMessage(LogMessageModel logMessage);

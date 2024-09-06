@@ -8,7 +8,12 @@ namespace SiPMTesterInterface.Classes
 	{
         public MeasurementIdentifier Identifier;
 		public Timer _timer { get; set; }
+        public int MaxRetries { get; private set; } = 3;
         public int Retries { get; private set; }
+
+        private int Timeout = 0;
+
+        public int ElapsedSeconds { get; private set; } = 0;
 
         private Action<WaitingResponseData> CallbackFunction;
         private Action<WaitingResponseData> FailCallbackFunction; //if fails for more than 3 times mark as failed
@@ -16,24 +21,34 @@ namespace SiPMTesterInterface.Classes
         private void TimerCallback(object? state)
         {
             //Try 3 times and handle if fails
-            if (Retries > 2)
+            if (Retries >= MaxRetries - 1)
             {
                 FailCallbackFunction(this);
             }
 
             CallbackFunction(this);
             Retries++;
+            ElapsedSeconds += Timeout;
+        }
 
+        public bool IsLastTry
+        {
+            get
+            {
+                return Retries >= MaxRetries - 1;
+            }
         }
 
         public void ChangeTimerInterval(TimeSpan period)
         {
             _timer.Change(period, period); //wait the period for the first time too
+            Timeout = Convert.ToInt32(period.TotalSeconds);
         }
 
         public void ChangeTimerInterval(int timeout)
         {
             _timer.Change(timeout, timeout); //wait the period for the first time too
+            Timeout = timeout;
         }
 
         public void Start(TimeSpan period)
@@ -43,7 +58,7 @@ namespace SiPMTesterInterface.Classes
 
         public void Stop()
         {
-            ChangeTimerInterval(Timeout.Infinite);
+            ChangeTimerInterval(System.Threading.Timeout.Infinite);
         }
 
         public void Close()
@@ -84,7 +99,7 @@ namespace SiPMTesterInterface.Classes
             Identifier = i;
             CallbackFunction = callback;
             FailCallbackFunction = failCallback;
-            _timer = new Timer(TimerCallback, this, Timeout.Infinite, Timeout.Infinite);
+            _timer = new Timer(TimerCallback, this, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
         }
 
         public WaitingResponseData(MeasurementType t, string id, Action<WaitingResponseData> callback, Action<WaitingResponseData> failCallback)
@@ -92,7 +107,7 @@ namespace SiPMTesterInterface.Classes
             Identifier = new MeasurementIdentifier(t, id);
             CallbackFunction = callback;
             FailCallbackFunction = failCallback;
-            _timer = new Timer(TimerCallback, this, Timeout.Infinite, Timeout.Infinite);
+            _timer = new Timer(TimerCallback, this, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
         }
 	}
 }

@@ -107,6 +107,7 @@ namespace SiPMTesterInterface.Classes
                                                 StartTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.StartTimestamp,
                                                 EndTimestamp = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex]?.IVResult.EndTimestamp
                                             },
+                                            Checks = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex].Checks,
                                             IVAnalysationResult = AllSiPMsData[blockIndex * 2 * 4 * 16 + moduleIndex * 4 * 16 + arrayIndex * 16 + sipmIndex].IVResult.AnalysationResult,
                                             SPSResult = new
                                             {

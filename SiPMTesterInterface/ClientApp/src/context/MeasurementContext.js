@@ -41,7 +41,7 @@ const initialState = {
 
 const initialMeasurementState = {
     ActiveSiPMs: [],
-    Blocks: Array.from({ length: 4 }, () => ({
+    Blocks: Array.from({ length: 5 }, () => ({
         Modules: Array.from({ length: 2 }, () => ({
             Arrays: Array.from({ length: 4 }, () => ({
                 SiPMs: Array.from({ length: 16 }, () => ({
@@ -55,6 +55,23 @@ const initialMeasurementState = {
                         ChiSquare: 0.0,
                         CompensatedBreakdownVoltage: 0.0,
                         RootFileLocation: ""
+                    },
+                    Checks: {
+                        SelectedForMeasurement: false,
+                        DMMResistanceOK: false,
+
+                        RForwardDone: false,
+                        RForwardOK: false,
+
+                        IDarkDone: false,
+                        IDarkOK: false,
+
+                        IVDone: false,
+                        IVTemperatureOK: false,
+                        IVMeasurementOK: false,
+                        IVVoltageCheckOK: false,
+                        IVCurrentCheckOK: false,
+                        IVVbrOK: false
                     },
                     SPSResult: {
                         IsOK: false,
@@ -118,6 +135,7 @@ export const MeasurementProvider = ({ children }) => {
 
     const [showLogModal, setShowLogModal] = useState(false);
     const [showPulserLEDModal, setShowPulserLEDModal] = useState(false);
+    const [showExportExcelModal, setShowExportExcelModal] = useState(false);
 
     const [pulserState, setPulserState] = useState(true);
     const [toasts, setToasts] = useState(initialToasts);
@@ -172,6 +190,9 @@ export const MeasurementProvider = ({ children }) => {
 
     const handleShowPulserLEDModal = () => setShowPulserLEDModal(true);
     const handleClosePulserLEDModal = () => setShowPulserLEDModal(false);
+
+    const handleShowExcelExportModal = () => setShowExportExcelModal(true);
+    const handleCloseExcelExportModal = () => setShowExportExcelModal(false);
 
     const addToast = (messageType, message) => {
         const newToast = {
@@ -571,7 +592,8 @@ export const MeasurementProvider = ({ children }) => {
                 coolerStateHandler, updateCoolerStateHandler, updateCoolerData,
                 handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun,
                 canMeasurementStart, updateActiveSiPMs, activeSiPMs, showMeasurementWizard, handleCloseMeasurementWizard,
-                handleShowMeasurementWizard, updateVopData, updateVopDataTemp, updateBarcodeTemp, handleSaveBarcodeChanges
+                handleShowMeasurementWizard, updateVopData, updateVopDataTemp, updateBarcodeTemp, handleSaveBarcodeChanges,
+                showExportExcelModal, handleShowExcelExportModal, handleCloseExcelExportModal
             }}>
             {children}
         </MeasurementContext.Provider>

@@ -5,7 +5,7 @@ import MeasurementStateService from '../services/MeasurementStateService';
 import RootTGraphComponent from './RootTGraphComponent';
 
 function SiPMMeasurementModal(props) {
-    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex, BreakdownVoltage, CompensatedBreakdownVoltage, Chi2 } = props;
+    const { showModal, closeModal, BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex, BreakdownVoltage, CompensatedBreakdownVoltage, Chi2, Checks } = props;
     const [ error, setError ] = useState();
     const [isLoading, setIsLoading] = useState(true);
     const [x, setX] = useState([]);
@@ -46,6 +46,24 @@ function SiPMMeasurementModal(props) {
         closeModal();
     }
 
+    const doneProperties = Object.keys(Checks).filter(key => key.endsWith('Done'));
+    const okProperties = Object.keys(Checks).filter(key => key.endsWith('OK'));
+
+    const renderRows = (properties) => {
+        return properties.map((prop, index) => (
+            <tr key={index}>
+                <td>{prop}</td>
+                <td>
+                    {Checks[prop] ? (
+                        <i className="bi bi-check-square-fill text-success"></i>
+                    ) : (
+                        <i className="bi bi-x-square-fill text-danger"></i>
+                    )}
+                </td>
+            </tr>
+        ));
+    };
+
     return (
         <Modal scrollable show={showModal} onHide={closeModal} onShow={() => handleModalOpen(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)} centered size="lg" fullscreen={false}>
             <Modal.Header closeButton>
@@ -71,6 +89,29 @@ function SiPMMeasurementModal(props) {
                                             <>
                                                 <RootTGraphComponent render={renderGraph} x={x} y={y} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex}>
                                                 </RootTGraphComponent>
+                                                <Table bordered hover>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Property</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {renderRows(doneProperties)}
+                                                    </tbody>
+                                                </Table>
+
+                                                <Table bordered hover>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Property</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {renderRows(okProperties)}
+                                                    </tbody>
+                                                </Table>
                                                 <Table bordered>
                                                     <thead>
                                                         <tr>

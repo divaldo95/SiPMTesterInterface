@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SiPMTesterInterface.AnalysisModels;
@@ -27,6 +28,8 @@ namespace SiPMTesterInterface.ClientApp.Services
         public int FridgeFanSpeedPercentage { get; set; } = 50;
         public double BoxTemperature { get; set; } = 25.0;
         public int BoxFanSpeedPercentage { get; set; } = 50;
+        public double ExpectedDMMResistance { get; set; } = 10E6;
+        public double DMMResistanceMaxDifference { get; set; } = 2E6;
 
         public MeasurementServiceSettings(IConfiguration config)
         {
@@ -40,6 +43,9 @@ namespace SiPMTesterInterface.ClientApp.Services
             var fridgeFanSpeedPercentage = config["MeasurementService:FridgeFanSpeedPercentage"];
             var boxTemperature = config["MeasurementService:BoxTemperature"];
             var boxFanSpeedPercentage = config["MeasurementService:BoxFanSpeedPercentage"];
+
+            var expectedDMMResistance = config["MeasurementService:ExpectedDMMResistance"];
+            var dmmResistanceMaxDifference = config["MeasurementService:DMMResistanceMaxDifference"];
 
             if (blockCount != null)
             {
@@ -99,6 +105,21 @@ namespace SiPMTesterInterface.ClientApp.Services
                 int.TryParse(boxFanSpeedPercentage, out val);
                 BoxFanSpeedPercentage = val;
                 Console.WriteLine($"Box Fan set to {BoxFanSpeedPercentage}");
+            }
+
+            if (expectedDMMResistance != null)
+            {
+                double val;
+                double.TryParse(expectedDMMResistance, out val);
+                ExpectedDMMResistance = val;
+                Console.WriteLine($"Expected DMM resistance set to {ExpectedDMMResistance}");
+            }
+            if (dmmResistanceMaxDifference != null)
+            {
+                double val;
+                double.TryParse(dmmResistanceMaxDifference, out val);
+                DMMResistanceMaxDifference = val;
+                Console.WriteLine($"DMM Resistance max difference set to {DMMResistanceMaxDifference}");
             }
         }
     }
@@ -219,9 +240,6 @@ namespace SiPMTesterInterface.ClientApp.Services
         public LEDPulserData PulserValues;
         private ServiceStateHandler serviceState;
         private CoolerStateHandler coolerState;
-        private List<CurrentSiPMModel> ivSiPMs;
-        private List<CurrentSiPMModel> dcSiPMs;
-        private List<CurrentSiPMModel> frSiPMs;
         private List<CurrentSiPMModel> spsSiPMs;
 
         private DarkCurrentConfig darkCurrentConfig;
@@ -234,6 +252,8 @@ namespace SiPMTesterInterface.ClientApp.Services
         private bool currentlyWaitingForTemperatureStabilisation = false;
 
         private readonly IConfiguration Configuration;
+
+        private readonly ResistanceCompensationValues resistanceValues;
 
         private readonly IHubContext<UpdatesHub, IStateContext> _hubContext;
 
@@ -310,6 +330,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.SiPMLocation = new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex);
                 c.Barcode = item.Barcode;
                 c.SiPMMeasurementDetails = item.SiPM;
+                c.Checks.SelectedForMeasurement = true;
                 //use global IV list if IV is enabled but voltage list is not set directly for this sipm
                 if (c.SiPMMeasurementDetails.IVVoltages.Count <= 0 && c.SiPMMeasurementDetails.IV != 0)
                 {
@@ -425,10 +446,11 @@ namespace SiPMTesterInterface.ClientApp.Services
                 Vop = SiPMDatasheetHandler.GetCompensatedOperatingVoltage(SiPMDatasheetHandler.GetSiPMVop(arr.Barcode, next.SiPM.SiPM), toTemperature); //backend added later
             }
 
-            double VopDiff = Math.Abs(Vop - sipm.OperatingVoltage);
-            if (VopDiff > 5.0) //difference larger than 5V (too much?)
+            //double VopDiff = Math.Abs(Vop - sipm.OperatingVoltage);
+            //if (VopDiff > 5.0) //difference larger than 5V (too much?)
+            if (!Vop.IsBetweenLimits(sipm.OperatingVoltage, 5.0))
             {
-                throw new InvalidDataException($"SiPM ({next.SiPM.Block},{next.SiPM.Module},{next.SiPM.Array},{next.SiPM.SiPM}) compensated Vop differs from the given one by {VopDiff} which is out of bounds (VopDiff < 5.0)");
+                throw new InvalidDataException($"SiPM ({next.SiPM.Block},{next.SiPM.Module},{next.SiPM.Array},{next.SiPM.SiPM}) compensated Vop differs from the given one which is out of bounds (VopDiff < 5.0)");
             }
 
             return Math.Round(Vop, 2, MidpointRounding.AwayFromZero);
@@ -830,6 +852,15 @@ namespace SiPMTesterInterface.ClientApp.Services
                     taskIsRunning = true;
                 }
 
+                else if (nextMeasurement.Type == MeasurementType.TemperatureMeasurement)
+                {
+                    CurrentTask = TaskTypes.TemperatureMeasurement;
+                    taskTypeWaitingForFinish = TaskTypes.TemperatureMeasurement;
+                    taskIsRunning = true;
+                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
+                    MeasureAndAddTemperature(c);
+                }
+
                 //WIP
                 else if (nextMeasurement.Type == MeasurementType.SPSMeasurement)
                 {
@@ -979,6 +1010,88 @@ namespace SiPMTesterInterface.ClientApp.Services
             return sipmCounts;
         }
 
+        private Task MeasureAndAddTemperature(CurrentMeasurementDataModel data)
+        {
+            Task t = Task.Run(() =>
+            {
+                try
+                {
+                    int retryNum = 10;
+                    TemperaturesArray? temperatures = null;
+                    // try to read temperature 10 times max
+                    for (int i = 0; i < retryNum; i++)
+                    {
+                        if (Pulser == null)
+                        {
+                            break;
+                        }
+                        temperatures = Pulser.ReadTemperatures(data.SiPMLocation.Block);
+                        _logger.LogDebug(temperatures.ToString());
+                        if (temperatures.Validate(data.SiPMLocation.Module))
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            Thread.Sleep(400); // Wait a bit
+                        }
+                    }
+
+                    if (temperatures != null && temperatures.Validate(data.SiPMLocation.Module))
+                    {
+                        data.Temperatures.Append(temperatures);
+                        _logger.LogInformation($"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}) temperatures are validated");
+                    }
+                    else if (temperatures != null)
+                    {
+                        CreateAndSendLogMessage("Temperature Reader",
+                            $"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}) temperatures list has errors after {retryNum} retries. - Do you want to try it again?",
+                            LogMessageType.Warning,
+                            Devices.Pulser,
+                            true,
+                            ResponseButtons.YesNo,
+                            MeasurementType.TemperatureMeasurement);
+                        return;
+                    }
+                    else if (Pulser != null && temperatures == null)
+                    {
+                        CreateAndSendLogMessage("Temperature Reader",
+                            $"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}) temperatures list can not be read by {retryNum} retries. - Do you want to try it again?",
+                            LogMessageType.Warning,
+                            Devices.Pulser,
+                            true,
+                            ResponseButtons.YesNo,
+                            MeasurementType.TemperatureMeasurement);
+                        return;
+                    }
+
+                    
+                }
+                catch (Exception ex)
+                {
+                    CreateAndSendLogMessage("Temperature Reader",
+                            $"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}): {ex.Message} - Do you want to try it again?",
+                            LogMessageType.Error,
+                            Devices.Pulser,
+                            true,
+                            ResponseButtons.YesNo,
+                            MeasurementType.TemperatureMeasurement);
+                    _logger.LogDebug(ex.StackTrace);
+                    return;
+                }
+
+                if (taskTypeWaitingForFinish == TaskTypes.TemperatureMeasurement)
+                {
+                    taskIsRunning = false;
+                    MarkCurrentTaskDone();
+                    CheckAndRunNextAsync();
+                    _logger.LogDebug("Temperature measurement done");
+                }
+                _logger.LogDebug("Temperature measurement ended");
+            });
+            return t;
+        }
+
         private Task RunAnalysis(CurrentMeasurementDataModel data)
         {
             Task t = Task.Run(() =>
@@ -988,6 +1101,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 {
                     _logger.LogInformation("Starting analysis task...");
                     bool voltageCheck = data.IVResult.DMMVoltage.Count > 0;
+                    data.Checks.IVVoltageCheckOK = voltageCheck;
                     bool currentCheck = false;
 
                     for (int i = 0; i < data.IVResult.DMMVoltage.Count; i++)
@@ -1007,7 +1121,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
 
                     data.IVResult.AnalysationResult.IsCurrentCheckOK = voltageCheck && currentCheck;
-
+                    data.Checks.IVCurrentCheckOK = currentCheck;
                     data.IVResult.AnalysationResult.Analysed = true;
 
                     if (data.IVResult.AnalysationResult.IsCurrentCheckOK)
@@ -1066,6 +1180,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 }
 
                 _hubContext.Clients.All.ReceiveIVAnalysationResult(data.SiPMLocation, new IVMeasurementHubUpdate(data.IVResult.AnalysationResult, new IVTimes(data.IVResult.StartTimestamp, data.IVResult.EndTimestamp))); //send mesaurement update
+                _hubContext.Clients.All.ReceiveSiPMChecksChange(data.SiPMLocation, data.Checks);
                 _logger.LogInformation("Analysis task done");
 
             });
@@ -1076,7 +1191,15 @@ namespace SiPMTesterInterface.ClientApp.Services
         {
             PrepareMeasurement(measurementData);
             PopulateServiceState(); //store measurements
-            CreateAndSendLogMessage("StartMeasurement", "Measurement is starting...", LogMessageType.Info, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
+            if (FinalMeasurementOrder.Count > 0)
+            {
+                CreateAndSendLogMessage("StartMeasurement", "Measurement is starting...", LogMessageType.Info, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
+            }
+            else
+            {
+                CreateAndSendLogMessage("StartMeasurement", "Empty measurement list. Maybe none of the SiPMs are selected or has empty or invalid voltage list/Vop.", LogMessageType.Info, Devices.Unknown, false, ResponseButtons.OK, MeasurementType.Unknown);
+                CurrentTask = TaskTypes.Idle;
+            }
             taskIsRunning = false;
             taskTypeWaitingForFinish = TaskTypes.Idle;
             MeasurementStopped = false;
@@ -1105,6 +1228,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                 niMachine.OnIVMeasurementDataReceived += OnIVMeasurementDataReceived;
                 niMachine.OnDMMMeasurementDataReceived += OnDMMMeasurementDataReceived;
                 niMachine.OnVIMeasurementDataReceived += NiMachine_OnVIMeasurementDataReceived;
+                niMachine.OnOngoingMeasurementDataReceived += NiMachine_OnOngoingMeasurementDataReceived;
+                niMachine.OnMeasurementStartFail += NiMachine_OnMeasurementStartFail;
 
                 if (niMachine.Enabled)
                 {
@@ -1126,6 +1251,16 @@ namespace SiPMTesterInterface.ClientApp.Services
             }
         }
 
+        private void NiMachine_OnMeasurementStartFail(object? sender, MeasurementStartEventArgs e)
+        {
+            CreateAndSendLogMessage("Measurement Service - Measurement start failed", e.Response.ErrorMessage + " - Do you want to retry?", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.YesNo, MeasurementType.Unknown);
+        }
+
+        private void NiMachine_OnOngoingMeasurementDataReceived(object? sender, OngoingMeasurementEventArgs e)
+        {
+            _logger.LogInformation("Ongoing measurement in progress: " + JsonConvert.SerializeObject(e));
+        }
+
         private void NiMachine_OnVIMeasurementDataReceived(object? sender, VoltageAndCurrenteasurementDataReceivedEventArgs e)
         {
             _logger.LogInformation("VIMeasurementReceived");
@@ -1140,19 +1275,40 @@ namespace SiPMTesterInterface.ClientApp.Services
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                     if (taskTypeWaitingForFinish == TaskTypes.DarkCurrent)
                     {
-                        taskIsRunning = false;
-                        MarkCurrentTaskDone();
+                        if (e.Data.ErrorHappened)
+                        {
+                            c.Checks.IDarkDone = true;
+                            c.Checks.IDarkOK = false;
+                            _logger.LogError($"{e.Data.ErrorMessage}");
+                            CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (DC) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.DarkCurrentMeasurement);
+                            return;
+                        }
+                        else
+                        {
+                            c.Checks.IDarkDone = true;
+                            // Check these limits
+                            try
+                            {
+                                //if (c.DarkCurrentResult.FirstDarkCurrentCompensated < 5E-7 && c.DarkCurrentResult.FirstDarkCurrentCompensated > -1E-8)
+                                if (!c.DarkCurrentResult.FirstDarkCurrentCompensated.IsOutOfBoundaries(-1E-8, 5E-7))
+                                {
+                                    c.Checks.IDarkOK = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation("Dark Current has a null value. Probably one of its measurements is not available yet.");
+                            }
+                            taskIsRunning = false;
+                            MarkCurrentTaskDone();
+                        }
                     }
                 }
                 else
                 {
                     _logger.LogError($"Unknown measurement identifier on DarkCurrentMeasurement DC");
                 }
-                if (e.Data.ErrorHappened)
-                {
-                    _logger.LogError($"{e.Data.ErrorMessage}");
-                    CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (DC) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.DarkCurrentMeasurement);
-                }
+                
             }
             else if (e.Data.StartModel.MeasurementType == VoltageAndCurrentMeasurementTypes.LeakageCurrent)
             {
@@ -1162,42 +1318,86 @@ namespace SiPMTesterInterface.ClientApp.Services
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                     if (taskTypeWaitingForFinish == TaskTypes.DarkCurrent)
                     {
-                        taskIsRunning = false;
-                        MarkCurrentTaskDone();
+                        if (e.Data.ErrorHappened)
+                        {
+                            c.Checks.IDarkDone = true;
+                            c.Checks.IDarkOK = false;
+                            _logger.LogError($"{e.Data.ErrorMessage}");
+                            CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (LC) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.DarkCurrentMeasurement);
+                        }
+                        else
+                        {
+                            c.Checks.IDarkDone = true;
+                            try
+                            {
+                                //if (c.DarkCurrentResult.FirstDarkCurrentCompensated < 5E-7 && c.DarkCurrentResult.FirstDarkCurrentCompensated > -1E-8)
+                                if (!c.DarkCurrentResult.FirstDarkCurrentCompensated.IsOutOfBoundaries(-1E-8, 5E-7))
+                                {
+                                    c.Checks.IDarkOK = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation("Dark Current has a null value. Probably one of its measurements is not available yet.");
+                            }
+                            
+                            taskIsRunning = false;
+                            MarkCurrentTaskDone();
+                        }
+                        
                     }
                 }
                 else
                 {
                     _logger.LogError($"Unknown measurement identifier on DarkCurrentMeasurement LC");
                 }
-                if (e.Data.ErrorHappened)
-                {
-                    _logger.LogError($"{e.Data.ErrorMessage}");
-                    CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (LC) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.DarkCurrentMeasurement);
-                }
+                
             }
             else if (e.Data.StartModel.MeasurementType == VoltageAndCurrentMeasurementTypes.ForwardResistance)
             {
                 if (serviceState.GetSiPMDataByForwardResistanceID(e.Data.Identifier, out c))
                 {
+                    double? res = resistanceValues.GetResistance(c.SiPMLocation.Block, c.SiPMLocation.Module, c.SiPMLocation.Array);
+                    if (res != null)
+                    {
+                        c.ForwardResistanceResult.InstrumentResistance = (double)res;
+                    }
                     c.ForwardResistanceResult.Result = e.Data;
                     c.ForwardResistanceResult.Result.Temperatures = Temperatures.Where(item => item.Timestamp >= c.ForwardResistanceResult.Result.StartTimestamp - Pulser.UpdatePeriod.TotalSeconds && item.Timestamp <= c.ForwardResistanceResult.Result.EndTimestamp).ToList();
                     FileOperationHelper.SaveIVResult(c, outputBaseDir); //it will overwrite everything
                     if (taskTypeWaitingForFinish == TaskTypes.ForwardResistance)
                     {
-                        taskIsRunning = false;
-                        MarkCurrentTaskDone();
+                        if (e.Data.ErrorHappened)
+                        {
+                            c.Checks.RForwardDone = true;
+                            c.Checks.RForwardOK = false;
+                            _logger.LogError($"{e.Data.ErrorMessage}");
+                            CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (FR) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.ForwardResistanceMeasurement);
+                        }
+                        else
+                        {
+                            c.Checks.RForwardDone = true;
+                            try
+                            {
+                                if (c.ForwardResistanceResult.ForwardResistance.IsBetweenLimits(22.5, 2.5))
+                                {
+                                    c.Checks.RForwardOK = true;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"Forward resistance error: {ex.Message}");
+                            }
+                            taskIsRunning = false;
+                            MarkCurrentTaskDone();
+                        }
                     }
                 }
                 else
                 {
                     _logger.LogError($"Unknown measurement identifier on ForwardResistanceMeasurement");
                 }
-                if (e.Data.ErrorHappened)
-                {
-                    _logger.LogError($"{e.Data.ErrorMessage}");
-                    CreateAndSendLogMessage("Failed VI measurement", $"VI measurement (FR) for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Choose the next step!", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.StopRetryContinue, MeasurementType.ForwardResistanceMeasurement);
-                }
+                
             }
             else
             {
@@ -1397,6 +1597,8 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                 FillEmptyCurrentRun(MeasurementServiceSettings.BlockCount, MeasurementServiceSettings.ModuleCount,
                                     MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
+
+                resistanceValues = new ResistanceCompensationValues(configuration);
             }
             catch (Exception ex)
             {
@@ -1538,20 +1740,37 @@ namespace SiPMTesterInterface.ClientApp.Services
             if (taskTypeWaitingForFinish == TaskTypes.DMMResistance)
             {
                 taskIsRunning = false;
-                MarkCurrentTaskDone();
-            }
-            CheckAndRunNextAsync();
-            //save data here
-            serviceState.AppendDMMResistanceMeasurement(e.Data);
-            try
-            {
-                string path = Path.Combine(FilePathHelper.GetCurrentDirectory(), "DMMResult");
-                FileOperationHelper.CreateOrAppendToFileDMMMeasurement(path, "DMMResistance.json", e.Data);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error while adding DMM resistance data to file ({ex.Message})");
-            }
+                if (e.Data.ErrorHappened) // ask user
+                {
+                    CreateAndSendLogMessage("Failed DMM measurement", $"DMM resistance measurement for Block: {actualBlock}, Module: {actualModule} is failed. Reason: {e.Data.ErrorMessage}. Do you want to retry?", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.YesNo, MeasurementType.DMMResistanceMeasurement);
+                }
+                else // continue automatically if done properly
+                {
+                    //if (Math.Abs(MeasurementServiceSettings.ExpectedDMMResistance - e.Data.Resistance) >= MeasurementServiceSettings.DMMResistanceMaxDifference)
+                    if (!e.Data.Resistance.IsBetweenLimits(MeasurementServiceSettings.ExpectedDMMResistance, MeasurementServiceSettings.DMMResistanceMaxDifference))
+                    {
+                        CreateAndSendLogMessage("Failed DMM measurement", $"DMM resistance ({e.Data.Resistance}) measurement for Block: {actualBlock} is out of range. Skipping this block", LogMessageType.Error, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.DMMResistanceMeasurement);
+                        SkipCurrentBlock();
+                    }
+                    else
+                    {
+                        MarkCurrentTaskDone();
+                        //save data here
+                        serviceState.AppendDMMResistanceMeasurement(e.Data);
+                        try
+                        {
+                            string path = Path.Combine(FilePathHelper.GetCurrentDirectory(), "DMMResult");
+                            FileOperationHelper.CreateOrAppendToFileDMMMeasurement(path, "DMMResistance.json", e.Data);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error while adding DMM resistance data to file ({ex.Message})");
+                        }
+                    }
+                    CheckAndRunNextAsync();
+                }
+                
+            }          
         }
 
         private void OnIVMeasurementDataReceived(object? sender, IVMeasurementDataReceivedEventArgs e)
@@ -1565,8 +1784,40 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.IVResult = e.Data;
                 c.IVResult.AnalysationResult = new IVAnalysationResult();
                 c.IsIVDone = true;
+
+                c.Checks.IVDone = true;
             }
-            c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp && item.Block <= c.SiPMLocation.Block).ToList();
+
+            if (c.Temperatures != null && c.Temperatures.Count > 0)
+            {
+                _logger.LogInformation("Temperatures list on IVMeasurementDataReceived has at least one measurement");
+                c.IVResult.Temperatures = c.Temperatures; //use directly measured temperatures
+            }
+            else
+            {
+                c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp && item.Block <= c.SiPMLocation.Block).ToList();
+                _logger.LogInformation("Got temperatures list from automatic updates");
+            }
+
+            bool allTempAround25 = true;
+            for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
+            {
+                double[] tempArray = (c.SiPMLocation.Module == 0 ? c.IVResult.Temperatures[i].Module1 : c.IVResult.Temperatures[i].Module2);
+                for (int j = 0; j < tempArray.Length; j++)
+                {
+                    //if (Math.Abs(tempArray[j] - 25) > 3)
+                    if (tempArray[j].IsBetweenLimits(25.0, 3.0))
+                    {
+                        allTempAround25 = false;
+                        break;
+                    }
+                }
+            }
+
+            if (c.IVResult.Temperatures.Count == 2 && allTempAround25)
+            {
+                c.Checks.IVTemperatureOK = true;
+            }
 
             //append latest dmm resistance measurement if available
             c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
@@ -1574,15 +1825,18 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             if (c.IVResult.ErrorHappened)
             {
+                c.Checks.IVMeasurementOK = false;
                 CreateAndSendLogMessage("Failed IV measurement", $"IV measurement for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Do you want to retry?", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.YesNo, MeasurementType.IVMeasurement);
                 return;
             }
             else if (e.Data.ErrorHappened)
             {
-                CreateAndSendLogMessage("Measurement not data not found", $"Previously started measurement data not received and still can not be queried from NI Machine! Maybe it is not finished yet", LogMessageType.Warning, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
+                c.Checks.IVMeasurementOK = false;
+                CreateAndSendLogMessage("Measurement not data not found", $"Unknown measurement's data received.", LogMessageType.Warning, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
                 return;
             }
 
+            c.Checks.IVMeasurementOK = true;
             //Run analysis and save data there even if analysis fails
             RunAnalysis(c); //async call
 

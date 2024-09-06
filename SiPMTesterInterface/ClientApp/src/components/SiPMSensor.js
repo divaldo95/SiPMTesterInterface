@@ -65,6 +65,7 @@ function SiPMSensor(props) {
             return measurementStates.Blocks[BlockIndex].Modules[ModuleIndex].Arrays[ArrayIndex].SiPMs[SiPMIndex][property];
         }
         catch {
+            console.log("Cannot find property: " + property);
             return null;
         }
         
@@ -92,9 +93,57 @@ function SiPMSensor(props) {
         }
     }
 
+    const getChecksBackgroundClass = () => {
+        let result = getSiPMMeasurementValue("Checks");
+        if (result === null) {
+            //console.log("null bg");
+            return "bg-secondary";
+        }
+
+        const allDone =
+            result.RForwardDone &&
+            result.IDarkDone &&
+            result.IVDone;
+
+        const allChecksPassed =
+            result.DMMResistanceOK && result.RForwardOK &&
+            result.IDarkOK && result.IVTemperatureOK &&
+            result.IVMeasurementOK && result.IVVoltageCheckOK &&
+            result.IVCurrentCheckOK && result.IVVbrOK;
+
+        if (allDone) {
+            if (allChecksPassed) {
+                return "bg-success";
+            }
+            else {
+                return "bg-danger";
+            }
+        }
+        else {
+            return "bg-light";
+        }
+    }
+
+    const getSelectedBorderClass = () => {
+        if (measurementDataView) {
+            let result = getSiPMMeasurementValue("Checks");
+            if (result === null) {
+                console.log("null border");
+                return "";
+            }
+
+            if (result.SelectedForMeasurement) {
+                return "border-info";
+            }
+        }
+        else {
+            return "";
+        }
+    }
+
     const backgroundClass = () => {
         if (measurementDataView) {
-            return getAnalysationBackgroundClass();
+            return getChecksBackgroundClass();
         }
         else {
             return GetSelectedColorClass(getSiPMValue("IV"), getSiPMValue("SPS"));
@@ -143,9 +192,13 @@ function SiPMSensor(props) {
         }
     }
 
+    const GetChecks = () => {
+        return getSiPMMeasurementValue("Checks");
+    }
+
     return (
         <>
-            <div className={`btn-group border border-1 ${borderClass()} ${className}`} role="group" aria-label="sensor block with settings">
+            <div className={`btn-group border border-1 ${getSelectedBorderClass()} ${className}`} role="group" aria-label="sensor block with settings">
                 <button
                     type="button"
                     key={GetSiPMNumber(BlockIndex, ModuleIndex, ArrayIndex, SiPMIndex)}
@@ -173,6 +226,7 @@ function SiPMSensor(props) {
                     BreakdownVoltage={GetBreakdownVoltage()}
                     CompensatedBreakdownVoltage={GetCompensatedBreakdownVoltage()}
                     Chi2={GetChiSquare()}
+                    Checks={GetChecks()}
                 />
             ) : (
                 <SiPMSettingsModal showModal={showModal} closeModal={closeModal} BlockIndex={BlockIndex} ModuleIndex={ModuleIndex} ArrayIndex={ArrayIndex} SiPMIndex={SiPMIndex} />

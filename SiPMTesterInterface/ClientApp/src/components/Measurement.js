@@ -21,6 +21,7 @@ import { BarcodeScanner } from 'react-barcode-scanner'
 import "react-barcode-scanner/polyfill"
 import MeasurementWizard from './MeasurementWizard';
 import BlockLocation from './BlockLocation';
+import ExportMeasurementModal from './ExportMeasurementModal';
 
 function Measurement() {
     const [count, setCount] = useState(0);
@@ -29,7 +30,8 @@ function Measurement() {
         resetSiPMMeasurementStates, pulserState, setPulserState, updateCurrentTask,
         measurementDataView, showLogModal, handleCloseLogModal,
         handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun, canMeasurementStart,
-        updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard, updateMeasurementData } = useContext(MeasurementContext);
+        updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard, updateMeasurementData,
+        showExportExcelModal, handleCloseExcelExportModal } = useContext(MeasurementContext);
 
     
     const { fetchLogs, updateLogsResolved, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
@@ -64,6 +66,10 @@ function Measurement() {
     const updateIvAnalysationResultState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, newData) => {
         updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVAnalysationResult", newData.IVAnalysationResult);
         updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "IVTimes", newData.IVTimes);
+    };
+
+    const updateChecksState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, newData) => {
+        updateSiPMMeasurementStates(blockIndex, moduleIndex, arrayIndex, sipmIndex, "Checks", newData);
     };
 
     const updateIvConnectionState = (newValue) => {
@@ -220,6 +226,13 @@ function Measurement() {
                     addToast(MessageTypeEnum.Debug, 'Received IV analysation data: ' + JSON.stringify(ivARes.IVAnalysationResult));
                 });
 
+                connection.on('ReceiveSiPMChecksChange', (currentSiPM, checksRes) => {
+                    console.log("Reveived Checks:");
+                    console.log(currentSiPM);
+                    console.log(checksRes);
+                    updateChecksState(currentSiPM.Block, currentSiPM.Module, currentSiPM.Array, currentSiPM.SiPM, checksRes);
+                });
+
                 connection.on('ReceiveLogMessage', (logData) => {
                     if (!logData.NeedsAttention && !(logData.MessageType === LogMessageType.Error || logData.MessageType === LogMessageType.Fatal)) {
                         addToast(MessageTypeEnum.Info, logData.Message);
@@ -288,7 +301,7 @@ function Measurement() {
     };
 
     return (
-        <Container fluid>
+        <Container fluid className="pt-1">
             { /*<BarcodeScanner onCapture={onCapture} options={{ formats: ['code_39', 'code_93', 'qr_code'] }} /> */ }
             { /* <MeasurementSidebar collapsed={sidebarCollapsed} toggleCollapsed={toggleSidebarCollapsed} openErrorsModal={handleShowLogModal}></MeasurementSidebar> */ }
             <div className="m-3">
@@ -297,6 +310,7 @@ function Measurement() {
                 <ErrorMessageModal show={showErrorsDialog} error={currentError} handleClose={handleErrorDialogClose} handleButtonClick={handleErrorMessageBtnClick}></ErrorMessageModal>
                 <PulserValuesModal show={showPulserLEDModal} handleClose={handleClosePulserLEDModal}></PulserValuesModal>
                 <MeasurementWizard show={showMeasurementWizard} onHide={handleCloseMeasurementWizard} useTemp />
+                <ExportMeasurementModal showModal={showExportExcelModal} closeModal={handleCloseExcelExportModal}></ExportMeasurementModal>
                 <div className={`${count !== 0 ? 'd-none' : ''}`}>
                     <div className="row mb-4">
                         <div className="col">

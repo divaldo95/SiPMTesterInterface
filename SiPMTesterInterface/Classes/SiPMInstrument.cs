@@ -96,7 +96,7 @@ namespace SiPMTesterInterface.Classes
 
         public void RemoveFromWaitingResponseData(MeasurementIdentifier id)
         {
-            WaitingResponseData? foundItem = waitingResponseDatas.FirstOrDefault(item => item.Identifier.ID == id.ID && item.Identifier.Type == id.Type);
+            WaitingResponseData? foundItem = GetWaitingResponseData(id);
 
             if (foundItem != null)
             {
@@ -104,6 +104,11 @@ namespace SiPMTesterInterface.Classes
                 foundItem.Close();
             }
             waitingResponseDatas.RemoveAll(item => item.Identifier.ID == id.ID && item.Identifier.Type == id.Type); //Got the results
+        }
+
+        public WaitingResponseData? GetWaitingResponseData(MeasurementIdentifier id)
+        {
+            return waitingResponseDatas.FirstOrDefault(item => item.Identifier.ID == id.ID && item.Identifier.Type == id.Type, null);
         }
 
         public ConnectionState ConnectionState
