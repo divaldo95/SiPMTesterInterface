@@ -13,6 +13,7 @@ using SiPMTesterInterface.ClientApp.Services;
 using SiPMTesterInterface.Enums;
 using SiPMTesterInterface.Helpers;
 using SiPMTesterInterface.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 // For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -454,6 +455,92 @@ namespace SiPMTesterInterface.Controllers
                 return BadRequest(ResponseMessages.Error(ex.Message));
             }
 
+        }
+
+        [HttpGet("export/dir")]
+        public IActionResult GetCurrentExportDir()
+        {
+            // returns the SiPM states of the current run (waiting, mesured, analyzed)
+            try
+            {
+                ExportDirModel exportDir = new ExportDirModel(_measurementService.GetCurrentExportDir());
+                string json = JsonConvert.SerializeObject(exportDir, Newtonsoft.Json.Formatting.Indented);
+                return Ok(json);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpPost("export/dir")]
+        public IActionResult SetCurrentExportDir([FromBody] ExportDirModel dir)
+        {
+            if (dir == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty export directory data frame"));
+            }
+
+            _logger.LogInformation($"Export directory data received: {JsonConvert.SerializeObject(dir)}");
+
+            try
+            {
+                if (_measurementService.SetDir(dir.ExportDir))
+                {
+                    return Ok("Export directory set successfully");
+                }
+                else
+                {
+                    return BadRequest(ResponseMessages.Error("Failed to set export directory"));
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpPost("export/dir/list")]
+        public IActionResult GetGivenDirList([FromBody] ExportDirModel dir)
+        {
+            if (dir == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty directory list data frame"));
+            }
+
+            _logger.LogInformation($"Directory list data received: {JsonConvert.SerializeObject(dir)}");
+
+            try
+            {
+                List<string> list = _measurementService.GetListOfDirs(dir.ExportDir);
+                string json = JsonConvert.SerializeObject(list, Newtonsoft.Json.Formatting.Indented);
+                return Ok(json);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+        }
+
+        [HttpPost("export")]
+        public IActionResult ExportListedSiPMs([FromBody] ExportSiPMList list)
+        {
+            if (list == null)
+            {
+                return BadRequest(ResponseMessages.Error("Empty export list data frame"));
+            }
+
+            _logger.LogInformation($"Export list data received: {JsonConvert.SerializeObject(list)}");
+
+            try
+            {
+                _measurementService.ExportSiPMsData(list);
+                return Ok("Exported successfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
         }
     }
 }

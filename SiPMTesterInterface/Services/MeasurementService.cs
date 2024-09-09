@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Pipelines;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -211,6 +212,26 @@ namespace SiPMTesterInterface.ClientApp.Services
         }
     }
 
+    public class ExportConfig
+    {
+        public string BasePath { get; set; } = "~/";
+
+        public ExportConfig(IConfiguration config)
+        {
+            var bP = config["ExportConfig:BasePath"];
+
+            if (bP != null)
+            {
+                BasePath = bP;
+            }
+
+            if (BasePath.StartsWith("~/"))
+            {
+                BasePath = MeasurementService.GetHomePath(BasePath);
+            }
+        }
+    }
+
     public class MeasurementService : MeasurementOrchestrator, IDisposable
     {
         private readonly object _lockObject = new object();
@@ -231,7 +252,9 @@ namespace SiPMTesterInterface.ClientApp.Services
         public MeasurementServiceSettings MeasurementServiceSettings { get; private set; }
         public IVMeasurementSettings ivMeasurementSettings { get; private set; }
         public DMMMeasurementSettings dmmMeasurementSettings { get; private set; }
+        public ExportConfig exportConfig { get; private set; }
 
+        private string currentExportPath = "";
 
         private bool taskIsRunning = false;
         private TaskTypes taskTypeWaitingForFinish = TaskTypes.Idle;
@@ -1599,6 +1622,9 @@ namespace SiPMTesterInterface.ClientApp.Services
                                     MeasurementServiceSettings.ArrayCount, MeasurementServiceSettings.SiPMCount);
 
                 resistanceValues = new ResistanceCompensationValues(configuration);
+
+                exportConfig = new ExportConfig(configuration);
+                currentExportPath = exportConfig.BasePath;
             }
             catch (Exception ex)
             {
@@ -2033,6 +2059,60 @@ namespace SiPMTesterInterface.ClientApp.Services
                 default:
                     break;
             }
+        }
+
+        public static string GetHomePath(string relativePath)
+        {
+            // Get the user's home directory
+            string homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            // Replace the ~/ prefix with the home directory path
+            if (relativePath.StartsWith("~/"))
+            {
+                return Path.Combine(homeDirectory, relativePath.Substring(2));
+            }
+
+            return relativePath;
+        }
+
+        public List<string> GetListOfDirs(string path)
+        {
+            List<string> dirs;
+
+            bool startsWith = path.StartsWith(exportConfig.BasePath);
+            bool containsUpperLevel = path.Contains("..");
+            bool exists = Directory.Exists(path);
+            if (startsWith && !containsUpperLevel && exists)
+            {
+                dirs = Directory.EnumerateDirectories(path).ToList();
+                dirs.RemoveAll(str => str.Contains("/."));
+            }
+            else
+            {
+                dirs = new List<string>();
+            }
+            return dirs;
+        }
+
+        public bool SetDir(string dir)
+        {
+            if (dir.StartsWith(exportConfig.BasePath) && !dir.Contains("..") && Directory.Exists(dir))
+            {
+                currentExportPath = dir;
+                return true;
+            }
+
+            return false;
+        }
+
+        public string GetCurrentExportDir()
+        {
+            return currentExportPath;
+        }
+
+        public void ExportSiPMsData(ExportSiPMList list)
+        {
+            serviceState.ExportSiPMsData(list, currentExportPath);
         }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)

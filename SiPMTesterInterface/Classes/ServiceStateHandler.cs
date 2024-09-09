@@ -61,6 +61,25 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
+        public void ExportSiPMsData(ExportSiPMList list, string path)
+        {
+            if (AllSiPMsData == null)
+            {
+                throw new ArgumentNullException("No measurements to export");
+            }
+            var dataLst = AllSiPMsData
+                .Where(data => list.SiPMs.Any(s => s.Equals(data.SiPMLocation)))
+                .ToArray();
+
+            foreach (var item in dataLst)
+            {
+                if (item.Checks.SelectedForMeasurement)
+                {
+                    Helpers.FileOperationHelper.SaveIVResult(item, path);
+                }
+            }
+        }
+
         //Save current measurement results here in a flattened array
         public ServiceStateHandler(int blockNum = 2, int moduleNum = 2, int arrayNum = 4, int sipmNum = 16)
 		{
