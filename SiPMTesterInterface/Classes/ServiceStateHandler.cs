@@ -61,8 +61,12 @@ namespace SiPMTesterInterface.Classes
             }
         }
 
-        public void ExportSiPMsData(ExportSiPMList list, string path)
+        public List<CurrentSiPMModel> ExportSiPMsData(ExportSiPMList list, string path)
         {
+            List<CurrentSiPMModel> skipped = new List<CurrentSiPMModel>();
+
+            List<string> barcodes = new List<string>();
+
             if (AllSiPMsData == null)
             {
                 throw new ArgumentNullException("No measurements to export");
@@ -73,11 +77,35 @@ namespace SiPMTesterInterface.Classes
 
             foreach (var item in dataLst)
             {
-                if (item.Checks.SelectedForMeasurement)
+                if (barcodes.FindIndex(i => i.Equals(item.Barcode)) < 0)
                 {
-                    Helpers.FileOperationHelper.SaveIVResult(item, path);
+                    barcodes.Add(item.Barcode);
                 }
             }
+
+            barcodes.Sort();
+            string dataDir = string.Join("-", barcodes);
+            dataDir = Path.Join(path, dataDir);
+            foreach (var item in dataLst)
+            {
+                try
+                {
+                    if (item.Checks.SelectedForMeasurement)
+                    {
+                        Helpers.FileOperationHelper.SaveIVResult(item, dataDir);
+                    }
+                    else
+                    {
+                        skipped.Add(item.SiPMLocation);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to export {item}: {ex.Message}");
+                    skipped.Add(item.SiPMLocation);
+                }
+            }
+            return skipped;
         }
 
         //Save current measurement results here in a flattened array

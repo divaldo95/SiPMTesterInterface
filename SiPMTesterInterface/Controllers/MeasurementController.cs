@@ -534,8 +534,11 @@ namespace SiPMTesterInterface.Controllers
 
             try
             {
-                _measurementService.ExportSiPMsData(list);
-                return Ok("Exported successfully");
+                List<CurrentSiPMModel> skipped = _measurementService.ExportSiPMsData(list);
+                return Ok(new
+                {
+                    SiPMs = skipped
+                });
             }
             catch (Exception ex)
             {

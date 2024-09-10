@@ -2082,9 +2082,15 @@ namespace SiPMTesterInterface.ClientApp.Services
             bool startsWith = path.StartsWith(exportConfig.BasePath);
             bool containsUpperLevel = path.Contains("..");
             bool exists = Directory.Exists(path);
+            var enumerationOptions = new EnumerationOptions();
+            enumerationOptions.IgnoreInaccessible = true;
+            enumerationOptions.ReturnSpecialDirectories = false;
+            enumerationOptions.AttributesToSkip = FileAttributes.Hidden;
             if (startsWith && !containsUpperLevel && exists)
             {
-                dirs = Directory.EnumerateDirectories(path).ToList();
+                //dirs = Directory.EnumerateDirectories(path).ToList();
+                dirs = Directory.EnumerateDirectories(path, "*", enumerationOptions)
+                    .Select(p => p.Replace(path, "")).ToList();
                 dirs.RemoveAll(str => str.Contains("/."));
             }
             else
@@ -2110,9 +2116,9 @@ namespace SiPMTesterInterface.ClientApp.Services
             return currentExportPath;
         }
 
-        public void ExportSiPMsData(ExportSiPMList list)
+        public List<CurrentSiPMModel> ExportSiPMsData(ExportSiPMList list)
         {
-            serviceState.ExportSiPMsData(list, currentExportPath);
+            return serviceState.ExportSiPMsData(list, currentExportPath);
         }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int blockIndex, int moduleIndex, int arrayIndex, int sipmIndex)

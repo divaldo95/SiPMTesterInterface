@@ -1,0 +1,7 @@
+﻿.btn-equal-size {
+    min-width: 200px; /* Ensure all buttons have the same minimum width */
+    height: 50px; /* Set the same height for all buttons */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

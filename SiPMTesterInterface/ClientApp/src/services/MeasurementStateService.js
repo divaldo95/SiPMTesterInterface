@@ -25,6 +25,10 @@ const API_RESOLVE_LOGS = 'logs/resolve/'
 
 const API_ARRAY_PROPS = 'getarrayprops/'
 
+const API_EXPORT = 'export/'
+const API_EXPORT_DIR = API_EXPORT + 'dir/'
+const API_LIST_FOLDERS = API_EXPORT_DIR + 'list/'
+
 const MeasurementStateService = {
     getMeasurementStates: async () => {
         try {
@@ -317,6 +321,69 @@ const MeasurementStateService = {
             return response.data;
         } catch (error) {
             //console.error('Error fetching array properties:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getExportBaseDirectory: async () => {
+        try {
+            const response = await axios.get(API_BASE_URL + API_EXPORT_DIR);
+            return response.data;
+        } catch (error) {
+            //console.error('Error fetching array properties:', error);
+            throw error;
+        }
+    },
+    setExportDirectory: async (dir) => {
+        try {
+            const data = {
+                ExportDir: dir
+            };
+            const json = JSON.stringify(data);
+            const response = await axios.post(API_BASE_URL + API_EXPORT_DIR, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            //console.error('Error getting list of directories:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    getDirectoryList: async (dir) => {
+        try {
+            const data = {
+                ExportDir: dir
+            };
+            const json = JSON.stringify(data);
+            const response = await axios.post(API_BASE_URL + API_LIST_FOLDERS, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error getting list of directories:', error);
+            throw error; // You can handle the error as needed in your application
+        }
+    },
+    exportMeasurementData: async (data) => {
+        try {
+            const dataToSend = {
+                SiPMs: data
+            }
+            const json = JSON.stringify(dataToSend);
+            const response = await axios.post(API_BASE_URL + API_EXPORT, json, {
+                headers: {
+                    // Overwrite Axios's automatically set Content-Type
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response;
+        } catch (error) {
+            console.error('Error exporting data:', error);
             throw error; // You can handle the error as needed in your application
         }
     },
