@@ -62,7 +62,7 @@ const NavMenu = () => {
     };
 
     const renderExcelExportButton = () => {
-        if (!measurementDataView) {
+        if (measurementDataView) {
             return (
                 <NavItem>
                     <NavLink onClick={handleShowExcelExportModal} tag={Link} className="text-dark"><Badge bg="info text-dark"><i className="bi bi-box-arrow-up"></i></Badge></NavLink>

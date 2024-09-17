@@ -387,6 +387,7 @@ function ExportMeasurementModal(props) {
             const response = MeasurementStateService.setExportDirectory(currentPath);
             response.then((resp) => {
                 setLocationBtnVariant("success");
+                setExportLocation(currentPath);
             })
             .catch((err) => {
                 console.error('Error sending path', err);
@@ -457,7 +458,7 @@ function ExportMeasurementModal(props) {
                                                                 {' Sending...'}
                                                             </>
                                                         ) : (
-                                                            'Send Current Path'
+                                                            'Set Current Path'
                                                         )}
                                                     </Button>
                                                 </Col>

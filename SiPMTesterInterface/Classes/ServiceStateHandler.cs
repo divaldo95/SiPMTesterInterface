@@ -84,8 +84,16 @@ namespace SiPMTesterInterface.Classes
             }
 
             barcodes.Sort();
-            string dataDir = string.Join("-", barcodes);
-            dataDir = Path.Join(path, dataDir);
+            string dataDir = "exported";
+            if (barcodes.Count == 1)
+            {
+                dataDir = barcodes.First();
+            }
+            else if (barcodes.Count > 1)
+            {
+                dataDir = barcodes.First() + "-" + barcodes.Last();
+            }
+
             foreach (var item in dataLst)
             {
                 try

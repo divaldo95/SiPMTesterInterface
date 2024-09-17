@@ -14,6 +14,7 @@ using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Libraries;
 using SiPMTesterInterface.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using static SiPMTesterInterface.Classes.LEDPulserData;
 
 namespace SiPMTesterInterface.ClientApp.Services
@@ -218,7 +219,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         public ExportConfig(IConfiguration config)
         {
-            var bP = config["ExportConfig:BasePath"];
+            var bP = config["DefaultMeasurementSettings:ExportConfig:BasePath"];
 
             if (bP != null)
             {
@@ -353,7 +354,10 @@ namespace SiPMTesterInterface.ClientApp.Services
                 c.SiPMLocation = new CurrentSiPMModel(item.BlockIndex, item.ModuleIndex, item.ArrayIndex, item.SiPMIndex);
                 c.Barcode = item.Barcode;
                 c.SiPMMeasurementDetails = item.SiPM;
-                c.Checks.SelectedForMeasurement = true;
+                if (c.SiPMMeasurementDetails.IV != 0)
+                {
+                    c.Checks.SelectedForMeasurement = true;
+                }
                 //use global IV list if IV is enabled but voltage list is not set directly for this sipm
                 if (c.SiPMMeasurementDetails.IVVoltages.Count <= 0 && c.SiPMMeasurementDetails.IV != 0)
                 {
@@ -1325,6 +1329,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                             taskIsRunning = false;
                             MarkCurrentTaskDone();
                         }
+                        _hubContext.Clients.All.ReceiveSiPMChecksChange(c.SiPMLocation, c.Checks);
                     }
                 }
                 else
@@ -1367,7 +1372,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                             taskIsRunning = false;
                             MarkCurrentTaskDone();
                         }
-                        
+                        _hubContext.Clients.All.ReceiveSiPMChecksChange(c.SiPMLocation, c.Checks);
                     }
                 }
                 else
@@ -1414,6 +1419,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                             taskIsRunning = false;
                             MarkCurrentTaskDone();
                         }
+                        _hubContext.Clients.All.ReceiveSiPMChecksChange(c.SiPMLocation, c.Checks);
                     }
                 }
                 else
@@ -1625,6 +1631,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                 exportConfig = new ExportConfig(configuration);
                 currentExportPath = exportConfig.BasePath;
+                _logger.LogInformation($"Export path set to \'{currentExportPath}\'");
             }
             catch (Exception ex)
             {
@@ -1832,7 +1839,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 for (int j = 0; j < tempArray.Length; j++)
                 {
                     //if (Math.Abs(tempArray[j] - 25) > 3)
-                    if (tempArray[j].IsBetweenLimits(25.0, 3.0))
+                    if (!tempArray[j].IsBetweenLimits(25.0, 3.0))
                     {
                         allTempAround25 = false;
                         break;
@@ -1847,7 +1854,11 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             //append latest dmm resistance measurement if available
             c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
-            
+
+            if (c.DMMResistanceResult.Resistance.IsBetweenLimits(MeasurementServiceSettings.ExpectedDMMResistance, MeasurementServiceSettings.DMMResistanceMaxDifference))
+            {
+                c.Checks.DMMResistanceOK = true;
+            }
 
             if (c.IVResult.ErrorHappened)
             {
