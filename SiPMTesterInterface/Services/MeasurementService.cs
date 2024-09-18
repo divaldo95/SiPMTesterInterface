@@ -14,7 +14,6 @@ using SiPMTesterInterface.Hubs;
 using SiPMTesterInterface.Interfaces;
 using SiPMTesterInterface.Libraries;
 using SiPMTesterInterface.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using static SiPMTesterInterface.Classes.LEDPulserData;
 
 namespace SiPMTesterInterface.ClientApp.Services
@@ -29,6 +28,7 @@ namespace SiPMTesterInterface.ClientApp.Services
         public double FridgeTemperature { get; set; } = -30.0;
         public int FridgeFanSpeedPercentage { get; set; } = 50;
         public double BoxTemperature { get; set; } = 25.0;
+        public double TemperatureMaxDifference { get; set; } = 1.0;
         public int BoxFanSpeedPercentage { get; set; } = 50;
         public double ExpectedDMMResistance { get; set; } = 10E6;
         public double DMMResistanceMaxDifference { get; set; } = 2E6;
@@ -44,6 +44,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             var fridgeTemperature = config["MeasurementService:FridgeTemperature"];
             var fridgeFanSpeedPercentage = config["MeasurementService:FridgeFanSpeedPercentage"];
             var boxTemperature = config["MeasurementService:BoxTemperature"];
+            var temperatureMaxDifference = config["MeasurementService:TemperatureMaxDifference"];
             var boxFanSpeedPercentage = config["MeasurementService:BoxFanSpeedPercentage"];
 
             var expectedDMMResistance = config["MeasurementService:ExpectedDMMResistance"];
@@ -100,6 +101,13 @@ namespace SiPMTesterInterface.ClientApp.Services
                 double.TryParse(boxTemperature, out val);
                 BoxTemperature = val;
                 Console.WriteLine($"Box temperature set to {BoxTemperature}");
+            }
+            if (temperatureMaxDifference != null)
+            {
+                double val;
+                double.TryParse(temperatureMaxDifference, out val);
+                TemperatureMaxDifference = val;
+                Console.WriteLine($"Box temperature difference set to {TemperatureMaxDifference}");
             }
             if (boxFanSpeedPercentage != null)
             {
@@ -887,7 +895,13 @@ namespace SiPMTesterInterface.ClientApp.Services
                     CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
                     MeasureAndAddTemperature(c);
                 }
-
+                else if (nextMeasurement.Type == MeasurementType.Analysis)
+                {
+                    CurrentTask = TaskTypes.Analysis;
+                    taskTypeWaitingForFinish = TaskTypes.Analysis;
+                    taskIsRunning = true;
+                    AnalyseSiPM(nextMeasurement.SiPM);
+                }
                 //WIP
                 else if (nextMeasurement.Type == MeasurementType.SPSMeasurement)
                 {
@@ -1060,6 +1074,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                         }
                         else
                         {
+                            _logger.LogInformation($"Temperature validation error ({i}/{retryNum})");
                             Thread.Sleep(400); // Wait a bit
                         }
                     }
@@ -1806,6 +1821,63 @@ namespace SiPMTesterInterface.ClientApp.Services
             }          
         }
 
+        private void AnalyseSiPM(CurrentSiPMModel sipm)
+        {
+            CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(sipm.Block, sipm.Module, sipm.Array, sipm.SiPM);
+
+            if (c.Temperatures != null && c.Temperatures.Count > 0)
+            {
+                _logger.LogInformation("Temperatures list on IVMeasurementDataReceived has at least one measurement");
+                c.IVResult.Temperatures = c.Temperatures; //use directly measured temperatures
+            }
+            else
+            {
+                c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp && item.Block <= c.SiPMLocation.Block).ToList();
+                _logger.LogInformation("Got temperatures list from automatic updates");
+            }
+
+            CoolerSettingsModel cooler = coolerState.GetCoolerSettings(c.SiPMLocation.Block, c.SiPMLocation.Module);
+            double tempSet = cooler.TargetTemperature;
+            bool allTempAroundSet = true;
+
+            for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
+            {
+                double[] tempArray = (c.SiPMLocation.Module == 0 ? c.IVResult.Temperatures[i].Module1 : c.IVResult.Temperatures[i].Module2);
+                for (int j = 0; j < tempArray.Length; j++)
+                {
+                    //if (Math.Abs(tempArray[j] - 25) > 3)
+                    if (!tempArray[j].IsBetweenLimits(tempSet, MeasurementServiceSettings.TemperatureMaxDifference))
+                    {
+                        allTempAroundSet = false;
+                        break;
+                    }
+                }
+            }
+
+            if (c.IVResult.Temperatures.Count >= 2 && allTempAroundSet)
+            {
+                c.Checks.IVTemperatureOK = true;
+            }
+
+            //append latest dmm resistance measurement if available
+            c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
+
+            if (c.DMMResistanceResult.Resistance.IsBetweenLimits(MeasurementServiceSettings.ExpectedDMMResistance, MeasurementServiceSettings.DMMResistanceMaxDifference))
+            {
+                c.Checks.DMMResistanceOK = true;
+            }
+
+            //Run analysis and save data there even if analysis fails
+            RunAnalysis(c); //async call
+
+            if (taskTypeWaitingForFinish == TaskTypes.Analysis)
+            {
+                taskIsRunning = false;
+                MarkCurrentTaskDone();
+            }
+            CheckAndRunNextAsync();
+        }
+
         private void OnIVMeasurementDataReceived(object? sender, IVMeasurementDataReceivedEventArgs e)
         {
             //save data here
@@ -1820,44 +1892,16 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                 c.Checks.IVDone = true;
             }
-
-            if (c.Temperatures != null && c.Temperatures.Count > 0)
+            else if (e.Data.ErrorHappened)
             {
-                _logger.LogInformation("Temperatures list on IVMeasurementDataReceived has at least one measurement");
-                c.IVResult.Temperatures = c.Temperatures; //use directly measured temperatures
+                c.Checks.IVMeasurementOK = false;
+                CreateAndSendLogMessage("Measurement not data not found", $"Unknown measurement's data received.", LogMessageType.Warning, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
+                return;
             }
             else
             {
-                c.IVResult.Temperatures = Temperatures.Where(item => item.Timestamp >= c.IVResult.StartTimestamp && item.Timestamp <= c.IVResult.EndTimestamp && item.Block <= c.SiPMLocation.Block).ToList();
-                _logger.LogInformation("Got temperatures list from automatic updates");
-            }
-
-            bool allTempAround25 = true;
-            for (int i = 0; i < c.IVResult.Temperatures.Count; i++)
-            {
-                double[] tempArray = (c.SiPMLocation.Module == 0 ? c.IVResult.Temperatures[i].Module1 : c.IVResult.Temperatures[i].Module2);
-                for (int j = 0; j < tempArray.Length; j++)
-                {
-                    //if (Math.Abs(tempArray[j] - 25) > 3)
-                    if (!tempArray[j].IsBetweenLimits(25.0, 3.0))
-                    {
-                        allTempAround25 = false;
-                        break;
-                    }
-                }
-            }
-
-            if (c.IVResult.Temperatures.Count == 2 && allTempAround25)
-            {
-                c.Checks.IVTemperatureOK = true;
-            }
-
-            //append latest dmm resistance measurement if available
-            c.DMMResistanceResult = serviceState.DMMResistances.LastOrDefault(new DMMResistanceMeasurementResponseModel());
-
-            if (c.DMMResistanceResult.Resistance.IsBetweenLimits(MeasurementServiceSettings.ExpectedDMMResistance, MeasurementServiceSettings.DMMResistanceMaxDifference))
-            {
-                c.Checks.DMMResistanceOK = true;
+                _logger.LogError($"Unknown measurement ID ({e.Data.Identifier})");
+                return;
             }
 
             if (c.IVResult.ErrorHappened)
@@ -1866,18 +1910,13 @@ namespace SiPMTesterInterface.ClientApp.Services
                 CreateAndSendLogMessage("Failed IV measurement", $"IV measurement for {c.SiPMLocation.Block}, {c.SiPMLocation.Module}, {c.SiPMLocation.Array}, {c.SiPMLocation.SiPM} is failed. Reason: {c.IVResult.ErrorMessage}. Do you want to retry?", LogMessageType.Error, Devices.NIMachine, true, ResponseButtons.YesNo, MeasurementType.IVMeasurement);
                 return;
             }
-            else if (e.Data.ErrorHappened)
+            else
             {
-                c.Checks.IVMeasurementOK = false;
-                CreateAndSendLogMessage("Measurement not data not found", $"Unknown measurement's data received.", LogMessageType.Warning, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.IVMeasurement);
-                return;
+                c.Checks.IVMeasurementOK = true;
             }
 
-            c.Checks.IVMeasurementOK = true;
-            //Run analysis and save data there even if analysis fails
-            RunAnalysis(c); //async call
-
             _hubContext.Clients.All.ReceiveSiPMIVMeasurementDataUpdate(c.SiPMLocation);
+            _hubContext.Clients.All.ReceiveSiPMChecksChange(c.SiPMLocation, c.Checks);
 
             if (taskTypeWaitingForFinish == TaskTypes.IV)
             {

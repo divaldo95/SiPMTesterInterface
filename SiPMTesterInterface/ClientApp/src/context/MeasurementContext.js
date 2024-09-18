@@ -152,6 +152,8 @@ export const MeasurementProvider = ({ children }) => {
 
     const [showMeasurementWizard, setShowMeasurementWizard] = useState(false);
 
+    const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
+
     const handleShowMeasurementWizard = () => {
         const blankedOutData = JSON.parse(JSON.stringify(measurementData));
         blankedOutData.Blocks.forEach(block => {
@@ -265,30 +267,48 @@ export const MeasurementProvider = ({ children }) => {
 
     const updateSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
         setMeasurementStates(prevMeasurementData => {
-            const updatedData = prevMeasurementData;
+            // Create a deep copy of the state to avoid mutation
+            const updatedData = {
+                ...prevMeasurementData,
+                Blocks: prevMeasurementData.Blocks.map((block, bIdx) =>
+                    bIdx === blockIndex
+                        ? {
+                            ...block,
+                            Modules: block.Modules.map((module, mIdx) =>
+                                mIdx === moduleIndex
+                                    ? {
+                                        ...module,
+                                        Arrays: module.Arrays.map((array, aIdx) =>
+                                            aIdx === arrayIndex
+                                                ? {
+                                                    ...array,
+                                                    SiPMs: array.SiPMs.map((sipm, sIdx) =>
+                                                        sIdx === sipmIndex
+                                                            ? { ...sipm, [property]: newData }
+                                                            : sipm
+                                                    )
+                                                }
+                                                : array
+                                        )
+                                    }
+                                    : module
+                            )
+                        }
+                        : block
+                )
+            };
 
-            // Update individual sipm's data
-            if (blockIndex !== undefined && moduleIndex !== undefined && arrayIndex !== undefined && sipmIndex !== undefined) {
-                console.log("Before:");
-                console.log(updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property]);
-                updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property] = newData;
-                console.log("After:");
-                console.log(updatedData.Blocks[blockIndex].Modules[moduleIndex].Arrays[arrayIndex].SiPMs[sipmIndex][property]);
-                return updatedData;
-            } else {
-                return newData; //update the whole structure with the complete new one
-            }
-
+            return updatedData; // Return the immutably updated state
         });
     };
 
     const updateActiveSiPMs = (newData) => {
-        setMeasurementStates(prevMeasurementData => {
-            const updatedData = prevMeasurementData;
-            updatedData.ActiveSiPMs = newData;
-            return updatedData;
-        });
+        setMeasurementStates((prevMeasurementData) => ({
+            ...prevMeasurementData,
+            ActiveSiPMs: newData,
+        }));
     };
+
 
     const resetSiPMMeasurementStates = () => {
         setMeasurementStates(initialMeasurementState);
@@ -334,12 +354,13 @@ export const MeasurementProvider = ({ children }) => {
 
     const updateSiPMMeasurementState = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newState) => {
         setMeasurementStates(prevMeasurementState => {
-            const updatedState = prevMeasurementState;
-            updatedState[property] = newState;
+            // Create a deep copy of the entire state
+            const updatedState = { ...prevMeasurementState, [property]: newState };
 
             return updatedState;
         });
     };
+
 
     const updateVopData = (BlockIndex, ModuleIndex, ArrayIndex, index, Vop) => {
         console.log(BlockIndex, ModuleIndex, ArrayIndex, index, Vop);
@@ -578,6 +599,34 @@ export const MeasurementProvider = ({ children }) => {
         }
     }
 
+    const updateSelectedForMeasurementBasedOnIV = () => {
+        setMeasurementStates(prevMeasurementStates => {
+            // Create a deep copy of measurementStates to avoid mutation
+            const updatedMeasurementStates = {
+                ...prevMeasurementStates,
+                Blocks: prevMeasurementStates.Blocks.map((block, blockIdx) => ({
+                    ...block,
+                    Modules: block.Modules.map((module, moduleIdx) => ({
+                        ...module,
+                        Arrays: module.Arrays.map((array, arrayIdx) => ({
+                            ...array,
+                            SiPMs: array.SiPMs.map((sipm, sipmIdx) => {
+                                const correspondingSiPM = measurementData.Blocks[blockIdx].Modules[moduleIdx].Arrays[arrayIdx].SiPMs[sipmIdx];
+                                // Check if IV is 1 in measurementData and set SelectedForMeasurement to true
+                                return correspondingSiPM.IV === 1
+                                    ? { ...sipm, Checks: { ...sipm.Checks, SelectedForMeasurement: true } }
+                                    : sipm;
+                            })
+                        }))
+                    }))
+                }))
+            };
+
+            return updatedMeasurementStates; // Return the updated measurementStates
+        });
+    };
+
+
     const activeSiPMs = measurementStates.ActiveSiPMs;
 
     return (
@@ -593,7 +642,7 @@ export const MeasurementProvider = ({ children }) => {
                 handleShowPulserLEDModal, handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun,
                 canMeasurementStart, updateActiveSiPMs, activeSiPMs, showMeasurementWizard, handleCloseMeasurementWizard,
                 handleShowMeasurementWizard, updateVopData, updateVopDataTemp, updateBarcodeTemp, handleSaveBarcodeChanges,
-                showExportExcelModal, handleShowExcelExportModal, handleCloseExcelExportModal
+                showExportExcelModal, handleShowExcelExportModal, handleCloseExcelExportModal, updateSelectedForMeasurementBasedOnIV
             }}>
             {children}
         </MeasurementContext.Provider>

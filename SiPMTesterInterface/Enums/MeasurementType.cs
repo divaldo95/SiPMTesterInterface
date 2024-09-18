@@ -14,6 +14,7 @@ namespace SiPMTesterInterface.Enums
         DarkCurrentMeasurement = 3,
         ForwardResistanceMeasurement = 4,
         TemperatureMeasurement = 5,
+        Analysis = 6,
         Unknown = 999
     }
 }

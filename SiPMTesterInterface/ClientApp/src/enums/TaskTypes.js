@@ -12,7 +12,8 @@
     BlockDisable: 10,
     BlockEnable: 11,
     TemperatureMeasurement: 12,
-    PulserChange: 13
+    PulserChange: 13,
+    Analysis: 14
 }  
 
 export function TaskTypesString(type) {
@@ -45,6 +46,8 @@ export function TaskTypesString(type) {
             return "Temperature";
         case TaskTypes.PulserChange:
             return "Pulser Change";
+        case TaskTypes.Analysis:
+            return "Analysis";
         default:
             return "";
     }

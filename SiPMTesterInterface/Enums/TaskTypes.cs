@@ -16,7 +16,8 @@ namespace SiPMTesterInterface.Enums
         BlockDisable = 10,
         BlockEnable = 11,
         TemperatureMeasurement = 12,
-        PulserChange = 13
+        PulserChange = 13,
+        Analysis
     }
 }
 

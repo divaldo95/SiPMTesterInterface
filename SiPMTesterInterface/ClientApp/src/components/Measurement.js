@@ -31,7 +31,7 @@ function Measurement() {
         measurementDataView, showLogModal, handleCloseLogModal,
         handleClosePulserLEDModal, showPulserLEDModal, fetchCurrentRun, canMeasurementStart,
         updateActiveSiPMs, showMeasurementWizard, handleCloseMeasurementWizard, updateMeasurementData,
-        showExportExcelModal, handleCloseExcelExportModal } = useContext(MeasurementContext);
+        showExportExcelModal, handleCloseExcelExportModal, updateSelectedForMeasurementBasedOnIV } = useContext(MeasurementContext);
 
     
     const { fetchLogs, updateLogsResolved, appendLog, unresolvedLogCount, currentError } = useContext(LogContext);
@@ -111,6 +111,7 @@ function Measurement() {
     const handleButtonClick2 = () => {
         MeasurementStateService.startMeasurement(measurementData);
         resetSiPMMeasurementStates();
+        updateSelectedForMeasurementBasedOnIV();
         
     };
 

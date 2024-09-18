@@ -94,6 +94,8 @@ namespace SiPMTesterInterface.Classes
                 dataDir = barcodes.First() + "-" + barcodes.Last();
             }
 
+            dataDir = Path.Combine(path, dataDir);
+
             foreach (var item in dataLst)
             {
                 try
@@ -192,22 +194,22 @@ namespace SiPMTesterInterface.Classes
 
         public PulserValues GetSiPMPulserValues(int block, int module, int array, int sipm)
         {
-            return pulserValues[GetPulserArrayIndex(block, module, array, sipm)];
+            return pulserValues[GetArrayIndex(block, module, array, sipm)];
         }
 
         public void SetIVPulserValue(int block, int module, int array, int sipm, int value)
         {
-            pulserValues[GetPulserArrayIndex(block, module, array, sipm)].IVPulser = value;
+            pulserValues[GetArrayIndex(block, module, array, sipm)].IVPulser = value;
         }
 
         public void SetSPSPulserValue(int block, int module, int array, int sipm, int value)
         {
-            pulserValues[GetPulserArrayIndex(block, module, array, sipm)].SPSPulser = value;
+            pulserValues[GetArrayIndex(block, module, array, sipm)].SPSPulser = value;
         }
 
         public CurrentMeasurementDataModel GetSiPMMeasurementData(int block, int module, int array, int sipm)
         {
-            int arrayIndex = GetPulserArrayIndex(block, module, array, sipm);
+            int arrayIndex = GetArrayIndex(block, module, array, sipm);
             if (AllSiPMsData.Length < arrayIndex)
             {
                 throw new ArgumentOutOfRangeException("Measurement not started or index out of bounds");
@@ -259,7 +261,7 @@ namespace SiPMTesterInterface.Classes
 
         public void SetDarkCurrentMeasurementData(int block, int module, int array, int sipm, bool isLeakageCurrent, VoltageAndCurrentMeasurementResponseModel result)
         {
-            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
+            var SiPM = AllSiPMsData[GetArrayIndex(block, module, array, sipm)];
             if (isLeakageCurrent)
             {
                 SiPM.DarkCurrentResult.LeakageCurrentResult = result;
@@ -272,7 +274,7 @@ namespace SiPMTesterInterface.Classes
 
         public void SetDarkCurrentMeasurementIdentifier(int block, int module, int array, int sipm, bool isLeakageCurrent, MeasurementIdentifier id)
         {
-            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)];
+            var SiPM = AllSiPMsData[GetArrayIndex(block, module, array, sipm)];
             if (isLeakageCurrent)
             {
                 SiPM.DarkCurrentResult.LeakageCurrentResult.Identifier = id;
@@ -285,12 +287,12 @@ namespace SiPMTesterInterface.Classes
 
         public void SetForwardResistanceMeasurementData(int block, int module, int array, int sipm, VoltageAndCurrentMeasurementResponseModel result)
         {
-            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result = result;
+            var SiPM = AllSiPMsData[GetArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result = result;
         }
 
         public void SetForwardResistanceMeasurementIdentifier(int block, int module, int array, int sipm, MeasurementIdentifier id)
         {
-            var SiPM = AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result.Identifier = id;
+            var SiPM = AllSiPMsData[GetArrayIndex(block, module, array, sipm)].ForwardResistanceResult.Result.Identifier = id;
         }
 
         public bool GetSiPMIVMeasurementData(MeasurementIdentifier id, out CurrentMeasurementDataModel sipmData)
@@ -316,20 +318,20 @@ namespace SiPMTesterInterface.Classes
 
         public void SetIVMeasurementData(int block, int module, int array, int sipm, IVMeasurementResponseModel result)
         {
-            AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].IVResult = result;
+            AllSiPMsData[GetArrayIndex(block, module, array, sipm)].IVResult = result;
         }
 
         public void SetIVMeasurementIdentifier(int block, int module, int array, int sipm, MeasurementIdentifier id)
         {
-            AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].IVMeasurementID = id;
+            AllSiPMsData[GetArrayIndex(block, module, array, sipm)].IVMeasurementID = id;
         }
 
         public void SetSPSMeasurementIdentifier(int block, int module, int array, int sipm, MeasurementIdentifier id)
         {
-            AllSiPMsData[GetPulserArrayIndex(block, module, array, sipm)].SPSMeasurementID = id;
+            AllSiPMsData[GetArrayIndex(block, module, array, sipm)].SPSMeasurementID = id;
         }
 
-        private int GetPulserArrayIndex(int block, int module, int array, int sipm)
+        private int GetArrayIndex(int block, int module, int array, int sipm)
         {
             if (block < 0 || block >= BlockNum)
             {

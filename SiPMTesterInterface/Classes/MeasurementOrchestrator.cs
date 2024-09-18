@@ -205,6 +205,14 @@ namespace SiPMTesterInterface.Classes
                         StartModel = d
                     };
                     FinalMeasurementOrder.Add(m);
+                    m = new MeasurementOrderModel
+                    {
+                        Task = TaskTypes.Analysis,
+                        Type = MeasurementType.Analysis,
+                        SiPM = s[0],
+                        StartModel = d
+                    };
+                    FinalMeasurementOrder.Add(m);
                 }
                 prevBlockChangeState = b;
             }
