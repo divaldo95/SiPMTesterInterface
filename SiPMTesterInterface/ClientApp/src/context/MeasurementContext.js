@@ -267,40 +267,55 @@ export const MeasurementProvider = ({ children }) => {
 
     const updateSiPMMeasurementStates = (blockIndex, moduleIndex, arrayIndex, sipmIndex, property, newData) => {
         setMeasurementStates(prevMeasurementData => {
-            // Create a deep copy of the state to avoid mutation
+            // If no specific indices and property are provided, replace the entire structure
+            if (
+                blockIndex === undefined &&
+                moduleIndex === undefined &&
+                arrayIndex === undefined &&
+                sipmIndex === undefined &&
+                property === undefined
+            ) {
+                return newData; // Replace the entire state with the provided newData
+            }
+
+            // Otherwise, perform the partial update on the specific SiPM
             const updatedData = {
-                ...prevMeasurementData,
-                Blocks: prevMeasurementData.Blocks.map((block, bIdx) =>
-                    bIdx === blockIndex
-                        ? {
-                            ...block,
-                            Modules: block.Modules.map((module, mIdx) =>
-                                mIdx === moduleIndex
-                                    ? {
-                                        ...module,
-                                        Arrays: module.Arrays.map((array, aIdx) =>
-                                            aIdx === arrayIndex
-                                                ? {
-                                                    ...array,
-                                                    SiPMs: array.SiPMs.map((sipm, sIdx) =>
-                                                        sIdx === sipmIndex
-                                                            ? { ...sipm, [property]: newData }
-                                                            : sipm
-                                                    )
-                                                }
-                                                : array
-                                        )
-                                    }
-                                    : module
-                            )
-                        }
-                        : block
-                )
+                ...prevMeasurementData, // Make a shallow copy of the previous state
+                Blocks: prevMeasurementData.Blocks.map((block, bIdx) => {
+                    if (bIdx !== blockIndex) return block; // If blockIndex does not match, return the block unchanged
+
+                    return {
+                        ...block, // Shallow copy the block
+                        Modules: block.Modules.map((module, mIdx) => {
+                            if (mIdx !== moduleIndex) return module; // If moduleIndex does not match, return the module unchanged
+
+                            return {
+                                ...module, // Shallow copy the module
+                                Arrays: module.Arrays.map((array, aIdx) => {
+                                    if (aIdx !== arrayIndex) return array; // If arrayIndex does not match, return the array unchanged
+
+                                    return {
+                                        ...array, // Shallow copy the array
+                                        SiPMs: array.SiPMs.map((sipm, sIdx) => {
+                                            if (sIdx !== sipmIndex) return sipm; // If sipmIndex does not match, return the SiPM unchanged
+
+                                            return {
+                                                ...sipm, // Shallow copy the SiPM
+                                                [property]: newData // Update only the specific property with the new data
+                                            };
+                                        })
+                                    };
+                                })
+                            };
+                        })
+                    };
+                })
             };
 
-            return updatedData; // Return the immutably updated state
+            return updatedData; // Return the updated state
         });
     };
+
 
     const updateActiveSiPMs = (newData) => {
         setMeasurementStates((prevMeasurementData) => ({

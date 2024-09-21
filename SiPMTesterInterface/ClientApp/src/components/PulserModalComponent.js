@@ -80,6 +80,26 @@ function PulserModalComponent(props) {
         refreshAll();
     }, []); // Empty dependency array ensures the effect runs only once when the component mounts
 
+    useEffect(() => {
+        refreshAll();
+
+        let intervalId;
+
+        if (showModal) {
+            // Start the interval when the modal is open
+            intervalId = setInterval(() => {
+                refreshCoolerStates();
+            }, 5000);
+        }
+
+        // Cleanup the interval when showModal becomes false or on unmount
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [showModal]); // Empty dependency array ensures the effect runs only once when the component mounts
+
     const refreshAll = () => {
         refreshPulserState();
         refreshCoolerStates();

@@ -892,8 +892,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     CurrentTask = TaskTypes.TemperatureMeasurement;
                     taskTypeWaitingForFinish = TaskTypes.TemperatureMeasurement;
                     taskIsRunning = true;
-                    CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
-                    MeasureAndAddTemperature(c);
+                    MeasureAndAddTemperature(nextMeasurement.SiPM);
                 }
                 else if (nextMeasurement.Type == MeasurementType.Analysis)
                 {
@@ -1051,7 +1050,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             return sipmCounts;
         }
 
-        private Task MeasureAndAddTemperature(CurrentMeasurementDataModel data)
+        private Task MeasureAndAddTemperature(CurrentSiPMModel sipm)
         {
             Task t = Task.Run(() =>
             {
@@ -1060,6 +1059,8 @@ namespace SiPMTesterInterface.ClientApp.Services
                     int retryNum = 10;
                     TemperaturesArray? temperatures = null;
                     // try to read temperature 10 times max
+                    CurrentMeasurementDataModel data = serviceState.GetSiPMMeasurementData(sipm.Block, sipm.Module, sipm.Array, sipm.SiPM);
+                    _logger.LogDebug($"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}) has {data.Temperatures.Count} temperatures");
                     for (int i = 0; i < retryNum; i++)
                     {
                         if (Pulser == null)
@@ -1081,7 +1082,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                     if (temperatures != null && temperatures.Validate(data.SiPMLocation.Module))
                     {
-                        data.Temperatures.Append(temperatures);
+                        data.Temperatures.Add(temperatures);
                         _logger.LogInformation($"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}) temperatures are validated");
                     }
                     else if (temperatures != null)
@@ -1112,7 +1113,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                 catch (Exception ex)
                 {
                     CreateAndSendLogMessage("Temperature Reader",
-                            $"SiPM ({data.SiPMLocation.Block}, {data.SiPMLocation.Module}, {data.SiPMLocation.Array}, {data.SiPMLocation.SiPM}): {ex.Message} - Do you want to try it again?",
+                            $"SiPM ({sipm.Block}, {sipm.Module}, {sipm.Array}, {sipm.SiPM}): {ex.Message} - Do you want to try it again?",
                             LogMessageType.Error,
                             Devices.Pulser,
                             true,
