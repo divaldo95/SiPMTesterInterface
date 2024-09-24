@@ -313,6 +313,51 @@ namespace SiPMTesterInterface.Controllers
             return Ok("Measurement start requested successfully");
         }
 
+        // To check if force restart is available or not
+        [HttpGet("forcerestart")]
+        public IActionResult ForceRestartDetails()
+        {
+            if (_measurementService.GlobalIVState != MeasurementState.Running) //sps
+            {
+                return BadRequest(ResponseMessages.Error("Measurements probably not running"));
+            }
+            bool canRequest;
+            long elapsedTime;
+            long waitingTime;
+            _measurementService.GetForceRestartInformation(out canRequest, out elapsedTime, out waitingTime);
+
+
+            // Return a success response
+            return Ok(new
+            {
+                CanRequest = canRequest,
+                ElapsedTime = elapsedTime,
+                WaitingTime = waitingTime
+            });
+        }
+
+        [HttpPost("forcerestart")]
+        public IActionResult ForceRestartCurrentMeasurement()
+        {
+            if (_measurementService.GlobalIVState != MeasurementState.Running) //sps
+            {
+                return BadRequest(ResponseMessages.Error("Measurements probably not running"));
+            }
+
+            _logger.LogInformation($"Measurement force restart asked");
+            try
+            {
+                _measurementService.ForceRestartCurrent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ResponseMessages.Error(ex.Message));
+            }
+
+            // Return a success response
+            return Ok("Measurement restart requested successfully");
+        }
+
         [HttpGet("start")]
         public IActionResult GetCurrentRun()
         {

@@ -5,6 +5,7 @@ const API_TIMES_URL = 'times/'
 const API_STATES_URL = 'states/'
 const API_START_URL = 'start/'
 const API_STOP_URL = 'stop/'
+const API_FORCE_RESTART_URL = API_BASE_URL + 'forcerestart/'
 const API_DATA_URL = 'getsipmdata/'
 const API_SIPM_MEAS_STATUS_URL = 'measurementstates/'
 
@@ -63,12 +64,30 @@ const MeasurementStateService = {
             throw error; // You can handle the error as needed in your application
         }
     },
+    getForceRestartInformation: async () => {
+        try {
+            const response = await axios.get(API_FORCE_RESTART_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching force restart information:', error);
+            throw error;
+        }
+    },
+    forceRestartMeasurement: async () => {
+        try {
+            const response = await axios.post(API_FORCE_RESTART_URL);
+            return response.data;
+        } catch (error) {
+            console.error('Error requesting a force restart of measurement:', error);
+            throw error;
+        }
+    },
     stopMeasurement: async () => {
         try {
             const response = await axios.post(API_BASE_URL + API_STOP_URL);
             return response.data;
         } catch (error) {
-            console.error('Error stopping measurement:', error);
+            //console.error('Error stopping measurement:', error);
             throw error; // You can handle the error as needed in your application
         }
     },

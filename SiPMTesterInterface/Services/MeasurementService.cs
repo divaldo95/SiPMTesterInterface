@@ -267,6 +267,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
         private bool taskIsRunning = false;
         private TaskTypes taskTypeWaitingForFinish = TaskTypes.Idle;
+        private MeasurementIdentifier lastMeasurementID = new MeasurementIdentifier();
 
         private DeviceStatesModel DeviceStates;
         public LEDPulserData PulserValues;
@@ -491,20 +492,6 @@ namespace SiPMTesterInterface.ClientApp.Services
             return Math.Round(Vop, 2, MidpointRounding.AwayFromZero);
         }
 
-        private void HandleBlockChanges(int currentlyUsedBlock, int nextUsedBlock)
-        {
-            CoolerSettingsModel s = new CoolerSettingsModel();
-            // disable if next is -1 -1 as the measurement is ending
-
-            //turn off previous modules and block
-            if (currentlyUsedBlock >= 0)
-            {
-                DisableBlockWithModules(currentlyUsedBlock);
-            }
-
-            EnableBlockWithModules(nextUsedBlock);
-        }
-
         private void EnableBlockWithModules(int block)
         {
             var FirstModuleCooler = coolerState.GetCopyOfCoolerSettings(block, 0);
@@ -534,6 +521,51 @@ namespace SiPMTesterInterface.ClientApp.Services
 
             SecondPrevModuleCooler.Enabled = false;
             SetCooler(SecondPrevModuleCooler);
+        }
+
+        public void GetForceRestartInformation(out bool canRequest, out long elapsedTime, out long waitingTime)
+        {
+            int pulserPeriod = 0;
+            waitingTime = 30;
+            if (Pulser != null)
+            {
+                pulserPeriod = (int)Pulser.UpdatePeriod.TotalSeconds;
+            }
+            elapsedTime = TimestampHelper.GetUTCTimestamp() - (lastMeasurementStartTimestamp + pulserPeriod);
+            if (elapsedTime < waitingTime)
+            {
+                canRequest = false;
+            }
+            else
+            {
+                canRequest = true;
+            }
+        }
+
+        // experimental
+        public void ForceRestartCurrent()
+        {
+            bool canRequest;
+            long elapsedTime;
+            GetForceRestartInformation(out canRequest, out elapsedTime, out _);            
+            if (canRequest)
+            {
+                throw new InvalidOperationException("Force restart of measurement can not take place because the waiting time is not elapsed yet");
+            }
+
+            if (taskTypeWaitingForFinish == TaskTypes.IV || taskTypeWaitingForFinish == TaskTypes.DarkCurrent || taskTypeWaitingForFinish == TaskTypes.ForwardResistance || taskTypeWaitingForFinish == TaskTypes.DMMResistance)
+            {
+                if (niMachine == null)
+                {
+                    throw new NullReferenceException("NIMachine controller can not be null");
+                }
+                niMachine.StopMeasurement();
+                niMachine.RemoveFromWaitingResponseData(lastMeasurementID);
+                taskIsRunning = false;
+                CreateAndSendLogMessage("Measurement", $"Force restart asked. Measurement type: {taskTypeWaitingForFinish}. Elapsed seconds since previous measurement started: {elapsedTime}",
+                    LogMessageType.Info, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.Unknown);
+                CheckAndRunNext();
+            }
         }
 
         public void CheckAndRunNext()
@@ -670,6 +702,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                         throw new NullReferenceException("NIDMMStartModel can not be null");
                     }
                     niDMMStart.DMMResistance = globalState.CurrentRun.DMMResistance;
+                    lastMeasurementID = niDMMStart.Identifier;
                     try
                     {
                         Pulser.SetMode(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM, MeasurementMode.MeasurementModes.DMMResistanceMeasurement, new[] { 0, 0, 0, 0 });
@@ -732,6 +765,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                         //Save ID
                         c.DarkCurrentResult.LeakageCurrentResult.Identifier = niVIStart.Identifier;
+                        lastMeasurementID = niVIStart.Identifier;
                     }
                     else if (niVIStart.MeasurementType == VoltageAndCurrentMeasurementTypes.DarkCurrent)
                     {
@@ -764,6 +798,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                         //Save ID
                         c.DarkCurrentResult.DarkCurrentResult.Identifier = niVIStart.Identifier;
+                        lastMeasurementID = niVIStart.Identifier;
                     }
 
                     try
@@ -815,6 +850,7 @@ namespace SiPMTesterInterface.ClientApp.Services
 
                     //Save ID
                     c.ForwardResistanceResult.Result.Identifier = niVIStart.Identifier;
+                    lastMeasurementID = niVIStart.Identifier;
 
                     try
                     {
@@ -882,6 +918,7 @@ namespace SiPMTesterInterface.ClientApp.Services
                     }
                     CurrentMeasurementDataModel c = serviceState.GetSiPMMeasurementData(nextMeasurement.SiPM.Block, nextMeasurement.SiPM.Module, nextMeasurement.SiPM.Array, nextMeasurement.SiPM.SiPM);
                     c.IVMeasurementID = niIVStart.Identifier;
+                    lastMeasurementID = niIVStart.Identifier;
                     taskTypeWaitingForFinish = TaskTypes.IV;
                     niMachine?.StartIVMeasurement(niIVStart);
                     taskIsRunning = true;
@@ -1648,6 +1685,13 @@ namespace SiPMTesterInterface.ClientApp.Services
                 exportConfig = new ExportConfig(configuration);
                 currentExportPath = exportConfig.BasePath;
                 _logger.LogInformation($"Export path set to \'{currentExportPath}\'");
+
+
+                for (int i = 0; i < 100; i++)
+                {
+                    CreateAndSendLogMessage("Measurement", $"Test {i}",
+                    LogMessageType.Info, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.Unknown);
+                }
             }
             catch (Exception ex)
             {
