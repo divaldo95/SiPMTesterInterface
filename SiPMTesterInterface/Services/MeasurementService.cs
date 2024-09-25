@@ -1686,12 +1686,6 @@ namespace SiPMTesterInterface.ClientApp.Services
                 currentExportPath = exportConfig.BasePath;
                 _logger.LogInformation($"Export path set to \'{currentExportPath}\'");
 
-
-                for (int i = 0; i < 100; i++)
-                {
-                    CreateAndSendLogMessage("Measurement", $"Test {i}",
-                    LogMessageType.Info, Devices.NIMachine, false, ResponseButtons.OK, MeasurementType.Unknown);
-                }
             }
             catch (Exception ex)
             {

@@ -66,6 +66,7 @@ function ExportMeasurementModal(props) {
         }
 
         const allOk = [
+            sipm.Checks.DMMResistanceOK,
             sipm.Checks.RForwardOK,
             sipm.Checks.IDarkOK,
             sipm.Checks.IVTemperatureOK,
@@ -84,6 +85,7 @@ function ExportMeasurementModal(props) {
         }
 
         const allOk = [
+            sipm.Checks.DMMResistanceOK,
             sipm.Checks.RForwardOK,
             sipm.Checks.IDarkOK,
             sipm.Checks.IVTemperatureOK,
@@ -96,12 +98,14 @@ function ExportMeasurementModal(props) {
     }
 
     const isArrayHasFailedSiPMs = (array) => {
+        let hasFailed = false;
         array.SiPMs.forEach((sipm, sipmIndex) => {
             if (isSiPMFailed(sipm)) {
-                return true;
+                hasFailed = true;
+                return;
             }
         });
-        return false;
+        return hasFailed;
     }
 
     const filterSiPMs = (data, filters) => {
@@ -111,8 +115,13 @@ function ExportMeasurementModal(props) {
             block.Modules.forEach((module, moduleIndex) => {
                 module.Arrays.forEach((array, arrayIndex) => {
                     const hasFailed = isArrayHasFailedSiPMs(array);
-                    //console.log("Array " + arrayIndex + "has failed: " + hasFailed);
+                    console.log("Array " + arrayIndex + " has failed: " + hasFailed);
                     array.SiPMs.forEach((sipm, sipmIndex) => {
+
+                        if (filters.ignoreArrayIfHasFailed && hasFailed) {
+                            return;
+                        }
+
                         if (filters.arrayHasFailedSiPMs) {
                             if (hasFailed) {
                                 filteredSiPMs.push({
@@ -161,7 +170,8 @@ function ExportMeasurementModal(props) {
         selectedForMeasurement: false,
         passedSiPMs: false,
         failedSiPMs: false,
-        arrayHasFailedSiPMs: false
+        arrayHasFailedSiPMs: false,
+        ignoreArrayIfHasFailed: false
     });
     const [selectedSiPMs, setSelectedSiPMs] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -312,7 +322,8 @@ function ExportMeasurementModal(props) {
             selectedForMeasurement: false,
             passedSiPMs: true,
             failedSiPMs: false,
-            arrayHasFailedSiPMs: false
+            arrayHasFailedSiPMs: false,
+            ignoreArrayIfHasFailed: false
         }
         const filteredSiPMs = filterSiPMs(measurementStates, filter);
 
@@ -325,21 +336,12 @@ function ExportMeasurementModal(props) {
             selectedForMeasurement: false,
             passedSiPMs: true,
             failedSiPMs: false,
-            arrayHasFailedSiPMs: false
+            arrayHasFailedSiPMs: false,
+            ignoreArrayIfHasFailed: true
         }
         const filteredSiPMs = filterSiPMs(measurementStates, filter);
-
-        filter = {
-            selectedForMeasurement: false,
-            passedSiPMs: false,
-            failedSiPMs: false,
-            arrayHasFailedSiPMs: true
-        }
-        const filteredFailedArraySiPMs = filterSiPMs(measurementStates, filter);
-
         const pageSiPMs = filteredSiPMs.map((item) => `${item.BlockIndex}-${item.ModuleIndex}-${item.ArrayIndex}-${item.SiPMIndex}`);
         setSelectedSiPMs(pageSiPMs);
-        removePageSiPMsFromSelection(filteredFailedArraySiPMs);
     }
 
 
