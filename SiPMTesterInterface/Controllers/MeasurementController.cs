@@ -317,7 +317,7 @@ namespace SiPMTesterInterface.Controllers
         [HttpGet("forcerestart")]
         public IActionResult ForceRestartDetails()
         {
-            if (_measurementService.GlobalIVState != MeasurementState.Running) //sps
+            if (_measurementService.CurrentTask == TaskTypes.Idle || _measurementService.CurrentTask == TaskTypes.Finished) //sps
             {
                 return BadRequest(ResponseMessages.Error("Measurements probably not running"));
             }
@@ -339,7 +339,7 @@ namespace SiPMTesterInterface.Controllers
         [HttpPost("forcerestart")]
         public IActionResult ForceRestartCurrentMeasurement()
         {
-            if (_measurementService.GlobalIVState != MeasurementState.Running) //sps
+            if (_measurementService.CurrentTask == TaskTypes.Idle || _measurementService.CurrentTask == TaskTypes.Finished) //sps
             {
                 return BadRequest(ResponseMessages.Error("Measurements probably not running"));
             }

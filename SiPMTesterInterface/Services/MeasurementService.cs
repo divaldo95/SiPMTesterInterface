@@ -548,7 +548,7 @@ namespace SiPMTesterInterface.ClientApp.Services
             bool canRequest;
             long elapsedTime;
             GetForceRestartInformation(out canRequest, out elapsedTime, out _);            
-            if (canRequest)
+            if (!canRequest)
             {
                 throw new InvalidOperationException("Force restart of measurement can not take place because the waiting time is not elapsed yet");
             }
