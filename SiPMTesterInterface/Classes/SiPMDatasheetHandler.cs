@@ -29,7 +29,7 @@ namespace SiPMTesterInterface.Classes
             return Vop;
         }
 
-		public static List<double> GenerateIVVoltageList(double compensatedOperatingVoltage, double datasheetOffset = 3.0)
+		public static List<double> GenerateIVVoltageList(double compensatedOperatingVoltage)
 		{
             List<double> ivList = new List<double>();
 

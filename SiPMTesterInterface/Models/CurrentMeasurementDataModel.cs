@@ -22,6 +22,7 @@ namespace SiPMTesterInterface.Models
 
 		[JsonIgnore]
 		public string FileLocation { get; set; } = "";
+		public double HamamatsuVbr { get; set; } = 38.0; // Vop - 3V @ 20C from Excel/DB
         //placeholder for SPS response
     }
 }

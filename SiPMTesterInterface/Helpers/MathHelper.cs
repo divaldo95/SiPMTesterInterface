@@ -5,12 +5,12 @@ namespace SiPMTesterInterface.Helpers
 	{
 		public static bool IsOutOfBoundaries(this int value, int min, int max)
 		{
-			return (value > min && value < max);
+			return !(value > min && value < max);
         }
 
         public static bool IsOutOfBoundaries(this double value, double min, double max)
         {
-            return (value > min && value < max);
+            return !(value > min && value < max);
         }
 
         /*

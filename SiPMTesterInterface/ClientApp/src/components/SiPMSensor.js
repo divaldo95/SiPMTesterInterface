@@ -120,7 +120,19 @@ function SiPMSensor(props) {
             }
         }
         else {
-            return "bg-light";
+            if (result.IVDone) {
+                return "bg-secondary"; //most of the time not reached because allDone should be true when IV measurement finishes
+            }
+            else if (result.RForwardDone) {
+                return "bg-info";
+            }
+            else if (result.IDarkDone) {
+                return "bg-primary";
+            }
+            else {
+                return "bg-light";
+            }
+            
         }
     }
 

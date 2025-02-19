@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Reflection;
 using Newtonsoft.Json;
 using SiPMTesterInterface.Models;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -41,7 +42,7 @@ namespace SiPMTesterInterface.Classes
         public int BlockIndex { get; set; }
         public int ModuleIndex { get; set; }
         public int ArrayIndex { get; set; }
-        public int LEDPulserOffset { get; set; }
+        public int PulserValue { get; set; }
     }
 
     public class LEDPulserData
@@ -112,7 +113,10 @@ namespace SiPMTesterInterface.Classes
 
         public void ApplyUpdatesFromJson(string jsonFilePath)
         {
-            var jsonData = File.ReadAllText(jsonFilePath);
+            string fullPath = (jsonFilePath.StartsWith('/') ?
+                jsonFilePath :
+                Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), jsonFilePath));
+            var jsonData = File.ReadAllText(fullPath);
             var updates = JsonConvert.DeserializeObject<List<PulserUpdate>>(jsonData);
 
             foreach (var update in updates)
@@ -127,7 +131,10 @@ namespace SiPMTesterInterface.Classes
 
         public void ApplyLEDPulserOffsetUpdatesFromJson(string jsonFilePath)
         {
-            var jsonData = File.ReadAllText(jsonFilePath);
+            string fullPath = (jsonFilePath.StartsWith('/') ?
+                jsonFilePath :
+                Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), jsonFilePath));
+            var jsonData = File.ReadAllText(fullPath);
             var updates = JsonConvert.DeserializeObject<List<LEDPulserOffsetUpdate>>(jsonData);
 
             foreach (var update in updates)
@@ -135,7 +142,7 @@ namespace SiPMTesterInterface.Classes
                 Blocks[update.BlockIndex]
                     .Modules[update.ModuleIndex]
                     .Arrays[update.ArrayIndex]
-                    .LEDPulserOffset = update.LEDPulserOffset;
+                    .LEDPulserOffset = update.PulserValue;
             }
         }
 

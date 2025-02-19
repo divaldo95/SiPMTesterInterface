@@ -87,7 +87,7 @@ namespace SiPMTesterInterface.Libraries
             GC.SuppressFinalize(this);
         }
 
-        public static void Analyse(CurrentMeasurementDataModel c, string outputPath, AnalysisProperties? properties = null)
+        public static void Analyse(CurrentMeasurementDataModel c, string outputPath, double limitVop = 0.2, AnalysisProperties? properties = null)
         {
             //Calculate DMM currents
 
@@ -163,7 +163,11 @@ namespace SiPMTesterInterface.Libraries
             Console.WriteLine($"Vbr: {vbr}, cVbr: {cvbr}, ChiSquare: {cs}");
             c.IVResult.AnalysationResult.Analysed = true;
 
-            if (cs < 0.2 && vbr.IsBetweenLimits(35.0, 4.0) ) //fine tune this value
+            double hVbrc = SiPMDatasheetHandler.GetCompensatedOperatingVoltage(c.HamamatsuVbr, 20.0, usedTemp, 0);
+
+            // Breakdown Voltage must be around Hamamatsu's Vbr
+            // Compensate both to 20C and check
+            if (cs < 0.2 && cvbr.IsBetweenLimits(hVbrc, limitVop) )
             {
                 c.IVResult.AnalysationResult.IsOK = true;
                 c.Checks.IVVbrOK = true;

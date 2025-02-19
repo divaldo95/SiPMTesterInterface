@@ -11,6 +11,7 @@ using SiPMTesterInterface.Enums;
 using System.Text;
 using System.Globalization;
 using static SiPMTesterInterface.Classes.LEDPulserData;
+using System.Collections.Concurrent;
 
 namespace SiPMTesterInterface.Classes
 {
@@ -58,8 +59,8 @@ namespace SiPMTesterInterface.Classes
 
     public class PSoCCommunicator : SerialPortHandler
 	{
-        public Queue<TemperaturesArray> Temperatures { get; private set; }
-        public Queue<CoolerResponse> CoolerStates { get; private set; }
+        public ConcurrentQueue<TemperaturesArray> Temperatures { get; private set; }
+        public ConcurrentQueue<CoolerResponse> CoolerStates { get; private set; }
         private int bufferSize = 5000; //store n number of temperatureArrays
         public TimeSpan UpdatePeriod { get; private set; } = TimeSpan.FromSeconds(5);
 
@@ -84,8 +85,8 @@ namespace SiPMTesterInterface.Classes
 		public PSoCCommunicator(string Port, int Baud, int Timeout, ILogger<SerialPortHandler> logger, bool Enabled, bool autoDetect, string autoDetectString, string autoDetectExpectedAnswer) :
             base(logger,Port, Baud, Timeout, Enabled, autoDetect, autoDetectString, autoDetectExpectedAnswer)
 		{
-            Temperatures = new Queue<TemperaturesArray>(bufferSize);
-            CoolerStates = new Queue<CoolerResponse>(bufferSize);
+            Temperatures = new ConcurrentQueue<TemperaturesArray>();
+            CoolerStates = new ConcurrentQueue<CoolerResponse>();
             _timer = new Timer(TimerCallback, null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
             if (UpdatePeriod.Seconds > 0)
             {
@@ -98,7 +99,10 @@ namespace SiPMTesterInterface.Classes
             // If buffer is full, dequeue the oldest element
             if (Temperatures.Count == bufferSize)
             {
-                Temperatures.Dequeue();
+                if (!Temperatures.TryDequeue(out _))
+                {
+                    Console.WriteLine("Unable to remove element from Temperatures queue\n");
+                }
             }
 
             // Add the new temperature array to the buffer
@@ -110,7 +114,10 @@ namespace SiPMTesterInterface.Classes
             // If buffer is full, dequeue the oldest element
             if (CoolerStates.Count == bufferSize)
             {
-                CoolerStates.Dequeue();
+                if (!CoolerStates.TryDequeue(out _))
+                {
+                    Console.WriteLine("Unable to remove element from CoolerStates queue\n");
+                }
             }
 
             // Add the new temperature array to the buffer
